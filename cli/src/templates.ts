@@ -1,11 +1,14 @@
 export type TemplateRuntime = "node" | "bun" | "dotnet";
 
+export type TemplateLayer = "backend" | "frontend";
+
 export interface Template {
   name: string;
   alias: string[];
   description: string;
   folder: string;
   runtime: TemplateRuntime;
+  layer: TemplateLayer;
 }
 
 export const TEMPLATES: Template[] = [
@@ -15,6 +18,7 @@ export const TEMPLATES: Template[] = [
     description: "API REST con ASP.NET Core, Clean Architecture y C#",
     folder: "ASPNET",
     runtime: "dotnet",
+    layer: "backend",
   },
   {
     name: "Express",
@@ -22,6 +26,7 @@ export const TEMPLATES: Template[] = [
     description: "API REST con Express, Prisma, TypeScript y Bun",
     folder: "EXPRESS",
     runtime: "bun",
+    layer: "backend",
   },
   {
     name: "Fastify",
@@ -29,6 +34,7 @@ export const TEMPLATES: Template[] = [
     description: "API REST con Fastify, Prisma, TypeScript y Bun",
     folder: "FASTIFY",
     runtime: "bun",
+    layer: "backend",
   },
   {
     name: "Node.js Vanilla",
@@ -36,6 +42,7 @@ export const TEMPLATES: Template[] = [
     description: "API con Node.js puro, Prisma, TypeScript y tsx",
     folder: "NODEJS-VANILLA",
     runtime: "node",
+    layer: "backend",
   },
   {
     name: "React Native",
@@ -43,8 +50,13 @@ export const TEMPLATES: Template[] = [
     description: "App móvil con React Native, Expo y TypeScript",
     folder: "REACT-NATIVE",
     runtime: "node",
+    layer: "frontend",
   },
 ];
+
+export function getTemplatesByLayer(layer: TemplateLayer): Template[] {
+  return TEMPLATES.filter((t) => t.layer === layer);
+}
 
 export function findTemplate(input: string): Template | undefined {
   const normalized = input.toLowerCase().trim();

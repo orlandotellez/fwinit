@@ -3,6 +3,7 @@
   "description": "App móvil con React Native, Expo y TypeScript",
   "version": "1.0.0",
   "runtime": "node",
+  "layer": "frontend",
   "postInit": {
     "install": "npm install",
     "dev": "npx expo start"

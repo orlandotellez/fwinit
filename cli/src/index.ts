@@ -6,7 +6,7 @@ import chalk from "chalk";
 import { readFileSync } from "node:fs";
 import { mkdir, cp, access } from "fs/promises";
 import { join } from "path";
-import { TEMPLATES, findTemplate } from "./templates.js";
+import { TEMPLATES, findTemplate, getTemplatesByLayer } from "./templates.js";
 import {
   downloadAndExtract,
   copyTemplate,
@@ -85,12 +85,18 @@ program
     console.log(
       chalk.bold("\nTemplates disponibles:\n")
     );
-    TEMPLATES.forEach((t) => {
-      console.log(
-        `  ${chalk.cyan(t.folder.toLowerCase())} — ${t.description}`
-      );
-    });
-    console.log();
+    for (const [label, layer] of [
+      ["Backend", "backend"],
+      ["Frontend", "frontend"],
+    ] as const) {
+      console.log(chalk.bold(`${label}:\n`));
+      getTemplatesByLayer(layer).forEach((t) => {
+        console.log(
+          `  ${chalk.cyan(t.folder.toLowerCase())} — ${t.description}`
+        );
+      });
+      console.log();
+    }
   });
 
 program

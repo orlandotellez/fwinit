@@ -3,6 +3,7 @@
   "description": "API REST con ASP.NET Core, Clean Architecture y C#",
   "version": "1.0.0",
   "runtime": "dotnet",
+  "layer": "backend",
   "postInit": {
     "install": "dotnet restore",
     "dev": "dotnet run --project src/Example.Api",

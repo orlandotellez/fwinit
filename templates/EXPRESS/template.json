@@ -3,6 +3,7 @@
   "description": "API REST con Express, Prisma, TypeScript y Bun",
   "version": "1.0.0",
   "runtime": "bun",
+  "layer": "backend",
   "postInit": {
     "install": "bun install",
     "dev": "bun run dev",

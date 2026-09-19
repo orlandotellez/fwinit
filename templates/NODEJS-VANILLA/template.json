@@ -3,6 +3,7 @@
   "description": "API con Node.js puro, Prisma, TypeScript y tsx",
   "version": "1.0.0",
   "runtime": "node",
+  "layer": "backend",
   "postInit": {
     "install": "npm install",
     "dev": "npm run dev",
