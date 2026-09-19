@@ -3,6 +3,8 @@
 import { Command } from "commander";
 import ora from "ora";
 import chalk from "chalk";
+import { mkdir, cp, access } from "fs/promises";
+import { join } from "path";
 import { TEMPLATES, findTemplate } from "./templates.js";
 import {
   downloadAndExtract,
@@ -22,6 +24,40 @@ import {
 const program = new Command();
 
 const PACKAGE_MANAGERS = ["npm", "pnpm", "bun"] as const;
+
+// Instala el bundle de skills de opencode (skills/ de la raíz del repo)
+// dentro del proyecto nuevo, en .opencode/. Sin esto, el proyecto
+// generado no traería la skill create-specs y habría que copiarla a mano.
+async function installOpenCodeFiles(
+  repoRoot: string,
+  projectPath: string
+): Promise<void> {
+  const skill = join(repoRoot, "skills", "create-specs", "SKILL.md");
+  const command = join(repoRoot, "skills", "create-specs", "command.md");
+
+  // Si el repo no trae el bundle de skills, no bloquear el scaffold
+  try {
+    await access(skill);
+    await access(command);
+  } catch {
+    return;
+  }
+
+  await mkdir(join(projectPath, ".opencode", "skills", "create-specs"), {
+    recursive: true,
+  });
+  await mkdir(join(projectPath, ".opencode", "commands"), {
+    recursive: true,
+  });
+  await cp(
+    skill,
+    join(projectPath, ".opencode", "skills", "create-specs", "SKILL.md")
+  );
+  await cp(
+    command,
+    join(projectPath, ".opencode", "commands", "create-specs.md")
+  );
+}
 
 program
   .name("fwinit")
@@ -114,7 +150,7 @@ program
           `Descargando template ${template.name}...`
         ).start();
 
-        const { tempDir, templatePath } =
+        const { tempDir, templatePath, repoRoot } =
           await downloadAndExtract(template.folder);
 
         spinner.text = "Creando proyecto...";
@@ -127,6 +163,10 @@ program
           getProjectPath(projectName),
           projectName,
           template.folder
+        );
+        await installOpenCodeFiles(
+          repoRoot,
+          getProjectPath(projectName)
         );
 
         // Template nativo de bun + npm/pnpm → portar a runtime node

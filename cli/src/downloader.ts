@@ -10,6 +10,7 @@ const GITHUB_BRANCH = "main";
 export interface DownloadResult {
   tempDir: string;
   templatePath: string;
+  repoRoot: string;
 }
 
 export async function downloadAndExtract(
@@ -47,7 +48,7 @@ export async function downloadAndExtract(
     );
   }
 
-  return { tempDir, templatePath };
+  return { tempDir, templatePath, repoRoot };
 }
 
 export async function copyTemplate(

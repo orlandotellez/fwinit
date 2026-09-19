@@ -35,3 +35,7 @@ yarn.lock
 
 # Coverage
 coverage/
+# Local AI runtime state
+.atl/
+
+odd
