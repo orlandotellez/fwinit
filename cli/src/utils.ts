@@ -106,6 +106,40 @@ export function printSuccess(
 `);
 }
 
+export interface LayerInfo {
+  label: string;
+  postInit?: { install?: string; dev?: string };
+}
+
+// Mensaje final del modo fullstack: un bloque de "próximos pasos" por
+// carpeta (backend/ y frontend/), con los comandos de cada template.
+export function printSuccessFullStack(
+  projectName: string,
+  layers: LayerInfo[],
+  pm: PackageManager
+): void {
+  const blocks = layers
+    .map((l) => {
+      const installCmd = l.postInit?.install
+        ? resolveCommand(l.postInit.install, pm)
+        : `${pm} install`;
+      const devCmd = l.postInit?.dev
+        ? resolveCommand(l.postInit.dev, pm)
+        : `${pm} run dev`;
+      return `  \u001b[36mcd ${projectName}/${l.label}\u001b[0m\n  \u001b[36m${installCmd}\u001b[0m\n  \u001b[36m${devCmd}\u001b[0m`;
+    })
+    .join("\n\n");
+
+  console.log(`
+\u001b[32m\u2714\u001b[0m Template descargado
+\u001b[32m\u2714\u001b[0m Proyecto creado en ./${projectName}
+
+\u001b[1mPróximos pasos:\u001b[0m
+
+${blocks}
+`);
+}
+
 // Adapta un script de package.json de bun a su equivalente de node
 // ("bun --hot src/server.ts" → "tsx watch src/server.ts", "bunx prisma ..." → "prisma ...")
 function adaptScriptToNode(script: string): string {
@@ -165,4 +199,75 @@ export async function adaptToNodeRuntime(projectPath: string): Promise<void> {
       await writeFile(tsconfigPath, JSON.stringify(tsconfig, null, 2) + "\n");
     }
   } catch { }
+}
+
+export interface RootProjectInfo {
+  projectName: string;
+  backend: LayerInfo & { description: string };
+  frontend: LayerInfo & { description: string };
+  pm: PackageManager;
+}
+
+// Archivos raíz del modo fullstack: .gitignore (protege los hermanos de
+// AI: .atl/, odd y .opencode/) y README.md del monorepo. Solo si no
+// existen — no pisa lo que ya haya creado el usuario.
+export async function writeRootFiles(info: RootProjectInfo): Promise<void> {
+  const { writeFile, access } = await import("fs/promises");
+  const { join } = await import("path");
+  const projectPath = resolve(process.cwd(), info.projectName);
+
+  const gitignorePath = join(projectPath, ".gitignore");
+  try {
+    await access(gitignorePath);
+  } catch {
+    await writeFile(
+      gitignorePath,
+      "# AI dev state\n.atl/\nodd\n.opencode/\n"
+    );
+  }
+
+  const installB = info.backend.postInit?.install
+    ? resolveCommand(info.backend.postInit.install, info.pm)
+    : `${info.pm} install`;
+  const devB = info.backend.postInit?.dev
+    ? resolveCommand(info.backend.postInit.dev, info.pm)
+    : `${info.pm} run dev`;
+  const installF = info.frontend.postInit?.install
+    ? resolveCommand(info.frontend.postInit.install, info.pm)
+    : `${info.pm} install`;
+  const devF = info.frontend.postInit?.dev
+    ? resolveCommand(info.frontend.postInit.dev, info.pm)
+    : `${info.pm} run dev`;
+
+  const readme = [
+    `# ${info.projectName}`,
+    "",
+    "Proyecto full stack generado con [fwinit](https://github.com/orlandotellez/fwinit).",
+    "",
+    "## Estructura",
+    "",
+    `- \`backend/\` — ${info.backend.description}`,
+    `- \`frontend/\` — ${info.frontend.description}`,
+    "- `.opencode/` — skills de opencode (usá `/create-specs` para generar las specs)",
+    "- `specs/` — especificaciones del proyecto",
+    "",
+    "## Backend",
+    "",
+    "```bash",
+    "cd backend",
+    installB,
+    devB,
+    "```",
+    "",
+    "## Frontend",
+    "",
+    "```bash",
+    "cd frontend",
+    installF,
+    devF,
+    "```",
+    "",
+  ].join("\n");
+
+  await writeFile(join(projectPath, "README.md"), readme);
 }

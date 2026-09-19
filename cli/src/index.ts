@@ -4,21 +4,35 @@ import { Command } from "commander";
 import ora from "ora";
 import chalk from "chalk";
 import { readFileSync } from "node:fs";
-import { mkdir, cp, access } from "fs/promises";
+import { mkdir, cp, access, readFile } from "fs/promises";
 import { join } from "path";
-import { TEMPLATES, findTemplate, getTemplatesByLayer } from "./templates.js";
+import {
+  TEMPLATES,
+  findTemplate,
+  getTemplatesByLayer,
+  type Template,
+} from "./templates.js";
 import {
   downloadAndExtract,
+  downloadAndExtractRepo,
   copyTemplate,
   cleanup,
   substituteTemplate,
 } from "./downloader.js";
-import { selectTemplate, askProjectName, selectPackageManager, askBackendLayout } from "./prompts.js";
+import {
+  selectScope,
+  selectTemplateFromLayer,
+  askProjectName,
+  selectPackageManager,
+  askLayerLayout,
+} from "./prompts.js";
 import {
   getProjectPath,
   projectExists,
   printSuccess,
+  printSuccessFullStack,
   adaptToNodeRuntime,
+  writeRootFiles,
   type PackageManager,
 } from "./utils.js";
 
@@ -73,6 +87,89 @@ async function installOpenCodeFiles(
   );
 }
 
+// Lee postInit de template.json copiado al proyecto (si existe)
+async function readTemplatePostInit(
+  dir: string
+): Promise<{ install?: string; dev?: string } | undefined> {
+  try {
+    const tj = JSON.parse(
+      await readFile(join(dir, "template.json"), "utf-8")
+    );
+    return tj.postInit;
+  } catch {
+    // template.json no encontrado o inválido
+    return undefined;
+  }
+}
+
+// Modo fullstack: un solo fetch del repo, dos templates copiados como
+// backend/ y frontend/, y archivos raíz (.gitignore + README). La DB
+// viene incluida en el template backend (Prisma o EF).
+async function createFullStackProject(
+  projectName: string,
+  backendTpl: Template,
+  frontendTpl: Template,
+  pm: PackageManager
+): Promise<void> {
+  const { tempDir, repoRoot } = await downloadAndExtractRepo();
+
+  const projectPath = getProjectPath(projectName);
+  const backendPath = join(projectPath, "backend");
+  const frontendPath = join(projectPath, "frontend");
+
+  await copyTemplate(
+    join(repoRoot, "templates", backendTpl.folder),
+    backendPath
+  );
+  await copyTemplate(
+    join(repoRoot, "templates", frontendTpl.folder),
+    frontendPath
+  );
+  await substituteTemplate(backendPath, projectName, backendTpl.folder);
+  await substituteTemplate(frontendPath, projectName, frontendTpl.folder);
+  await installOpenCodeFiles(repoRoot, projectPath);
+
+  // Template nativo de bun + npm/pnpm → portar a runtime node
+  if (backendTpl.runtime === "bun" && pm !== "bun") {
+    await adaptToNodeRuntime(backendPath);
+  }
+
+  const backendPost = await readTemplatePostInit(backendPath);
+  const frontendPost = await readTemplatePostInit(frontendPath);
+
+  await writeRootFiles({
+    projectName,
+    backend: {
+      label: "backend",
+      description: backendTpl.description,
+      postInit: backendPost,
+    },
+    frontend: {
+      label: "frontend",
+      description: frontendTpl.description,
+      postInit: frontendPost,
+    },
+    pm,
+  });
+
+  await cleanup(tempDir);
+
+  printSuccessFullStack(
+    projectName,
+    [
+      { label: "backend", postInit: backendPost },
+      { label: "frontend", postInit: frontendPost },
+    ],
+    pm
+  );
+
+  console.log(
+    chalk.dim(
+      "  Estructura: backend/ (API) · frontend/ (app) · .opencode/ y specs/ (al mismo nivel)\n"
+    )
+  );
+}
+
 program
   .name("fwinit")
   .description("CLI para crear proyectos desde templates")
@@ -100,15 +197,23 @@ program
   });
 
 program
-  .argument("[template]", "Template a usar")
+  .argument("[template]", "Template a usar (o 'fullstack' para backend + frontend)")
   .argument("[project-name]", "Nombre del proyecto")
   .option("-p, --pm <package-manager>", "Package manager a usar: npm, pnpm o bun")
   .option("--backend", "Empaquetar el código en backend/ (saltea la pregunta)")
   .option("--no-backend", "Dejar el código en la raíz del proyecto (saltea la pregunta)")
+  .option("-b, --backend-template <tpl>", "Backend a usar en fullstack (saltea la pregunta)")
+  .option("-f, --frontend-template <tpl>", "Frontend a usar en fullstack (saltea la pregunta)")
   .action(
     async (templateArg?: string, projectNameArg?: string) => {
       try {
-        const { pm: pmArg, backend } = program.opts<{ pm?: string; backend?: boolean }>();
+        const { pm: pmArg, backend, backendTemplate, frontendTemplate } =
+          program.opts<{
+            pm?: string;
+            backend?: boolean;
+            backendTemplate?: string;
+            frontendTemplate?: string;
+          }>();
 
         // Validar el flag --pm si se proporcionó
         if (pmArg && !PACKAGE_MANAGERS.includes(pmArg as PackageManager)) {
@@ -120,30 +225,85 @@ program
           process.exit(1);
         }
 
-        let template = templateArg
-          ? findTemplate(templateArg)
-          : undefined;
         let projectName = projectNameArg;
         let pm: PackageManager | undefined = pmArg as PackageManager | undefined;
 
-        // El argumento del template no se encontró: error directo
-        // (no caer en el modo interactivo)
-        if (templateArg && !template) {
-          console.error(
-            chalk.red(
-              `\n\u2716 Template "${templateArg}" no encontrado.\n`
-            )
-          );
-          console.log("Templates disponibles:");
-          TEMPLATES.forEach((t) =>
-            console.log(`  - ${t.folder.toLowerCase()}`)
-          );
-          process.exit(1);
+        // Resolver el alcance: fullstack (backend + frontend) vs single
+        // (un solo template). El argumento "fullstack" fuerza el modo
+        // combinado; sin argumento, el menú interactivo pregunta.
+        let isFullStack = false;
+        let template: Template | undefined;
+        const rawArg = templateArg?.toLowerCase();
+
+        if (rawArg === undefined) {
+          const scope = await selectScope();
+          if (scope === "fullstack") {
+            isFullStack = true;
+          } else {
+            template = await selectTemplateFromLayer(scope);
+          }
+        } else if (rawArg === "fullstack") {
+          isFullStack = true;
+        } else {
+          template = findTemplate(rawArg);
+          // El argumento del template no se encontró: error directo
+          // (no caer en el modo interactivo)
+          if (!template) {
+            console.error(
+              chalk.red(
+                `\n\u2716 Template "${templateArg}" no encontrado.\n`
+              )
+            );
+            console.log("Templates disponibles:");
+            for (const [label, layer] of [
+              ["Backend", "backend"],
+              ["Frontend", "frontend"],
+            ] as const) {
+              console.log(chalk.bold(`${label}:`));
+              getTemplatesByLayer(layer).forEach((t) =>
+                console.log(`  - ${t.folder.toLowerCase()}`)
+              );
+            }
+            process.exit(1);
+          }
         }
 
-        // Modo interactivo si no se pasó ningún template
-        if (!template) {
-          template = await selectTemplate();
+        // Fullstack: elegir los dos templates. Los flags -b/-f saltean
+        // las preguntas (modo scripting); el flag boolean --backend
+        // del modo single no aplica acá (el layout es backend/ + frontend/).
+        let backendTpl: Template | undefined;
+        let frontendTpl: Template | undefined;
+        if (isFullStack) {
+          backendTpl = backendTemplate
+            ? findTemplate(backendTemplate)
+            : undefined;
+          frontendTpl = frontendTemplate
+            ? findTemplate(frontendTemplate)
+            : undefined;
+
+          if (backendTemplate && !backendTpl) {
+            console.error(
+              chalk.red(
+                `\n\u2716 Backend "${backendTemplate}" no encontrado.\n`
+              )
+            );
+            process.exit(1);
+          }
+          if (frontendTemplate && !frontendTpl) {
+            console.error(
+              chalk.red(
+                `\n\u2716 Frontend "${frontendTemplate}" no encontrado.\n`
+              )
+            );
+            process.exit(1);
+          }
+
+          if (!backendTpl) {
+            backendTpl = await selectTemplateFromLayer("backend");
+          }
+          if (!frontendTpl) {
+            frontendTpl = await selectTemplateFromLayer("frontend");
+          }
         }
 
         // Preguntar el nombre si no se proporcionó
@@ -151,17 +311,25 @@ program
           projectName = await askProjectName();
         }
 
-        // Preguntar si empaquetar el template en backend/ (default: sí).
-        // El flag --backend/--no-backend saltea la pregunta (modo scripting).
-        // En el layout backend, .opencode/ y specs/ quedan al mismo nivel, en la raíz.
-        const useBackendLayout =
-          backend === undefined
-            ? await askBackendLayout()
-            : backend;
+        // Modo single: preguntar si empaquetar el template en backend/
+        // (o frontend/) — default: sí. --backend/--no-backend saltean
+        // la pregunta (modo scripting). En fullstack el layout es fijo:
+        // backend/ + frontend/.
+        const layer = template?.layer;
+        const useLayerLayout =
+          !template
+            ? false
+            : backend === undefined
+              ? await askLayerLayout(layer!)
+              : backend;
 
-        // Preguntar el package manager en todos los templates JS/TS
-        // (ASP.NET usa dotnet, no aplica)
-        if (!pm && template.runtime !== "dotnet") {
+        // Preguntar el package manager si hay algún template JS/TS
+        // (ASP.NET usa dotnet, no aplica a ese lado)
+        const runtimes = template
+          ? [template.runtime]
+          : [backendTpl!.runtime, frontendTpl!.runtime];
+        const needsPm = runtimes.some((r) => r !== "dotnet");
+        if (!pm && needsPm) {
           pm = await selectPackageManager();
         }
 
@@ -175,80 +343,58 @@ program
           process.exit(1);
         }
 
-        // Descargar y crear el proyecto
         const spinner = ora(
-          `Descargando template ${template.name}...`
+          isFullStack
+            ? "Descargando templates..."
+            : `Descargando template ${template!.name}...`
         ).start();
 
-        const { tempDir, templatePath, repoRoot } =
-          await downloadAndExtract(template.folder);
+        if (isFullStack) {
+          spinner.text = "Creando proyecto...";
+          await createFullStackProject(projectName, backendTpl!, frontendTpl!, pm ?? "npm");
+          spinner.succeed("Template descargado");
+        } else {
+          const { tempDir, templatePath, repoRoot } =
+            await downloadAndExtract(template!.folder);
 
-        const projectPath = getProjectPath(projectName);
-        // Con layout backend, el código del template vive en backend/ y
-        // .opencode/ + specs/ quedan en la raíz, al mismo nivel.
-        const codePath = useBackendLayout
-          ? join(projectPath, "backend")
-          : projectPath;
+          const projectPath = getProjectPath(projectName);
+          // Con layout de capa, el código del template vive en backend/
+          // (o frontend/) y .opencode/ + specs/ quedan en la raíz.
+          const codePath = useLayerLayout
+            ? join(projectPath, layer!)
+            : projectPath;
 
-        spinner.text = "Creando proyecto...";
+          spinner.text = "Creando proyecto...";
 
-        await copyTemplate(
-          templatePath,
-          codePath
-        );
-        await substituteTemplate(
-          codePath,
-          projectName,
-          template.folder
-        );
-        await installOpenCodeFiles(
-          repoRoot,
-          projectPath
-        );
+          await copyTemplate(templatePath, codePath);
+          await substituteTemplate(codePath, projectName, template!.folder);
+          await installOpenCodeFiles(repoRoot, projectPath);
 
-        // Template nativo de bun + npm/pnpm → portar a runtime node
-        // (scripts con tsx, tests con vitest, sin bun-types)
-        if (template.runtime === "bun" && pm && pm !== "bun") {
-          await adaptToNodeRuntime(codePath);
-        }
+          // Template nativo de bun + npm/pnpm → portar a runtime node
+          // (scripts con tsx, tests con vitest, sin bun-types)
+          if (template!.runtime === "bun" && pm && pm !== "bun") {
+            await adaptToNodeRuntime(codePath);
+          }
 
-        await cleanup(tempDir);
+          await cleanup(tempDir);
 
-        spinner.succeed("Template descargado");
+          spinner.succeed("Template descargado");
 
-        // Leer postInit de template.json si existe
-        let postInit:
-          | { install?: string; dev?: string }
-          | undefined;
-        try {
-          const { readFile } = await import("fs/promises");
-          const { join } = await import("path");
-          const tj = JSON.parse(
-            await readFile(
-              join(codePath, "template.json"),
-              "utf-8"
-            )
+          printSuccess(
+            projectName,
+            template!.name,
+            pm ?? "npm",
+            await readTemplatePostInit(codePath),
+            useLayerLayout ? layer : undefined
           );
-          postInit = tj.postInit;
-        } catch {
-          // template.json no encontrado o inválido, usar valores por defecto
-        }
 
-        // ASP.NET no pregunta: usa "npm" que no afecta los comandos dotnet
-        printSuccess(
-          projectName,
-          template.name,
-          pm ?? "npm",
-          postInit,
-          useBackendLayout ? "backend" : undefined
-        );
-
-        if (useBackendLayout) {
-          console.log(
-            chalk.dim(
-              "  Estructura: backend/ (código) · .opencode/ y specs/ (al mismo nivel)\n"
-            )
-          );
+          if (useLayerLayout) {
+            console.log(
+              chalk.dim(
+                `  Estructura: ${layer}/ (código) · .opencode/ y specs/ (al mismo nivel)\n`
+              )
+            );
+          }
         }
       } catch (error) {
         console.error(

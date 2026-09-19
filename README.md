@@ -27,32 +27,100 @@ bun add -g fwinit
 ## Uso
 
 ```bash
-# Crear proyecto desde template
+# Menú interactivo: elegís entre full stack, solo backend o solo frontend
+fwinit
+
+# Crear un solo template (backend o frontend)
 fwinit fastify mi-api
 fwinit aspnet mi-app
 fwinit react-native mi-mobile
 
-# Ver templates disponibles
+# Crear un proyecto completo: backend + frontend (+ db incluida en el backend)
+fwinit fullstack mi-proyecto
+
+# Elegir los templates sin preguntas (modo scripting/CI)
+fwinit fullstack mi-proyecto -b fastify -f react-native -p pnpm
+
+# Ver templates disponibles (agrupados por capa)
 fwinit list
 ```
 
-También podés usar el modo interactivo:
+### Modo interactivo
 
-```bash
-fwinit
+`fwinit` sin argumentos abre el menú principal:
+
+```
+? ¿Qué querés crear?
+> Full stack (backend + frontend)
+  Solo backend (API)
+  Solo frontend (app)
 ```
 
-Te pregunta qué template usar y el nombre del proyecto.
+- **Full stack**: te pregunta primero el backend y después el frontend, y arma el monorepo completo.
+- **Solo backend / Solo frontend**: te pregunta el template de la capa, el nombre, el layout y el package manager.
+
+### Proyecto full stack
+
+```bash
+fwinit fullstack mi-proyecto
+```
+
+Pregunta qué backend querés (ASP.NET, Express, Fastify, Node.js Vanilla) y qué frontend (React Native). Genera:
+
+```
+mi-proyecto/
+├── backend/          # API (template elegido — trae su DB: Prisma o EF)
+├── frontend/         # App (template frontend elegido)
+├── .gitignore        # .atl/ · odd · .opencode/
+├── .opencode/        # Skills de opencode (create-specs incluida)
+├── README.md         # Cómo correr backend y frontend
+└── specs/            # La creás con /create-specs
+```
+
+La base de datos no se configura aparte: viene incluida en el template backend (Prisma en los templates JS/TS, EF Core en ASP.NET).
+
+Para scripting o CI, elegí los templates con flags (saltean las preguntas):
+
+```bash
+fwinit fullstack mi-proyecto --backend-template fastify --frontend-template react-native --pm pnpm
+# ó con atajos
+fwinit fullstack mi-proyecto -b fastify -f react-native -p pnpm
+```
+
+### Layout de capa (monorepo liviano)
+
+Al crear un solo template, el CLI pregunta si querés empaquetar el código en una carpeta de capa (default: sí):
+
+```bash
+# backend/ + .opencode/ + specs/ al mismo nivel
+fwinit express mi-api
+# raíz limpia (todo el código en mi-api/)
+fwinit express mi-api --no-backend
+# forzar el layout de capa sin preguntas
+fwinit express mi-api --backend
+```
+
+Igual para frontend: `fwinit react-native mi-app` pregunta por `frontend/`.
 
 ## Templates disponibles
 
-| Template | Descripción | Runtime |
-|----------|-------------|---------|
-| `aspnet` | API REST con ASP.NET Core, Clean Architecture y C# | dotnet |
-| `express` | API REST con Express, Prisma, TypeScript y Bun | bun |
-| `fastify` | API REST con Fastify, Prisma, TypeScript y Bun | bun |
-| `nodejs` | API con Node.js puro, Prisma, TypeScript y tsx | node |
-| `react-native` | App móvil con React Native, Expo y TypeScript | node |
+| Template | Capa | Descripción | Runtime |
+|----------|------|-------------|---------|
+| `aspnet` | backend | API REST con ASP.NET Core, Clean Architecture y C# | dotnet |
+| `express` | backend | API REST con Express, Prisma, TypeScript y Bun | bun |
+| `fastify` | backend | API REST con Fastify, Prisma, TypeScript y Bun | bun |
+| `nodejs` | backend | API con Node.js puro, Prisma, TypeScript y tsx | node |
+| `react-native` | frontend | App móvil con React Native, Expo y TypeScript | node |
+
+La capa es metadata de cada template (`layer` en `templates/<TEMPLATE>/template.json`): para sumar un frontend nuevo (Astro, Next.js...), alcanza con agregar la carpeta del template y su `layer`. Los templates se clasifican por capa en la metadata, no por estructura de carpetas.
+
+## Skills de opencode
+
+Todo proyecto generado incluye `.opencode/skills/create-specs` y el comando `/create-specs`:
+
+- `/create-specs <descripción>` genera la carpeta `specs/` con módulos `backend/`, `db/` y `frontend/`, cada uno con sus `tasks` listas para implementar.
+- La db se documenta en `specs/db/` (schemas por entidad, enums y use-cases) aunque la implementación viva en el template backend.
+- Los templates y los proyectos traen `.gitignore` con el estado de AI de desarrollo (`.atl/`, `odd` y `.opencode/`) ya excluido.
 
 ## Uso Directo (sin CLI)
 
@@ -71,20 +139,22 @@ fwinit/
 ├── cli/                 # Fuente de la fwinit CLI
 │   ├── src/
 │   └── package.json
-├── templates/
-│   ├── ASPNET/          # ASP.NET Core + Clean Architecture
-│   ├── EXPRESS/         # Express + Prisma + TypeScript
-│   ├── FASTIFY/         # Fastify + Prisma + TypeScript
-│   ├── NODEJS-VANILLA/  # Node.js puro + Prisma + TypeScript
-│   └── REACT-NATIVE/    # React Native + Expo
+├── skills/
+│   └── create-specs/    # Skill embebida en los proyectos generados
+├── templates/           # Templates clasificados por capa (metadata "layer")
+│   ├── ASPNET/          # API ASP.NET Core + Clean Architecture (backend)
+│   ├── EXPRESS/         # API Express + Prisma + TypeScript (backend)
+│   ├── FASTIFY/         # API Fastify + Prisma + TypeScript (backend)
+│   ├── NODEJS-VANILLA/  # API Node.js puro + Prisma + TypeScript (backend)
+│   └── REACT-NATIVE/    # App React Native + Expo (frontend)
 └── README.md
 ```
 
 ## Cada template incluye
 
-- `template.json` — Metadatos para la CLI
+- `template.json` — Metadatos para la CLI (nombre, `layer`, runtime, postInit)
 - `.env.example` — Variables de entorno de ejemplo
-- `.gitignore` — Archivos excluidos del tracking
+- `.gitignore` — Archivos excluidos del tracking (incluye el estado de AI de desarrollo)
 - Código fuente listo para usar
 
 ## Solución a problemas comunes

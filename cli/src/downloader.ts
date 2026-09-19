@@ -13,9 +13,13 @@ export interface DownloadResult {
   repoRoot: string;
 }
 
-export async function downloadAndExtract(
-  templateFolder: string
-): Promise<DownloadResult> {
+// Descarga y extrae el repo completo una sola vez. Devuelve el repoRoot
+// para que el caller arme los paths de los templates que necesite
+// (1 template para el modo single, 2 para fullstack, mismo zip).
+export async function downloadAndExtractRepo(): Promise<{
+  tempDir: string;
+  repoRoot: string;
+}> {
   const url = `https://github.com/${GITHUB_REPO}/archive/refs/heads/${GITHUB_BRANCH}.zip`;
 
   const response = await fetch(url);
@@ -36,6 +40,13 @@ export async function downloadAndExtract(
 
   // El ZIP de GitHub se extrae como: fwinit-main/templates/FOLDER/
   const repoRoot = join(tempDir, `fwinit-${GITHUB_BRANCH}`);
+  return { tempDir, repoRoot };
+}
+
+export async function downloadAndExtract(
+  templateFolder: string
+): Promise<DownloadResult> {
+  const { tempDir, repoRoot } = await downloadAndExtractRepo();
   const templatePath = join(repoRoot, "templates", templateFolder);
 
   // Verifica que el template exista
