@@ -109,6 +109,7 @@ Igual para frontend: `fwinit react-native mi-app` pregunta por `frontend/`.
 | `fastify` | backend | API REST con Fastify, Prisma, TypeScript y Bun | bun |
 | `nodejs` | backend | API con Node.js puro, Prisma, TypeScript y tsx | node |
 | `astro` | frontend | Landing estática con Astro 7 y TypeScript | node |
+| `tauri` | frontend | Dashboard de escritorio con React, Vite y Tauri 2 | node |
 | `react-native` | frontend | App móvil con React Native, Expo y TypeScript | node |
 
 La capa es metadata de cada template (`layer` en `templates/<TEMPLATE>/template.json`): para sumar un frontend nuevo (Astro, Next.js...), alcanza con agregar la carpeta del template y su `layer`. Los templates se clasifican por capa en la metadata, no por estructura de carpetas.

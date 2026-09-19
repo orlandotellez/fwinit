@@ -1,0 +1,25 @@
+[package]
+name = "fwinit-dashboard"
+version = "1.0.0"
+description = "Dashboard administrativo scaffoldado con fwinit"
+authors = ["you"]
+edition = "2021"
+
+# El sufijo `_lib` evita colisión con el binario (ver issue tauri-build
+# https://github.com/rust-lang/cargo/issues/8519)
+[lib]
+name = "fwinit_dashboard_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+
+# Cliente HTTP de Rust que usa fetch.ts vía invoke("http_request").
+# reqwest con rustls (sin OpenSSL) y connection pooling estático.
+reqwest = { version = "0.12", default-features = false, features = ["gzip", "brotli", "http2", "rustls-tls"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["net", "io-util", "fs"] }

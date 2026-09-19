@@ -100,7 +100,7 @@ fwinit express mi-api --no-backend
 fwinit express mi-api --backend
 ```
 
-Igual para frontend: `fwinit astro mi-landing` (o `react-native`) pregunta por `frontend/`.
+Igual para frontend: `fwinit astro mi-landing`, `fwinit tauri mi-dashboard` (o `react-native`) pregunta por `frontend/`.
 
 ## Templates disponibles
 
@@ -111,6 +111,7 @@ Igual para frontend: `fwinit astro mi-landing` (o `react-native`) pregunta por `
 | `fastify` | backend | API REST con Fastify, Prisma, TypeScript y Bun | bun |
 | `nodejs` | backend | API con Node.js puro, Prisma, TypeScript y tsx | node |
 | `astro` | frontend | Landing estática con Astro 7 y TypeScript | node |
+| `tauri` | frontend | Dashboard de escritorio con React, Vite y Tauri 2 | node |
 | `react-native` | frontend | App móvil con React Native, Expo y TypeScript | node |
 
 La capa es metadata de cada template (`layer` en `templates/<TEMPLATE>/template.json`): para sumar un frontend nuevo (Astro, Next.js...), alcanza con agregar la carpeta del template y su `layer`. Los templates se clasifican por capa en la metadata, no por estructura de carpetas.
@@ -148,6 +149,7 @@ fwinit/
 │   ├── FASTIFY/         # API Fastify + Prisma + TypeScript (backend)
 │   ├── NODEJS-VANILLA/  # API Node.js puro + Prisma + TypeScript (backend)
 │   ├── ASTRO/           # Landing estática Astro 7 (frontend)
+│   ├── TAURI/           # Dashboard de escritorio Tauri 2 (frontend)
 │   └── REACT-NATIVE/    # App React Native + Expo (frontend)
 └── README.md
 ```

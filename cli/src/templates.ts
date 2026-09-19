@@ -53,6 +53,14 @@ export const TEMPLATES: Template[] = [
     layer: "frontend",
   },
   {
+    name: "Tauri",
+    alias: ["tauri"],
+    description: "Dashboard de escritorio con React, Vite y Tauri 2",
+    folder: "TAURI",
+    runtime: "node",
+    layer: "frontend",
+  },
+  {
     name: "React Native",
     alias: ["react-native", "rn", "expo"],
     description: "App móvil con React Native, Expo y TypeScript",
