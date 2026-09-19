@@ -1,0 +1,86 @@
+---
+import { Terminal, Pencil, Rocket } from 'lucide-astro';
+
+const steps = [
+  {
+    icon: Terminal,
+    number: '01',
+    title: 'Scaffold en un comando',
+    text: 'fwinit astro mi-landing. El CLI descarga el template, configura el proyecto y te deja listo para correr.',
+  },
+  {
+    icon: Pencil,
+    number: '02',
+    title: 'Edita tu contenido',
+    text: 'Cada sección vive en src/sections/ como un componente Astro. El Layout centraliza estilo y SEO.',
+  },
+  {
+    icon: Rocket,
+    number: '03',
+    title: 'Deploya donde quieras',
+    text: 'Salida 100% estática: funciona en Vercel, Netlify, Cloudflare Pages o cualquier host.',
+  },
+];
+---
+
+<section id="como-funciona" class="section steps-section">
+  <div class="container">
+    <span class="section-eyebrow">Cómo funciona</span>
+    <h2 class="section-title">De cero a producido en 3 pasos</h2>
+    <p class="section-subtitle">
+      Así se creó esta misma página.
+    </p>
+    <div class="grid-3">
+      {
+        steps.map((s) => (
+          <article class="card step">
+            <div class="step-head">
+              <s.icon size={22} strokeWidth={1.75} class="step-icon" />
+              <span class="step-number">{s.number}</span>
+            </div>
+            <h3 class="step-title">{s.title}</h3>
+            <p class="step-text">{s.text}</p>
+          </article>
+        ))
+      }
+    </div>
+  </div>
+</section>
+
+<style>
+  .steps-section {
+    background: var(--bg-surface);
+  }
+
+  .step {
+    position: relative;
+    padding-top: var(--space-2xl);
+  }
+
+  .step-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--space-md);
+  }
+
+  .step-icon {
+    color: var(--primary);
+  }
+
+  .step-number {
+    font-family: var(--font-heading);
+    font-size: var(--text-2xl);
+    font-weight: 700;
+    color: var(--primary-light);
+  }
+
+  .step-title {
+    font-size: var(--text-xl);
+    margin-bottom: var(--space-sm);
+  }
+
+  .step-text {
+    color: var(--text-secondary);
+  }
+</style>

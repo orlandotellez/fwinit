@@ -45,6 +45,14 @@ export const TEMPLATES: Template[] = [
     layer: "backend",
   },
   {
+    name: "Astro",
+    alias: ["astro"],
+    description: "Landing estática con Astro 7 y TypeScript",
+    folder: "ASTRO",
+    runtime: "node",
+    layer: "frontend",
+  },
+  {
     name: "React Native",
     alias: ["react-native", "rn", "expo"],
     description: "App móvil con React Native, Expo y TypeScript",

@@ -1,0 +1,13 @@
+{
+  "name": "astro",
+  "description": "Landing estática con Astro 7 y TypeScript",
+  "version": "1.0.0",
+  "runtime": "node",
+  "layer": "frontend",
+  "postInit": {
+    "install": "npm install",
+    "dev": "npm run dev",
+    "build": "npm run build"
+  },
+  "tags": ["astro", "typescript", "landing", "ssg", "static"]
+}

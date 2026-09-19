@@ -1,0 +1,82 @@
+---
+import { Rocket, Github } from 'lucide-astro';
+---
+
+<header class="site-header">
+  <div class="container header-inner">
+    <a href="#" class="brand" aria-label="fwinit — inicio">
+      <Rocket size={22} strokeWidth={2} class="brand-icon" />
+      <span class="brand-name">fwinit</span>
+    </a>
+    <nav class="nav" aria-label="Principal">
+      <a href="#features">Features</a>
+      <a href="#como-funciona">Cómo funciona</a>
+    </nav>
+    <a class="btn-secondary header-cta" href="https://github.com/orlandotellez/fwinit" target="_blank" rel="noopener">
+      <Github size={18} />
+      <span>GitHub</span>
+    </a>
+  </div>
+</header>
+
+<style>
+  .site-header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(248, 250, 252, 0.85);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .header-inner {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xl);
+    height: var(--header-height);
+  }
+
+  .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-sm);
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: var(--text-lg);
+    color: var(--text-primary);
+  }
+
+  .brand-icon {
+    color: var(--primary);
+  }
+
+  .nav {
+    display: flex;
+    gap: var(--space-xl);
+    margin-left: auto;
+  }
+
+  .nav a {
+    color: var(--text-secondary);
+    font-weight: 500;
+    font-size: var(--text-base);
+  }
+
+  .nav a:hover {
+    color: var(--primary);
+  }
+
+  .header-cta {
+    padding: 0.5rem 1.25rem;
+    font-size: var(--text-sm);
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-sm);
+  }
+
+  @media (max-width: 640px) {
+    .nav {
+      display: none;
+    }
+  }
+</style>

@@ -1,0 +1,69 @@
+---
+import { Rocket, Zap, Palette, Search } from 'lucide-astro';
+
+const features = [
+  {
+    icon: Rocket,
+    title: 'Astro 7',
+    text: 'Compilación estática por defecto, con islands solo cuando las necesites.',
+  },
+  {
+    icon: Zap,
+    title: 'Cero JavaScript',
+    text: 'HTML y CSS puros en el cliente: rápida, accesible y sin fricción.',
+  },
+  {
+    icon: Palette,
+    title: 'Design tokens',
+    text: 'Color, espacio y tipografía en variables CSS. La marca es tuya.',
+  },
+  {
+    icon: Search,
+    title: 'SEO listo',
+    text: 'Meta tags, Open Graph y canonical ya configurados en el Layout.',
+  },
+];
+---
+
+<section id="features" class="section">
+  <div class="container">
+    <span class="section-eyebrow">Features</span>
+    <h2 class="section-title">¿Qué trae esta plantilla?</h2>
+    <p class="section-subtitle">
+      Una base mínima pero completa, construida con las prácticas del
+      proyecto landing de fwinit.
+    </p>
+    <div class="grid-4">
+      {
+        features.map((f) => (
+          <article class="card feature">
+            <f.icon size={28} strokeWidth={1.75} class="feature-icon" />
+            <h3 class="feature-title">{f.title}</h3>
+            <p class="feature-text">{f.text}</p>
+          </article>
+        ))
+      }
+    </div>
+  </div>
+</section>
+
+<style>
+  .feature {
+    text-align: left;
+  }
+
+  .feature-icon {
+    color: var(--primary);
+    margin-bottom: var(--space-md);
+  }
+
+  .feature-title {
+    font-size: var(--text-xl);
+    margin-bottom: var(--space-sm);
+  }
+
+  .feature-text {
+    color: var(--text-secondary);
+    font-size: var(--text-base);
+  }
+</style>

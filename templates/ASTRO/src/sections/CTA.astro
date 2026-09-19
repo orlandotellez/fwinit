@@ -1,0 +1,48 @@
+---
+import { ArrowRight } from 'lucide-astro';
+---
+
+<section class="section">
+  <div class="container">
+    <div class="cta-panel">
+      <h2 class="cta-title">¿Listo para tu próximo proyecto?</h2>
+      <p class="cta-text">
+        Explorá los templates de fwinit: backend con Node, frontend con Astro
+        o React Native, y fullstack listo en un solo comando.
+      </p>
+      <a class="btn-light" href="https://github.com/orlandotellez/fwinit" target="_blank" rel="noopener">
+        Crea tu landing con fwinit
+        <ArrowRight size={18} />
+      </a>
+    </div>
+  </div>
+</section>
+
+<style>
+  .cta-panel {
+    background: var(--cta-bg);
+    border-radius: var(--radius-xl);
+    padding: var(--space-4xl) var(--space-2xl);
+    text-align: center;
+    box-shadow: var(--shadow-xl);
+  }
+
+  .cta-title {
+    color: var(--text-on-primary);
+    font-size: var(--text-3xl);
+    margin-bottom: var(--space-md);
+  }
+
+  .cta-text {
+    color: #c4b5fd;
+    font-size: var(--text-lg);
+    max-width: 560px;
+    margin: 0 auto var(--space-2xl);
+  }
+
+  @media (max-width: 768px) {
+    .cta-title {
+      font-size: var(--text-2xl);
+    }
+  }
+</style>

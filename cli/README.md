@@ -97,6 +97,8 @@ Igual para frontend: `fwinit react-native mi-app` pregunta por `frontend/`.
 | `--no-backend` | Dejar el código en la raíz del proyecto (saltea la pregunta) |
 | `-b, --backend-template <tpl>` | Backend a usar en fullstack (saltea la pregunta) |
 | `-f, --frontend-template <tpl>` | Frontend a usar en fullstack (saltea la pregunta) |
+| `--git` | Inicializar un repositorio git (saltea la pregunta) |
+| `--no-git` | No inicializar git (saltea la pregunta) |
 
 ## Templates disponibles
 
@@ -106,6 +108,7 @@ Igual para frontend: `fwinit react-native mi-app` pregunta por `frontend/`.
 | `express` | backend | API REST con Express, Prisma, TypeScript y Bun | bun |
 | `fastify` | backend | API REST con Fastify, Prisma, TypeScript y Bun | bun |
 | `nodejs` | backend | API con Node.js puro, Prisma, TypeScript y tsx | node |
+| `astro` | frontend | Landing estática con Astro 7 y TypeScript | node |
 | `react-native` | frontend | App móvil con React Native, Expo y TypeScript | node |
 
 La capa es metadata de cada template (`layer` en `templates/<TEMPLATE>/template.json`): para sumar un frontend nuevo (Astro, Next.js...), alcanza con agregar la carpeta del template y su `layer`. Los templates se clasifican por capa en la metadata, no por estructura de carpetas.
@@ -120,9 +123,10 @@ El runtime `bun` de un template se porta automáticamente a `node` (npm/pnpm) si
 4. Si corresponde, porta el template de runtime bun a node (npm/pnpm)
 5. Instala `.opencode/` con la skill `create-specs` y el comando `/create-specs`
 6. Limpia los lock files (cada proyecto instala los suyos)
-7. Te muestra los próximos pasos (install y dev de cada carpeta)
+7. Si lo elegís (o pasás `--git`), inicializa un repositorio git en la raíz
+8. Te muestra los próximos pasos (install y dev de cada carpeta)
 
-En modo fullstack, además crea `.gitignore` y `README.md` en la raíz del monorepo.
+En modo fullstack (y single con layout de capa) crea además `.gitignore` y `README.md` en la raíz: el `.gitignore` protege el estado de AI de desarrollo (`.atl/`, `odd` y `.opencode/`), que viven fuera de la carpeta del template.
 
 ## Desarrollo
 

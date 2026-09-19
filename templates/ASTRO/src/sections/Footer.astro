@@ -1,0 +1,94 @@
+---
+import { Rocket, Github } from 'lucide-astro';
+---
+
+<footer class="site-footer">
+  <div class="container footer-inner">
+    <div class="footer-brand">
+      <a href="#" class="footer-logo" aria-label="fwinit — inicio">
+        <Rocket size={20} strokeWidth={2} />
+        <span>fwinit</span>
+      </a>
+      <p class="footer-tagline">
+        Hecho con fwinit — tu punto de partida para cada proyecto.
+      </p>
+    </div>
+    <div class="footer-meta">
+      <span class="footer-badge">Astro 7</span>
+      <span class="footer-badge">0 JS</span>
+      <span class="footer-badge">SEO</span>
+    </div>
+    <a class="footer-link" href="https://github.com/orlandotellez/fwinit" target="_blank" rel="noopener">
+      <Github size={18} />
+      <span>orlandotellez/fwinit</span>
+    </a>
+  </div>
+</footer>
+
+<style>
+  .site-footer {
+    background: var(--footer-bg);
+    color: #94a3b8;
+    padding: var(--space-2xl) 0;
+  }
+
+  .footer-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-xl);
+    flex-wrap: wrap;
+  }
+
+  .footer-logo {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-sm);
+    color: var(--text-on-primary);
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: var(--text-lg);
+  }
+
+  .footer-tagline {
+    font-size: var(--text-sm);
+    margin-top: var(--space-sm);
+    max-width: 320px;
+  }
+
+  .footer-meta {
+    display: flex;
+    gap: var(--space-sm);
+  }
+
+  .footer-badge {
+    padding: 0.25rem 0.75rem;
+    border: 1px solid #334155;
+    border-radius: var(--radius-pill);
+    font-size: var(--text-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #cbd5e1;
+  }
+
+  .footer-link {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-sm);
+    color: #c4b5fd;
+    font-weight: 500;
+    font-size: var(--text-sm);
+  }
+
+  .footer-link:hover {
+    color: var(--text-on-primary);
+  }
+
+  @media (max-width: 640px) {
+    .footer-inner {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+  }
+</style>
