@@ -1,6 +1,6 @@
 {
   "name": "fwinit",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "CLI para crear proyectos desde templates",
   "type": "module",
   "bin": {
