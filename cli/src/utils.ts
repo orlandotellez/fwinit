@@ -201,6 +201,40 @@ export async function adaptToNodeRuntime(projectPath: string): Promise<void> {
   } catch { }
 }
 
+// .gitignore raíz de los proyectos con layout de capa: protege los
+// hermanos de AI (.atl/, odd y .opencode/) que viven fuera de la carpeta
+// del template. Solo si no existe — no pisa lo que ya haya creado el usuario.
+export async function writeRootGitignore(projectPath: string): Promise<void> {
+  const { writeFile, access } = await import("fs/promises");
+  const { join } = await import("path");
+
+  const gitignorePath = join(projectPath, ".gitignore");
+  try {
+    await access(gitignorePath);
+  } catch {
+    await writeFile(
+      gitignorePath,
+      "# AI dev state\n.atl/\nodd\n.opencode/\n"
+    );
+  }
+}
+
+// Inicializa un repositorio git en el directorio del proyecto.
+// Devuelve false si git no está disponible o falla (no corta el scaffold).
+export async function gitInit(projectPath: string): Promise<boolean> {
+  const { execFile } = await import("node:child_process");
+  try {
+    await new Promise<void>((resolve, reject) => {
+      execFile("git", ["init"], { cwd: projectPath }, (err) =>
+        err ? reject(err) : resolve()
+      );
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export interface RootProjectInfo {
   projectName: string;
   backend: LayerInfo & { description: string };
@@ -212,19 +246,11 @@ export interface RootProjectInfo {
 // AI: .atl/, odd y .opencode/) y README.md del monorepo. Solo si no
 // existen — no pisa lo que ya haya creado el usuario.
 export async function writeRootFiles(info: RootProjectInfo): Promise<void> {
-  const { writeFile, access } = await import("fs/promises");
+  const { writeFile } = await import("fs/promises");
   const { join } = await import("path");
   const projectPath = resolve(process.cwd(), info.projectName);
 
-  const gitignorePath = join(projectPath, ".gitignore");
-  try {
-    await access(gitignorePath);
-  } catch {
-    await writeFile(
-      gitignorePath,
-      "# AI dev state\n.atl/\nodd\n.opencode/\n"
-    );
-  }
+  await writeRootGitignore(projectPath);
 
   const installB = info.backend.postInit?.install
     ? resolveCommand(info.backend.postInit.install, info.pm)

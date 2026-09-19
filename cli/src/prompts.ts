@@ -49,6 +49,20 @@ export async function selectTemplateFromLayer(
   return template;
 }
 
+// Al crear el proyecto, ¿inicializar un repositorio git? El git init
+// corre en la raíz del proyecto (cubre backend/ + .opencode/ + specs/).
+export async function askGitInit(): Promise<boolean> {
+  const { initGit } = await inquirer.prompt([
+    {
+      type: "confirm",
+      name: "initGit",
+      message: "¿Inicializar un repositorio git?",
+      default: true,
+    },
+  ]);
+  return initGit;
+}
+
 export async function selectPackageManager(): Promise<PackageManager> {
   const { pm } = await inquirer.prompt([
     {

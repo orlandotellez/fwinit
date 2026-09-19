@@ -5,7 +5,7 @@ import ora from "ora";
 import chalk from "chalk";
 import { readFileSync } from "node:fs";
 import { mkdir, cp, access, readFile } from "fs/promises";
-import { join } from "path";
+import { join, basename } from "path";
 import {
   TEMPLATES,
   findTemplate,
@@ -25,6 +25,7 @@ import {
   askProjectName,
   selectPackageManager,
   askLayerLayout,
+  askGitInit,
 } from "./prompts.js";
 import {
   getProjectPath,
@@ -33,6 +34,8 @@ import {
   printSuccessFullStack,
   adaptToNodeRuntime,
   writeRootFiles,
+  writeRootGitignore,
+  gitInit,
   type PackageManager,
 } from "./utils.js";
 
@@ -106,14 +109,14 @@ async function readTemplatePostInit(
 // backend/ y frontend/, y archivos raíz (.gitignore + README). La DB
 // viene incluida en el template backend (Prisma o EF).
 async function createFullStackProject(
-  projectName: string,
+  projectPath: string,
   backendTpl: Template,
   frontendTpl: Template,
   pm: PackageManager
 ): Promise<void> {
   const { tempDir, repoRoot } = await downloadAndExtractRepo();
+  const projectName = basename(projectPath);
 
-  const projectPath = getProjectPath(projectName);
   const backendPath = join(projectPath, "backend");
   const frontendPath = join(projectPath, "frontend");
 
@@ -204,15 +207,18 @@ program
   .option("--no-backend", "Dejar el código en la raíz del proyecto (saltea la pregunta)")
   .option("-b, --backend-template <tpl>", "Backend a usar en fullstack (saltea la pregunta)")
   .option("-f, --frontend-template <tpl>", "Frontend a usar en fullstack (saltea la pregunta)")
+  .option("--git", "Inicializar un repositorio git (saltea la pregunta)")
+  .option("--no-git", "No inicializar git (saltea la pregunta)")
   .action(
     async (templateArg?: string, projectNameArg?: string) => {
       try {
-        const { pm: pmArg, backend, backendTemplate, frontendTemplate } =
+        const { pm: pmArg, backend, backendTemplate, frontendTemplate, git } =
           program.opts<{
             pm?: string;
             backend?: boolean;
             backendTemplate?: string;
             frontendTemplate?: string;
+            git?: boolean;
           }>();
 
         // Validar el flag --pm si se proporcionó
@@ -333,6 +339,10 @@ program
           pm = await selectPackageManager();
         }
 
+        // Preguntar si inicializar un repositorio git (default: sí).
+        // El flag --git/--no-git saltea la pregunta (modo scripting).
+        const wantsGit = git === undefined ? await askGitInit() : git;
+
         // Verificar si el directorio ya existe
         if (projectExists(projectName)) {
           console.error(
@@ -343,6 +353,8 @@ program
           process.exit(1);
         }
 
+        const projectPath = getProjectPath(projectName);
+
         const spinner = ora(
           isFullStack
             ? "Descargando templates..."
@@ -351,13 +363,17 @@ program
 
         if (isFullStack) {
           spinner.text = "Creando proyecto...";
-          await createFullStackProject(projectName, backendTpl!, frontendTpl!, pm ?? "npm");
+          await createFullStackProject(
+            projectPath,
+            backendTpl!,
+            frontendTpl!,
+            pm ?? "npm"
+          );
           spinner.succeed("Template descargado");
         } else {
           const { tempDir, templatePath, repoRoot } =
             await downloadAndExtract(template!.folder);
 
-          const projectPath = getProjectPath(projectName);
           // Con layout de capa, el código del template vive en backend/
           // (o frontend/) y .opencode/ + specs/ quedan en la raíz.
           const codePath = useLayerLayout
@@ -369,6 +385,13 @@ program
           await copyTemplate(templatePath, codePath);
           await substituteTemplate(codePath, projectName, template!.folder);
           await installOpenCodeFiles(repoRoot, projectPath);
+
+          // Con layout de capa, .opencode/ y specs/ viven fuera de la
+          // carpeta del template → .gitignore raíz que los protege
+          // (.atl/, odd y .opencode/).
+          if (useLayerLayout) {
+            await writeRootGitignore(projectPath);
+          }
 
           // Template nativo de bun + npm/pnpm → portar a runtime node
           // (scripts con tsx, tests con vitest, sin bun-types)
@@ -392,6 +415,23 @@ program
             console.log(
               chalk.dim(
                 `  Estructura: ${layer}/ (código) · .opencode/ y specs/ (al mismo nivel)\n`
+              )
+            );
+          }
+        }
+
+        // Inicializar el repositorio git en la raíz del proyecto
+        // (cubre backend/ + .opencode/ + specs/ según el layout)
+        if (wantsGit) {
+          const ok = await gitInit(projectPath);
+          if (ok) {
+            console.log(
+              chalk.dim("  Git: repositorio inicializado\n")
+            );
+          } else {
+            console.log(
+              chalk.yellow(
+                "  \u26a0 No se pudo inicializar git (¿está instalado?)\n"
               )
             );
           }
