@@ -3,6 +3,7 @@
 import { Command } from "commander";
 import ora from "ora";
 import chalk from "chalk";
+import { readFileSync } from "node:fs";
 import { mkdir, cp, access } from "fs/promises";
 import { join } from "path";
 import { TEMPLATES, findTemplate } from "./templates.js";
@@ -24,6 +25,19 @@ import {
 const program = new Command();
 
 const PACKAGE_MANAGERS = ["npm", "pnpm", "bun"] as const;
+
+// Lee la versión real del package.json adjunto al binario (dist/ y
+// package.json viven juntos tanto en dev como en la instalación global).
+// Evita desincronizar la version de npm con la que reporta --version.
+function getCliVersion(): string {
+  try {
+    const pkgUrl = new URL("../package.json", import.meta.url);
+    const pkg = JSON.parse(readFileSync(pkgUrl, "utf-8"));
+    return typeof pkg.version === "string" ? pkg.version : "0.0.0";
+  } catch {
+    return "0.0.0";
+  }
+}
 
 // Instala el bundle de skills de opencode (skills/ de la raíz del repo)
 // dentro del proyecto nuevo, en .opencode/. Sin esto, el proyecto
@@ -62,7 +76,7 @@ async function installOpenCodeFiles(
 program
   .name("fwinit")
   .description("CLI para crear proyectos desde templates")
-  .version("1.0.0");
+  .version(getCliVersion());
 
 program
   .command("list")
