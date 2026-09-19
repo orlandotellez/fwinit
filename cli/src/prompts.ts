@@ -51,3 +51,18 @@ export async function askProjectName(): Promise<string> {
   ]);
   return name.trim();
 }
+
+// Estructura de monorepo liviano: el código del template va dentro de
+// backend/, y .opencode/ (skills) + specs/ (creadas por create-specs)
+// quedan al mismo nivel, en la raíz del proyecto.
+export async function askBackendLayout(): Promise<boolean> {
+  const { layout } = await inquirer.prompt([
+    {
+      type: "confirm",
+      name: "layout",
+      message: "¿Empaquetar el código del template en una carpeta backend/?",
+      default: true,
+    },
+  ]);
+  return layout;
+}

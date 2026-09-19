@@ -13,7 +13,7 @@ import {
   cleanup,
   substituteTemplate,
 } from "./downloader.js";
-import { selectTemplate, askProjectName, selectPackageManager } from "./prompts.js";
+import { selectTemplate, askProjectName, selectPackageManager, askBackendLayout } from "./prompts.js";
 import {
   getProjectPath,
   projectExists,
@@ -97,10 +97,12 @@ program
   .argument("[template]", "Template a usar")
   .argument("[project-name]", "Nombre del proyecto")
   .option("-p, --pm <package-manager>", "Package manager a usar: npm, pnpm o bun")
+  .option("--backend", "Empaquetar el código en backend/ (saltea la pregunta)")
+  .option("--no-backend", "Dejar el código en la raíz del proyecto (saltea la pregunta)")
   .action(
     async (templateArg?: string, projectNameArg?: string) => {
       try {
-        const { pm: pmArg } = program.opts<{ pm?: string }>();
+        const { pm: pmArg, backend } = program.opts<{ pm?: string; backend?: boolean }>();
 
         // Validar el flag --pm si se proporcionó
         if (pmArg && !PACKAGE_MANAGERS.includes(pmArg as PackageManager)) {
@@ -143,6 +145,14 @@ program
           projectName = await askProjectName();
         }
 
+        // Preguntar si empaquetar el template en backend/ (default: sí).
+        // El flag --backend/--no-backend saltea la pregunta (modo scripting).
+        // En el layout backend, .opencode/ y specs/ quedan al mismo nivel, en la raíz.
+        const useBackendLayout =
+          backend === undefined
+            ? await askBackendLayout()
+            : backend;
+
         // Preguntar el package manager en todos los templates JS/TS
         // (ASP.NET usa dotnet, no aplica)
         if (!pm && template.runtime !== "dotnet") {
@@ -167,26 +177,33 @@ program
         const { tempDir, templatePath, repoRoot } =
           await downloadAndExtract(template.folder);
 
+        const projectPath = getProjectPath(projectName);
+        // Con layout backend, el código del template vive en backend/ y
+        // .opencode/ + specs/ quedan en la raíz, al mismo nivel.
+        const codePath = useBackendLayout
+          ? join(projectPath, "backend")
+          : projectPath;
+
         spinner.text = "Creando proyecto...";
 
         await copyTemplate(
           templatePath,
-          getProjectPath(projectName)
+          codePath
         );
         await substituteTemplate(
-          getProjectPath(projectName),
+          codePath,
           projectName,
           template.folder
         );
         await installOpenCodeFiles(
           repoRoot,
-          getProjectPath(projectName)
+          projectPath
         );
 
         // Template nativo de bun + npm/pnpm → portar a runtime node
         // (scripts con tsx, tests con vitest, sin bun-types)
         if (template.runtime === "bun" && pm && pm !== "bun") {
-          await adaptToNodeRuntime(getProjectPath(projectName));
+          await adaptToNodeRuntime(codePath);
         }
 
         await cleanup(tempDir);
@@ -202,7 +219,7 @@ program
           const { join } = await import("path");
           const tj = JSON.parse(
             await readFile(
-              join(getProjectPath(projectName), "template.json"),
+              join(codePath, "template.json"),
               "utf-8"
             )
           );
@@ -212,7 +229,21 @@ program
         }
 
         // ASP.NET no pregunta: usa "npm" que no afecta los comandos dotnet
-        printSuccess(projectName, template.name, pm ?? "npm", postInit);
+        printSuccess(
+          projectName,
+          template.name,
+          pm ?? "npm",
+          postInit,
+          useBackendLayout ? "backend" : undefined
+        );
+
+        if (useBackendLayout) {
+          console.log(
+            chalk.dim(
+              "  Estructura: backend/ (código) · .opencode/ y specs/ (al mismo nivel)\n"
+            )
+          );
+        }
       } catch (error) {
         console.error(
           chalk.red(

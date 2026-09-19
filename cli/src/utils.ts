@@ -83,7 +83,8 @@ export function printSuccess(
   projectName: string,
   templateName: string,
   pm: PackageManager,
-  postInit?: { install?: string; dev?: string }
+  postInit?: { install?: string; dev?: string },
+  codeDir?: string
 ): void {
   const installCmd = postInit?.install
     ? resolveCommand(postInit.install, pm)
@@ -91,14 +92,15 @@ export function printSuccess(
   const devCmd = postInit?.dev
     ? resolveCommand(postInit.dev, pm)
     : `${pm} run dev`;
+  const target = codeDir ? `${projectName}/${codeDir}` : projectName;
 
   console.log(`
 \u001b[32m\u2714\u001b[0m Template descargado
-\u001b[32m\u2714\u001b[0m Proyecto creado en ./${projectName}
+\u001b[32m\u2714\u001b[0m Proyecto creado en ./${target}
 
 \u001b[1mPróximos pasos:\u001b[0m
 
-  \u001b[36mcd ${projectName}\u001b[0m
+  \u001b[36mcd ${target}\u001b[0m
   \u001b[36m${installCmd}\u001b[0m
   \u001b[36m${devCmd}\u001b[0m
 `);
@@ -125,7 +127,6 @@ export async function adaptToNodeRuntime(projectPath: string): Promise<void> {
   const { readFile, writeFile, readdir } = await import("fs/promises");
   const { join } = await import("path");
 
-  // 1. Package.json: scripts + dependencias
   const pkgPath = join(projectPath, "package.json");
   const pkg = JSON.parse(await readFile(pkgPath, "utf-8"));
   for (const key of Object.keys(pkg.scripts ?? {})) {
@@ -137,7 +138,6 @@ export async function adaptToNodeRuntime(projectPath: string): Promise<void> {
   delete pkg.devDependencies["bun-types"];
   await writeFile(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
 
-  // 2. Tests: "bun:test" → "vitest"
   async function walk(dir: string): Promise<void> {
     const entries = await readdir(dir, { withFileTypes: true });
     for (const entry of entries) {
@@ -155,11 +155,8 @@ export async function adaptToNodeRuntime(projectPath: string): Promise<void> {
   const srcDir = join(projectPath, "src");
   try {
     await walk(srcDir);
-  } catch {
-    // sin carpeta src: no hay tests que migrar
-  }
+  } catch { }
 
-  // 3. tsconfig: quitar bun-types (tsc resuelve todos los @types por defecto)
   const tsconfigPath = join(projectPath, "tsconfig.json");
   try {
     const tsconfig = JSON.parse(await readFile(tsconfigPath, "utf-8"));
@@ -167,7 +164,5 @@ export async function adaptToNodeRuntime(projectPath: string): Promise<void> {
       delete tsconfig.compilerOptions.types;
       await writeFile(tsconfigPath, JSON.stringify(tsconfig, null, 2) + "\n");
     }
-  } catch {
-    // sin tsconfig: no hay nada que limpiar
-  }
+  } catch { }
 }
