@@ -31,3 +31,8 @@ appsettings.Development.json
 # Test results
 **/TestResults/
 **/coverage/
+
+# AI dev state
+.atl/
+odd
+.opencode/
