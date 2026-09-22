@@ -124,6 +124,22 @@ Todo proyecto generado incluye `.opencode/skills/create-specs` y el comando `/cr
 - La db se documenta en `specs/db/` (schemas por entidad, enums y use-cases) aunque la implementación viva en el template backend.
 - Los templates y los proyectos traen `.gitignore` con el estado de AI de desarrollo (`.atl/`, `odd` y `.opencode/`) ya excluido.
 
+### Biblioteca de skills de diseño
+
+El repo es la fuente de verdad de **skills de diseño** para opencode, una por estilo, listas para usar en cualquier proyecto:
+
+```
+skills/design/
+├── dark-luxury-design/     # Oscuro premium: negro cálido, acentos dorados/plata, grano, glow
+├── minimal-light-design/   # Light minimal: blanco, whitespace generoso, un acento
+├── neo-brutalist-design/   # Brutalista: sombras duras, bordes gruesos negros, colores vivos
+└── glassmorphism-design/   # Cristal: paneles translúcidos con blur, fondos aurora
+```
+
+Cada una es una carpeta con `SKILL.md` (frontmatter + reglas y triggers de activación, inglés + español) y `DESIGN.md` (paleta, tipografía y especificación completa). Están registradas globalmente en `~/.config/opencode/opencode.json` vía `skills.paths`, así que al pedir un estilo ("hacelo dark luxury", "estilo brutalista", "efecto vidrio"...) la skill correspondiente se carga sola, en cualquier proyecto.
+
+Para sumar un estilo nuevo: creá la carpeta `skills/design/<estilo>/` con su `SKILL.md` (mismo nombre de carpeta en el frontmatter `name`, `description` con triggers distintivos en inglés y español) y su `DESIGN.md`, reiniciá opencode y listo.
+
 ## Uso Directo (sin CLI)
 
 Si preferís clonar directamente:
@@ -142,7 +158,12 @@ fwinit/
 │   ├── src/
 │   └── package.json
 ├── skills/
-│   └── create-specs/    # Skill embebida en los proyectos generados
+│   ├── create-specs/    # Skill embebida en los proyectos generados
+│   └── design/          # Biblioteca de skills de diseño (registrada vía skills.paths)
+│       ├── dark-luxury-design/
+│       ├── minimal-light-design/
+│       ├── neo-brutalist-design/
+│       └── glassmorphism-design/
 ├── templates/           # Templates clasificados por capa (metadata "layer")
 │   ├── ASPNET/          # API ASP.NET Core + Clean Architecture (backend)
 │   ├── EXPRESS/         # API Express + Prisma + TypeScript (backend)
