@@ -5,6 +5,18 @@ description: Design and build websites and web apps in the "Neo-Brutalist" style
 
 # Neo-Brutalist Design Skill
 
+## Coverage Contract — the ENTIRE app
+
+Neo-Brutalist is a **full-application design system**, not a section style.
+When the user asks for it — "hacelo brutalista", "use the neo-brutalist
+skill", "brutalist design", or any of the description triggers — apply it to
+EVERYTHING: every route, every page, every component, both **public pages and
+private/administrative views** (dashboards, admin panels, auth flows, CRUD
+screens, settings). Partial application is a **DEFECT**: if any view does not
+follow this system, keep working until the whole app is consistent before
+declaring the task done. Never scope the style to the section you are currently
+editing — a design skill request always means the entire application.
+
 ---
 
 ## Step 1 — Clarify First

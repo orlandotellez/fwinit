@@ -139,6 +139,8 @@ skills/design/
 
 Cada una es una carpeta con `SKILL.md` (frontmatter + reglas y triggers de activación, inglés + español) y `DESIGN.md` (paleta, tipografía y especificación completa). Están registradas globalmente en `~/.config/opencode/opencode.json` vía `skills.paths`, así que al pedir un estilo ("hacelo dark luxury", "estilo brutalista", "efecto vidrio"...) la skill correspondiente se carga sola, en cualquier proyecto.
 
+**Cobertura total**: cada skill declara un contrato normativo — el estilo se aplica a la **aplicación completa**: páginas públicas, landing y panel administrativo/privado, sin excepción. Si pedís un estilo y alguna vista queda sin aplicarlo, es un defecto; exígile al agente que cubra toda la app antes de dar la tarea por terminada.
+
 Para sumar un estilo nuevo: creá la carpeta `skills/design/<estilo>/` con su `SKILL.md` (mismo nombre de carpeta en el frontmatter `name`, `description` con triggers distintivos en inglés y español) y su `DESIGN.md`, reiniciá opencode y listo.
 
 ## Uso Directo (sin CLI)
