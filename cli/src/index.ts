@@ -58,13 +58,15 @@ function getCliVersion(): string {
 
 // Instala el bundle de skills de opencode (skills/ de la raíz del repo)
 // dentro del proyecto nuevo, en .opencode/. Sin esto, el proyecto
-// generado no traería la skill create-specs y habría que copiarla a mano.
+// generado no traería la skill create-specs ni la biblioteca de diseño
+// y habría que copiarlas a mano.
 async function installOpenCodeFiles(
   repoRoot: string,
   projectPath: string
 ): Promise<void> {
   const skill = join(repoRoot, "skills", "create-specs", "SKILL.md");
   const command = join(repoRoot, "skills", "create-specs", "command.md");
+  const designDir = join(repoRoot, "skills", "design");
 
   // Si el repo no trae el bundle de skills, no bloquear el scaffold
   try {
@@ -88,6 +90,17 @@ async function installOpenCodeFiles(
     command,
     join(projectPath, ".opencode", "commands", "create-specs.md")
   );
+
+  // La biblioteca de diseño es opcional: si el repo no la trae, el
+  // scaffold sigue sin ella (mismo criterio que el bundle de skills).
+  try {
+    await access(designDir);
+    await cp(designDir, join(projectPath, ".opencode", "skills", "design"), {
+      recursive: true,
+    });
+  } catch {
+    // sin biblioteca de diseño, no bloquear el scaffold
+  }
 }
 
 // Lee postInit de template.json copiado al proyecto (si existe)

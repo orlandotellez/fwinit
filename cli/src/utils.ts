@@ -274,7 +274,7 @@ export async function writeRootFiles(info: RootProjectInfo): Promise<void> {
     "",
     `- \`backend/\` — ${info.backend.description}`,
     `- \`frontend/\` — ${info.frontend.description}`,
-    "- `.opencode/` — skills de opencode (usá `/create-specs` para generar las specs)",
+    "- `.opencode/` — skills de opencode: `/create-specs` para las specs + biblioteca de diseño (dark-luxury, minimal-light, neo-brutalist, glassmorphism)",
     "- `specs/` — especificaciones del proyecto",
     "",
     "## Backend",

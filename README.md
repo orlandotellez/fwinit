@@ -72,7 +72,7 @@ mi-proyecto/
 ├── backend/          # API (template elegido — trae su DB: Prisma o EF)
 ├── frontend/         # App (template frontend elegido)
 ├── .gitignore        # .atl/ · odd · .opencode/
-├── .opencode/        # Skills de opencode (create-specs incluida)
+├── .opencode/        # Skills de opencode (create-specs + biblioteca de diseño)
 ├── README.md         # Cómo correr backend y frontend
 └── specs/            # La creás con /create-specs
 ```
@@ -118,9 +118,10 @@ La capa es metadata de cada template (`layer` en `templates/<TEMPLATE>/template.
 
 ## Skills de opencode
 
-Todo proyecto generado incluye `.opencode/skills/create-specs` y el comando `/create-specs`:
+Todo proyecto generado incluye `.opencode/skills/create-specs`, el comando `/create-specs` y la biblioteca de diseño completa:
 
 - `/create-specs <descripción>` genera la carpeta `specs/` con módulos `backend/`, `db/` y `frontend/`, cada uno con sus `tasks` listas para implementar.
+- `skills/design/` — biblioteca de diseño con 4 estilos listos para usar en el proyecto: `dark-luxury-design`, `minimal-light-design`, `neo-brutalist-design` y `glassmorphism-design` (cada uno con su `SKILL.md` y `DESIGN.md`).
 - La db se documenta en `specs/db/` (schemas por entidad, enums y use-cases) aunque la implementación viva en el template backend.
 - Los templates y los proyectos traen `.gitignore` con el estado de AI de desarrollo (`.atl/`, `odd` y `.opencode/`) ya excluido.
 
