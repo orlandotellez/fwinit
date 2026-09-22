@@ -21,6 +21,7 @@ Run when invoked via `/create-specs <project description>` or when the user asks
 - Number files inside each module (`01-`, `02-`, ...) so the reading order is explicit. Each module folder gets a `README.md` linking and briefly describing its files.
 - Tasks are the single tracked source of implementation work: progress is recorded by ticking checkboxes in place; task files must never be deleted or renamed after creation.
 - Write artifacts in the project's language with a neutral, professional register. English repos get English docs; Spanish repos get neutral Spanish — never slang.
+- `documentacion-cliente.md` is MANDATORY: a business-level document for the client in plain language. Every module, technology, screen, endpoint count, entity group, integration, and flow it mentions must exist in the generated specs tree — derive, never invent. It is written LAST, when the rest of the tree is final.
 - Review the generated tree before reporting: every module referenced in `02-global-instruction.md` must exist, and `tasks/` must have at least one file per module.
 
 ## Decision Gates
@@ -41,6 +42,7 @@ Build exactly this tree (adapt module files to the detected stack — never fewe
 specs/
 ├── descripcion-proyecto.md              # 1 paragraph: what, who, why
 ├── global-instruction.md                # index of modules + how to navigate the tree
+├── documentacion-cliente.md             # business-level doc FOR THE CLIENT: modules, technologies, use cases, flows (plain language)
 ├── docs/
 │   ├── 01-descripcion-proyecto.md       # full project description
 │   ├── 02-global-instruction.md         # overview, module index, stack quick reference
@@ -94,6 +96,23 @@ specs/
 ```
 
 ## Document Templates
+
+### documentacion-cliente.md
+
+Business-level documentation written for the client/stakeholder — plain language, no jargon. EVERY fact must come from the generated specs tree (modules, screens, endpoints, entities, integrations): never invent anything. Write it in the project's language. Use this exact section structure:
+
+1. **Introducción** — qué es el sistema (pitch de 2-3 párrafos) y "¿Qué resuelve?" (lista de beneficios concretos en lenguaje simple).
+2. **Visión General del Sistema** — las grandes etapas del ciclo de vida del sistema (numeradas, de punta a punta) + tabla de roles: `Rol` | `¿Qué puede hacer?`.
+3. **Cómo está organizado el sistema** — arquitectura en términos simples: si hay backend, sus capas y por qué (ej. "la lógica no depende de la base de datos"); cómo está organizado el frontend (módulos funcionales, páginas).
+4. **Tecnologías Utilizadas** — tablas separadas por capa (`Backend`, `Frontend`, `Infraestructura`): `Tecnología` | `¿Para qué se usa?` — cada una explicada en una línea simple, tomada de los `01-stack.md` y `07-integracciones.md` reales de las specs.
+5. **Base de Datos** — entidades agrupadas por tema (tabla: `Grupo` | `Tablas/entidades que incluye`) + "algunas reglas importantes": identificadores, timestamps, borrado lógico, restricciones de unicidad (tomadas de `db/schemas/`).
+6. **Módulos Principales del Sistema** — uno por módulo del árbol de specs, con descripción de negocio del qué hace (no cómo).
+7. **Pantallas Principales** — agrupadas por zona (pública, autenticación, panel de cada rol) con el propósito de cada una (tomadas de `frontend/04-screens.md`).
+8. **Autenticación y Seguridad** — mecanismo de sesión (tokens/cookies en lenguaje simple), roles y permisos, medidas de seguridad (verificación de email, bloqueos, hash de contraseñas, auditoría).
+9. **Servicios Externos** — por integración: servicio y para qué se usa (tomado de `backend/07-integracciones.md`).
+10. **Flujos Principales del Sistema** — por flujo clave del negocio (ej. compra, creación de contenido, aprendizaje): lista numerada de pasos en lenguaje simple, fácil de seguir.
+11. **Casos de Uso por Tipo de Usuario** — por rol (incluido el visitante sin cuenta si aplica): lista de acciones principales que puede realizar.
+12. **Resumen General del Sistema** — tabla resumen: `Aspecto` | `Detalle` (cantidad de módulos, pantallas, endpoints, tablas, roles, permisos; tecnologías clave; método de pago si existe).
 
 ### docs/ files
 
@@ -182,8 +201,20 @@ Rules: numbered checkboxes (the number is the execution order), each root task h
    - api (when the gate triggered): `README.md` + one file per resource.
    Every endpoint, entity, screen, and task in these files must come from the project description — derive the complete set, not a subset.
 6. Write `specs/tasks/README.md` (how checklists are used and updated) and one task file per feature area for each module (`backend/`, `db/`, `frontend/`), following the tasks/ template: current state, objective, scope, numbered actionable checklist, Done criteria. Cross-check that every feature in the module docs has an implementation path here.
-7. Review: verify the tree matches the Spec Tree Contract, no module is referenced without existing, `tasks/` is not empty for any module, and no placeholder text remains. Report the created tree (table: module → files → purpose) and the feature areas covered; then state the recommended first task file to start implementation.
+7. Write `specs/documentacion-cliente.md` LAST, from the completed tree, following its template (12 sections): modules, technologies, DB grouping, screens, integrations, flows, use cases per role — everything in plain client language and derived only from the generated files.
+8. Review: verify the tree matches the Spec Tree Contract, no module is referenced without existing, `tasks/` is not empty for any module, and no placeholder text remains. Report the created tree (table: module → files → purpose) and the feature areas covered; then state the recommended first task file to start implementation.
 
 ## Output Contract
 
-Return the list of created paths and the module/task coverage. `specs/tasks/` must never be empty. State the next implementation step (first task file to tick). The tasks folder is the single tracked source of work: implementation progress is recorded by ticking the checkboxes in place.
+Return the list of created paths (including `specs/documentacion-cliente.md`) and the module/task coverage. `specs/tasks/` must never be empty. State the next implementation step (first task file to tick). The tasks folder is the single tracked source of work: implementation progress is recorded by ticking the checkboxes in place.
+
+## Example Prompts
+
+The user can invoke `/create-specs` with any level of detail — a short seed works, a rich description produces richer specs:
+
+- Short seed (the skill inspects the stack and fills the structure):
+  `/create-specs App de finanzas personales full stack para registrar ingresos y gastos, presupuestos mensuales, metas de ahorro y reportes.`
+- Rich description (full prompt, copy-paste ready): see `examples/01-landing-pasteleria-dulce-atelier.md` (public-only static landing, no backend/admin — also shows the "no persistence" gate usage).
+- Same app at two depths: `examples/02-app-finanzas-fullstack.md` shows a one-line seed vs the same app fully detailed **module by module (11 modules), screen by screen, with business rules, endpoints, DB entities and indexes, and non-functional requirements** — the reference for how deep a rich full-stack prompt can go.
+- Output style reference: `examples/ejemplo-documentacion-cliente-cursinet.md` shows what `documentacion-cliente.md` must look like when finished (plain business language, role tables, technology tables, numbered flows, per-role use cases, summary table). Use it as a style mold, never as copyable content.
+- More examples live in `examples/`. When the user asks for example prompts to create specs, point them at that folder.
