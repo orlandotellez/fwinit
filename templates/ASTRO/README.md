@@ -24,6 +24,7 @@ src/
 │   ├── Header.astro         # Nav fija con logo y CTA
 │   ├── Hero.astro           # Saludo a fwinit + terminal card
 │   ├── Features.astro       # Grilla de features (grid-4)
+│   ├── DesignSkills.astro   # Las 4 skills de diseño de fwinit (grid-4)
 │   ├── HowItWorks.astro     # Pasos (grid-3)
 │   ├── CTA.astro            # Panel con llamada final
 │   └── Footer.astro         # Pie oscuro con créditos
@@ -40,6 +41,23 @@ src/
   `pages/index.astro`.
 - **SEO**: `title` y `description` del Layout; copiá `.env.example` a `.env`
   para la URL pública del sitio.
+
+## Skills de diseño
+
+Este proyecto trae la biblioteca de skills de diseño de fwinit en
+`.opencode/skills/design/`: cuatro estilos listos para aplicar a toda la app —
+páginas públicas, landing y panel administrativo incluidos.
+
+- **dark-luxury-design** — oscuro premium: dorado/plata, grano, glow.
+- **minimal-light-design** — blanco limpio, tipografía editorial, un solo acento.
+- **neo-brutalist-design** — colores saturados, bordes negros, sombras duras.
+- **glassmorphism-design** — cristal translúcido, blur, fondos aurora.
+
+Para usar uno, pedíselo a tu agente de IA: _"hacelo con el estilo dark luxury"_
+o _"aplicá glassmorphism"_. La skill se aplica a la **aplicación completa** —
+landing, vistas públicas y secciones administrativas sin excepción: si alguna
+vista queda sin el estilo, es un defecto. Pedíle que cubra toda la app antes de
+dar la tarea por terminada.
 
 ## Build y deploy
 

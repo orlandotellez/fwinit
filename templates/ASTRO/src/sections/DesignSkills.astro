@@ -1,0 +1,95 @@
+---
+import { Crown, Feather, Bolt, Sparkles } from 'lucide-astro';
+
+const skills = [
+  {
+    icon: Crown,
+    id: 'dark-luxury-design',
+    title: 'Dark Luxury',
+    text: 'Oscuro premium: negro cálido, acentos dorados y plata, grano y glow.',
+    trigger: 'hacelo dark luxury',
+  },
+  {
+    icon: Feather,
+    id: 'minimal-light-design',
+    title: 'Minimal Light',
+    text: 'Blanco limpio, tipografía editorial y un solo acento. Calma y precisión.',
+    trigger: 'hacelo minimalista',
+  },
+  {
+    icon: Bolt,
+    id: 'neo-brutalist-design',
+    title: 'Neo-Brutalist',
+    text: 'Colores saturados, bordes negros gruesos y sombras duras. Presencia total.',
+    trigger: 'estilo brutalista',
+  },
+  {
+    icon: Sparkles,
+    id: 'glassmorphism-design',
+    title: 'Glassmorphism',
+    text: 'Cristal translúcido con blur, fondos aurora y profundidad flotante.',
+    trigger: 'efecto vidrio',
+  },
+];
+---
+
+<section id="design-skills" class="section">
+  <div class="container">
+    <span class="section-eyebrow">Design skills</span>
+    <h2 class="section-title">Skills de diseño de fwinit</h2>
+    <p class="section-subtitle">
+      Pedile el estilo a tu agente de IA y se aplica a toda la app: landing,
+      páginas públicas y panel administrativo, sin excepción.
+    </p>
+    <div class="grid-4">
+      {
+        skills.map((s) => (
+          <article class="card skill">
+            <span class="tag skill-tag">{s.id}</span>
+            <s.icon size={28} strokeWidth={1.75} class="skill-icon" />
+            <h3 class="skill-title">{s.title}</h3>
+            <p class="skill-text">{s.text}</p>
+            <code class="skill-trigger">&ldquo;{s.trigger}&rdquo;</code>
+          </article>
+        ))
+      }
+    </div>
+  </div>
+</section>
+
+<style>
+  .skill {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-md);
+    text-align: left;
+  }
+
+  .skill-icon {
+    color: var(--primary-dark);
+    margin-top: var(--space-sm);
+  }
+
+  .skill-title {
+    font-size: var(--text-xl);
+  }
+
+  .skill-text {
+    color: var(--text-secondary);
+    font-size: var(--text-base);
+    flex-grow: 1;
+  }
+
+  .skill-trigger {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.375rem 0.75rem;
+    background: var(--bg-elevated);
+    border: 1px dashed var(--border-strong);
+    border-radius: var(--radius-sm);
+    font-family: var(--font-heading);
+    font-size: var(--text-sm);
+    color: var(--text-accent);
+  }
+</style>

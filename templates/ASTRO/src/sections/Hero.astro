@@ -50,9 +50,7 @@ import { ArrowRight, Sparkles } from 'lucide-astro';
 <style>
   .hero {
     padding: var(--space-4xl) 0;
-    background:
-      radial-gradient(600px 300px at 85% 10%, rgba(109, 40, 217, 0.08), transparent 70%),
-      radial-gradient(500px 260px at 10% 90%, rgba(14, 165, 233, 0.06), transparent 70%);
+    background: var(--bg-base);
   }
 
   .hero-title {
@@ -62,10 +60,7 @@ import { ArrowRight, Sparkles } from 'lucide-astro';
   }
 
   .highlight {
-    background: linear-gradient(135deg, var(--primary), var(--secondary));
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
+    color: var(--primary-dark);
   }
 
   .hero-subtitle {
@@ -146,7 +141,7 @@ import { ArrowRight, Sparkles } from 'lucide-astro';
 
   .dim { color: var(--text-muted); }
 
-  .path { color: #c4b5fd; }
+  .path { color: #8aa2ff; }
 
   .caret {
     display: inline-block;

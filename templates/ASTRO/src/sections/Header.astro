@@ -10,6 +10,7 @@ import { Rocket, Github } from 'lucide-astro';
     </a>
     <nav class="nav" aria-label="Principal">
       <a href="#features">Features</a>
+      <a href="#design-skills">Skills</a>
       <a href="#como-funciona">Cómo funciona</a>
     </nav>
     <a class="btn-secondary header-cta" href="https://github.com/orlandotellez/fwinit" target="_blank" rel="noopener">
@@ -22,18 +23,26 @@ import { Rocket, Github } from 'lucide-astro';
 <style>
   .site-header {
     position: sticky;
-    top: 0;
+    top: var(--space-md);
     z-index: 100;
-    background: rgba(248, 250, 252, 0.85);
-    backdrop-filter: blur(12px);
-    border-bottom: 1px solid var(--border);
+    background: transparent;
+    border-bottom: none;
   }
 
   .header-inner {
     display: flex;
     align-items: center;
     gap: var(--space-xl);
-    height: var(--header-height);
+    /* pill de vidrio flotante: el header es transparente y este chip
+       queda "por encima" del contenido con blur, borde sutil y radius */
+    height: calc(var(--header-height) - 16px);
+    padding: 0 var(--space-lg);
+    background: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(16px) saturate(150%);
+    -webkit-backdrop-filter: blur(16px) saturate(150%);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: var(--radius-xl);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
   }
 
   .brand {
@@ -47,7 +56,7 @@ import { Rocket, Github } from 'lucide-astro';
   }
 
   .brand-icon {
-    color: var(--primary);
+    color: var(--primary-dark);
   }
 
   .nav {
@@ -63,7 +72,7 @@ import { Rocket, Github } from 'lucide-astro';
   }
 
   .nav a:hover {
-    color: var(--primary);
+    color: var(--primary-dark);
   }
 
   .header-cta {
