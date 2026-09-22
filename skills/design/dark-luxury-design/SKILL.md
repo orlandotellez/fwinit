@@ -1,256 +1,741 @@
----
-name: dark-luxury-design
-description: Design and build websites and web apps in the "Dark Luxury" style — deep near-black backgrounds, warm metallic accents (gold/amber or silver/platinum), premium editorial typography, grain texture overlays, ambient glow lighting, and purposeful micro-animations. Inspired by high-end AI/SaaS products and luxury tech brands. Use this skill whenever someone asks to design or build anything in "dark luxury", "dark premium", "dark gold", "dark mode luxury", "high-end dark theme", or similar — even if phrased casually like "make it look premium and dark", "give it a luxury dark feel", "I want something elegant and dark", or "dark but premium". Also trigger on Spanish requests: "dark luxury", "lujo oscuro", "premium oscuro", "dorado oscuro", "negro premium", "elegante y oscuro", "oscuro pero premium", "estilo lujoso oscuro". For other styles (light minimal, brutalist, glassmorphism) a different design skill must be used instead. Always use this skill — do NOT attempt dark luxury design from memory alone.
----
+# Dark Luxury
 
-# Dark Luxury Design Skill
+Design and build websites and web apps with a **restrained, sophisticated dark aesthetic**.
 
-## Coverage Contract — the ENTIRE app
+The goal is not to make the interface look futuristic, AI-generated, or overly decorative. It should feel like a real product designed by a careful human designer: **simple, intentional, elegant, readable and functional**.
 
-Dark Luxury is a **full-application design system**, not a section style. When
-the user asks for it — "hacelo dark luxury", "use the dark luxury skill",
-"dark premium", or any of the description triggers — apply it to EVERYTHING:
-every route, every page, every component, both **public pages and
-private/administrative views** (dashboards, admin panels, auth flows, CRUD
-screens, settings). Partial application is a **DEFECT**: if any view does not
-follow this system, keep working until the whole app is consistent before
-declaring the task done. Never scope the style to the section you are currently
-editing — a design skill request always means the entire application.
+Use this style for dark premium, dark luxury, elegant dark, high-end or sophisticated interfaces.
 
 ---
 
-## Step 1 — Clarify First
+## Core Philosophy
 
-Ask before writing code. Skip to defaults if user says so.
+The design should communicate quality through:
 
-1. **Accent**: Amber/Gold *(default)* · Silver/Platinum · Emerald/Jade · Crimson/Rose · Custom hex
-2. **Background**: Warm black `#0a0907` *(default)* · Pure `#080808` · Cool `#07080a`
-3. **Font**: Geometric sans-serif *(default)* · High-contrast serif
-4. **Type**: Landing page *(default)* · Web app · Portfolio · Other
-5. **Sections** (default): Hero, Features, Stats, Testimonials, Pricing, FAQ, CTA, Footer
+* Typography
+* Spacing
+* Composition
+* Alignment
+* Contrast
+* Real product imagery
+* Consistent proportions
+* Subtle interaction
+
+Do **not** communicate quality through visual effects.
+
+Avoid anything that makes the website look like a generic AI-generated SaaS landing page.
+
+The design should feel closer to a carefully art-directed product website than a template.
 
 ---
 
-## Step 2 — Tokens
+# 1. Visual Direction
+
+### Background
+
+Use a simple near-black background.
+
+Preferred:
 
 ```css
-/* AMBER/GOLD (default) — swap values for other accents below */
-:root {
-  --bg-base:       #0a0907;  --bg-surface:    #100f0d;
-  --bg-card:       #161412;  --bg-footer:     #141210;
-  --border-subtle: rgba(255,248,230,0.07);
-  --border-medium: rgba(255,248,230,0.13);
-  --border-accent: rgba(212,160,60,0.55);
-  --text-primary:  #f0ebe0;  --text-muted:    #5a544a;
-  --text-body:     #8a8070;  --text-tertiary: #524c42;
-  --font-mono:     'JetBrains Mono', monospace;
-  --accent:        #d4a03c;  --accent-bright: #e8b84e;
-  --accent-glow:   rgba(212,160,60,0.18);
-  --accent-subtle: rgba(212,160,60,0.08);
-  --success:       #3d9e5c;
-  --grain-opacity: 0.04;
-  /* Spacing: --sp-N = N*4px. e.g. --sp-6: 24px, --sp-8: 32px, --sp-12: 48px */
-  --r-md: 10px; --r-lg: 16px; --r-xl: 20px; --r-pill: 999px;
-  --ease-out: cubic-bezier(0.16,1,0.3,1);
-  --dur-fast: 150ms; --dur-base: 220ms; --dur-enter: 600ms;
-}
-/* Silver:  --bg-card:#121316; --accent:#b4c0d4; --border-accent:rgba(180,190,215,0.50); --text-primary:#eceef5; --text-muted:#484d5c; --text-body:#808898 */
-/* Emerald: --bg-card:#101410; --accent:#42b872; --border-accent:rgba(60,180,100,0.50);  --text-primary:#e8f2ec; --text-muted:#3a5042; --text-body:#708078 */
-/* Crimson: --bg-card:#130f14; --accent:#c8385a; --border-accent:rgba(200,50,80,0.50);   --text-primary:#f2eaf0; --text-muted:#5a3848; --text-body:#907080 */
+--bg: #080808;
+--surface: #101010;
+--surface-elevated: #151515;
+--border: #242424;
+--text: #f2f2f2;
+--text-secondary: #a0a0a0;
+--text-muted: #686868;
+--accent: #d4a03c;
 ```
 
-Typography:
-```css
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-:root {
-  --font-sans: 'Inter', system-ui, sans-serif;
-  --text-display: clamp(52px,7vw,96px); --text-h1: clamp(36px,4.5vw,60px);
-  --text-h2: clamp(28px,3vw,44px);      --text-h3: clamp(17px,1.6vw,20px);
-  --text-body: 16px; --text-sm: 14px;   --text-label: 11px;
-  --tracking-tight: -0.03em; --tracking-widest: 0.10em;
-  --leading-tight: 1.1; --leading-relaxed: 1.65;
-}
-```
+No gradients.
 
-Grain texture (required — body::before):
-```css
-body::before { content:''; position:fixed; inset:0; pointer-events:none; z-index:9999;
-  opacity:var(--grain-opacity); mix-blend-mode:overlay; background-size:128px;
-  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E"); }
-```
+No radial gradients.
+
+No mesh gradients.
+
+No glowing backgrounds.
+
+No colorful ambient blobs.
+
+No decorative light effects.
+
+The background should remain visually quiet.
 
 ---
 
-## Step 3 — The 10 Rules (follow exactly)
+# 2. Typography
 
-### ① Section labels — `[Label]` bracket notation only
+Use **Inter**.
+
 ```css
-.section-label { font-family:var(--font-mono); font-size:13px; color:var(--accent);
-  letter-spacing:0.06em; display:block; margin-bottom:16px; }
+font-family: Inter, system-ui, sans-serif;
 ```
-Never `— Label —`. Always `[Features]` `[Pricing]` `[Foundation]` style.
 
-### ② Headlines — COLOR contrast, not weight contrast
-All headline words use the same bold weight (700–800). Contrast = some words in `--text-muted` (dark grey), key words in `--text-primary` (bright white).
+Typography should create hierarchy naturally through:
+
+* Size
+* Weight
+* Line-height
+* Spacing
+* Color
+
+Do not use exaggerated typography.
+
+Avoid:
+
+* Giant 100px+ headlines
+* Excessive letter spacing
+* Artificially dimmed words
+* Random words highlighted in gold
+* Animated words
+* Gradient text
+* Text with glow
+
+Headlines should normally use one consistent color.
+
+Example:
+
 ```html
-<h1 class="display-headline">
-  <span class="hl-muted">Automate smarter.</span><br>
-  <span class="hl-muted">Scale </span><span class="hl-bright cycling-word">faster.</span>
+<h1>
+  Una forma más simple de gestionar tu negocio.
 </h1>
 ```
-```css
-.display-headline { font-size:var(--text-display); font-weight:700;
-  letter-spacing:var(--tracking-tight); line-height:var(--leading-tight); }
-.hl-muted  { color:var(--text-muted); }
-.hl-bright { color:var(--text-primary); }
-/* Cycling word highlight box: */
-.hl-highlight { background:rgba(212,160,60,0.20); padding:0 4px; border-radius:4px; }
-```
 
-### ③ Buttons — dark bg + amber BORDER, multi-layer always-visible glow
-```css
-.btn { display:inline-flex; align-items:center; gap:8px; padding:12px 24px;
-  font-size:14px; font-weight:600; color:var(--text-primary);
-  background:var(--bg-card); border-radius:var(--r-md); border:1px solid transparent;
-  cursor:pointer; text-decoration:none;
-  transition:box-shadow var(--dur-base) ease, border-color var(--dur-base) ease, transform var(--dur-fast) var(--ease-out); }
+Not:
 
-/* Primary: glow is ALWAYS visible — pulses between moderate and strong, never dark */
-.btn-primary { border-color:var(--accent);
-  box-shadow: 0 0 8px rgba(212,160,60,0.55), 0 0 20px rgba(212,160,60,0.25), 0 0 40px rgba(212,160,60,0.10);
-  animation:btn-pulse 2.8s ease-in-out infinite; }
-.btn-primary:hover { animation:none; border-color:var(--accent-bright); transform:translateY(-1px);
-  box-shadow: 0 0 10px rgba(212,160,60,0.75), 0 0 28px rgba(212,160,60,0.40), 0 0 55px rgba(212,160,60,0.18); }
-@keyframes btn-pulse {
-  0%,100% { box-shadow: 0 0 8px rgba(212,160,60,0.55), 0 0 20px rgba(212,160,60,0.25), 0 0 40px rgba(212,160,60,0.10); }
-  50%     { box-shadow: 0 0 10px rgba(212,160,60,0.70), 0 0 28px rgba(212,160,60,0.35), 0 0 52px rgba(212,160,60,0.16); } }
-
-/* Secondary: dark bg, barely-visible grey border, no glow */
-.btn-secondary { border-color:var(--border-medium); }
-.btn-secondary:hover { border-color:rgba(255,248,230,0.28); background:rgba(255,255,255,0.03); }
-.btn-sm { padding:8px 18px; font-size:13px; }
-```
-
-### ④ Cards — NO border, elevation via inset top highlight
-```css
-.card { background:var(--bg-card); border:none; border-radius:var(--r-lg);
-  box-shadow: inset 0 1px 0 rgba(255,248,230,0.08), 0 4px 24px rgba(0,0,0,0.45);
-  transition:transform var(--dur-base) var(--ease-out), box-shadow var(--dur-base) ease; }
-.card:hover { transform:translateY(-2px);
-  box-shadow: inset 0 1px 0 rgba(255,248,230,0.10), 0 12px 40px rgba(0,0,0,0.55); }
-/* Featured card (e.g. pricing middle): */
-.card.featured { box-shadow: inset 0 1px 0 rgba(255,248,230,0.10), 0 4px 24px rgba(0,0,0,0.45),
-  0 0 0 1px var(--border-accent), 0 0 30px rgba(212,160,60,0.12); }
-```
-
-### ⑤ Feature cards — large illustration panel + text below
-Top ~240px = dark media area (`background:#0e0c0a`, `border-bottom:1px solid var(--border-subtle)`). Text (title + desc) sits below with 24px padding. `overflow:hidden` on the card clips the media. No small icon container.
-
-### ⑥ Technical metadata lines — monospace `//` separator pattern
-```css
-.arch-meta { font-family:var(--font-mono); font-size:11px; color:var(--text-tertiary);
-  letter-spacing:0.04em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin:4px 0 16px; }
-```
-Pattern: `3F1C9 // CONTEXT DEPTH: 12.4 // INSIGHT HASH: 7B` — invented but realistic. Use in architecture/foundation cards.
-
-### ⑦ Hero — single elliptical orb, bottom-center + hero badge
-```css
-.hero-orb { position:absolute; bottom:-80px; left:50%; transform:translateX(-50%);
-  width:900px; height:500px; border-radius:50%; filter:blur(40px); pointer-events:none;
-  background:radial-gradient(ellipse at center bottom, rgba(180,100,15,0.28) 0%, rgba(150,75,10,0.12) 35%, transparent 70%);
-  animation:orb-breathe 8s ease-in-out infinite alternate; }
-@keyframes orb-breathe { from{opacity:0.8;transform:translateX(-50%) scale(1)} to{opacity:1;transform:translateX(-50%) scale(1.08)} }
-/* Hero badge (pill above headline): */
-.hero-badge { display:inline-flex; align-items:center; gap:8px; padding:8px 18px;
-  background:rgba(255,255,255,0.05); border:1px solid var(--border-subtle);
-  border-radius:var(--r-pill); font-size:14px; color:var(--text-body); margin-bottom:32px; }
-```
-
-### ⑧ Pricing cards — icon + tier inline, amber glow = featured (not bg change)
-Icon in 42×42px square rounded container (`background:var(--bg-surface); border:1px solid var(--border-medium); border-radius:var(--r-md)`). Tier name beside it at ~26px bold. Checkmarks use small square checkbox SVG with amber stroke.
-
-### ⑨ Footer — inside rounded elevated panel
-```css
-.footer-wrapper { padding:0 24px 24px; background:var(--bg-base); }
-.footer-panel { background:var(--bg-footer); border-radius:var(--r-xl);
-  box-shadow:inset 0 1px 0 rgba(255,248,230,0.06); padding:48px 48px 24px; }
-/* Status badge: green dot + [ALL SYSTEMS OPERATIONAL] in --font-mono, color:var(--success) */
-```
-
-### ⑩ Navigation — transparent → blur on scroll
-```css
-.nav { position:fixed; top:0; left:0; right:0; z-index:200; }
-.nav.scrolled { background:rgba(10,9,7,0.80); backdrop-filter:blur(16px) saturate(1.5);
-  border-bottom:1px solid var(--border-subtle); }
-/* Nav links: color:var(--text-body), hover:var(--text-primary). CTA = .btn.btn-primary.btn-sm */
+```html
+<h1>
+  <span>Automate</span>
+  <span class="glowing-word">smarter.</span>
+</h1>
 ```
 
 ---
 
-## Step 4 — Animations (all required)
+# 3. No AI-Slop Visual Effects
+
+The following are explicitly prohibited:
+
+* ❌ Gradients
+* ❌ Radial gradients
+* ❌ Mesh gradients
+* ❌ Glowing orbs
+* ❌ Ambient blobs
+* ❌ Neon glow
+* ❌ Permanent button glow
+* ❌ Animated glow
+* ❌ Grain/noise overlays
+* ❌ Fake light sources
+* ❌ Glassmorphism
+* ❌ Excessive blur
+* ❌ Excessive backdrop-filter
+* ❌ Decorative particles
+* ❌ Floating 3D objects without purpose
+* ❌ Random geometric decorations
+* ❌ Gradient borders
+* ❌ Gradient text
+
+If an element looks impressive only because of a visual effect, remove the effect.
+
+---
+
+# 4. Navigation
+
+Keep navigation simple.
+
+Use a normal horizontal navigation with:
+
+* Logo
+* Navigation links
+* One primary action
+
+The navigation may become slightly darker when scrolling.
+
+Do not create a giant floating glass navbar.
+
+Do not use:
+
+* Pills everywhere
+* Excessive blur
+* Transparent glass cards
+* Glow
+* Animated backgrounds
+
+Example:
 
 ```css
-/* Scroll reveal — attach to every major element */
-.reveal { opacity:0; transform:translateY(20px);
-  transition:opacity var(--dur-enter) var(--ease-out), transform var(--dur-enter) var(--ease-out); }
-.reveal.visible { opacity:1; transform:translateY(0); }
-/* Marquee */
-.marquee { overflow:hidden; mask-image:linear-gradient(to right,transparent,black 12%,black 88%,transparent); }
-.marquee-track { display:flex; width:max-content; animation:marquee 45s linear infinite; }
-.marquee-group { display:flex; align-items:center; gap:60px; padding:0 30px; }
-.marquee-group img,.marquee-group svg { height:24px; opacity:0.3; filter:grayscale(1); }
-@keyframes marquee { to{ transform:translateX(-50%); } }
-```
-```js
-// Scroll reveal with staggered siblings
-const obs = new IntersectionObserver(e => e.forEach(x => {
-  if(!x.isIntersecting) return;
-  setTimeout(()=>x.target.classList.add('visible'), x.target.dataset.delay||0);
-  obs.unobserve(x.target);
-}),{threshold:0.08});
-document.querySelectorAll('.reveal').forEach((el,_,all)=>{
-  const s=Array.from(el.parentElement.querySelectorAll('.reveal'));
-  if(!el.dataset.delay) el.dataset.delay=s.indexOf(el)*90;
-  obs.observe(el);
-});
-// Countup
-document.querySelectorAll('[data-countup]').forEach(el=>{
-  new IntersectionObserver(([e])=>{ if(!e.isIntersecting)return;
-    const t=parseFloat(el.dataset.countup),s=performance.now();
-    const tick=n=>{const p=Math.min((n-s)/1800,1),ease=1-Math.pow(1-p,3);
-      el.textContent=Math.floor(ease*t); if(p<1)requestAnimationFrame(tick); else el.textContent=t;};
-    requestAnimationFrame(tick); },{threshold:0.4}).observe(el);
-});
-// Headline word cycling
-const words=['faster.','smarter.','better.']; let idx=0;
-const cw=document.querySelector('.cycling-word');
-if(cw) setInterval(()=>{ cw.style.cssText='opacity:0;transform:translateY(-8px);transition:opacity 300ms ease,transform 300ms ease';
-  setTimeout(()=>{ idx=(idx+1)%words.length; cw.textContent=words[idx];
-    cw.style.cssText='opacity:0;transform:translateY(10px);transition:none';
-    requestAnimationFrame(()=>cw.style.cssText='opacity:1;transform:translateY(0);transition:opacity 350ms ease,transform 350ms ease');
-  },320);},2600);
+.nav {
+  position: fixed;
+  top: 0;
+  width: 100%;
+  background: #080808;
+  border-bottom: 1px solid #242424;
+}
 ```
 
 ---
 
-## Step 5 — Anti-Pattern Checklist
+# 5. Buttons
 
-- [ ] Buttons with filled amber background → **dark bg + amber border only**
-- [ ] Button glow fades to invisible → **always-visible multi-layer glow, pulses moderate↔strong**
-- [ ] Thin-weight (300) headlines → **bold 700–800, contrast is COLOR not weight**
-- [ ] `— Label —` dashes → **`[Label]` bracket notation, monospace**
-- [ ] Small icon-box feature cards → **large ~240px illustration panel at top**
-- [ ] Multiple symmetric orbs → **one elliptical orb, bottom-center**
-- [ ] Footer flush with page → **inside rounded elevated panel**
-- [ ] Solid border on cards → **no border, inset top highlight + outer shadow**
-- [ ] Missing monospace metadata in arch cards · missing status badge in footer
-- [ ] Missing hero badge pill · emojis (SVG only) · grain texture · scroll reveals
+Buttons should look like normal high-quality product buttons.
+
+Primary:
+
+```css
+.btn-primary {
+  background: #f2f2f2;
+  color: #080808;
+  border: 1px solid #f2f2f2;
+  border-radius: 8px;
+  padding: 12px 20px;
+}
+```
+
+Secondary:
+
+```css
+.btn-secondary {
+  background: transparent;
+  color: #f2f2f2;
+  border: 1px solid #303030;
+  border-radius: 8px;
+  padding: 12px 20px;
+}
+```
+
+Hover should be subtle.
+
+For example:
+
+```css
+.btn:hover {
+  transform: translateY(-1px);
+}
+```
+
+No glow.
+
+No pulse.
+
+No animated shadows.
+
+No giant pill-shaped buttons unless the product genuinely requires them.
 
 ---
 
-## Step 6 — Page Structure & Stack
+# 6. Cards
 
-**Structure:** Nav → Hero (badge + headline + CTAs + orb) → Logo marquee → Features (3-col illustration cards) → Stats (split layout, binary bg) → Testimonials (dual scroll rows) → Architecture (2×2 quadrant + central image, mono metadata) → Pricing (3-col, middle amber glow) → FAQ → CTA banner → Footer panel
+Cards should be simple surfaces.
 
-**React:** `lucide-react` for icons · Tailwind for layout only · `style={{}}` or `<style>` for all colors  
-**HTML:** All tokens on `:root` · `JetBrains Mono` for metadata · no framework needed
+```css
+.card {
+  background: #101010;
+  border: 1px solid #242424;
+  border-radius: 12px;
+}
+```
+
+Use borders and spacing instead of shadows and glow to establish hierarchy.
+
+Avoid:
+
+* Floating cards everywhere
+* Excessive shadows
+* Neon borders
+* Glowing featured cards
+* Gradient backgrounds
+
+Cards should feel like physical surfaces in a coherent interface.
+
+---
+
+# 7. Section Labels
+
+Do not use artificial labels such as:
+
+```text
+[FEATURES]
+[FOUNDATION]
+[ARCHITECTURE]
+[INSIGHT]
+```
+
+Do not use monospace labels simply because they look technical.
+
+If a section needs a label, use normal typography:
+
+```text
+Características
+```
+
+or simply omit the label.
+
+Every piece of text should exist for a reason.
+
+---
+
+# 8. Hero
+
+The hero should be simple.
+
+Structure:
+
+```text
+Navigation
+
+Small optional introduction
+
+Large headline
+
+Short description
+
+Primary CTA + secondary CTA
+
+Real product visual
+```
+
+No orb.
+
+No glow.
+
+No animated background.
+
+No hero badge unless it communicates genuinely useful information.
+
+Do not add phrases such as:
+
+```text
+✦ AI POWERED
+NEW
+THE FUTURE OF...
+```
+
+unless they represent an actual product fact.
+
+The hero should rely on composition and the product itself.
+
+---
+
+# 9. Product Visuals
+
+Prefer showing the actual product.
+
+For example:
+
+* Phone mockup
+* Desktop application
+* Dashboard
+* Product screenshot
+* Real interface
+* Device mockup
+
+The product visual should be the visual focus.
+
+Avoid abstract illustrations when the product itself can be shown.
+
+Do not surround screenshots with glowing effects.
+
+Use simple frames, borders and shadows only when necessary.
+
+---
+
+# 10. Feature Sections
+
+Do not create generic three-column cards with random icons.
+
+Instead, vary the composition.
+
+Possible structure:
+
+```text
+Feature
+Large product screenshot
+Description
+```
+
+or:
+
+```text
+Large visual | Text
+Text          | Large visual
+```
+
+or:
+
+```text
+Full-width product demonstration
+```
+
+Feature illustrations should explain the product.
+
+Do not add decorative illustrations simply to fill empty space.
+
+---
+
+# 11. Icons
+
+Use icons only when they communicate something.
+
+Preferred:
+
+```text
+lucide-react
+```
+
+Icons should be:
+
+* Small
+* Simple
+* Consistent
+* Monochrome
+
+Do not place every icon inside a glowing square.
+
+Do not use icons as decoration without meaning.
+
+---
+
+# 12. Animations
+
+Animation should be restrained.
+
+Use animation only when it improves usability or helps communicate hierarchy.
+
+Allowed:
+
+* Subtle hover transitions
+* Small opacity transitions
+* Small translate transitions
+* Menu transitions
+* Modal transitions
+* Natural page transitions
+
+Avoid:
+
+* Scroll reveal on every element
+* Staggering every card
+* Count-up statistics
+* Infinite marquees
+* Automatic text cycling
+* Floating objects
+* Pulsing buttons
+* Constant background animations
+
+A page should still look good if all animations are disabled.
+
+Use:
+
+```css
+transition: 180ms ease;
+```
+
+as a reasonable default.
+
+Respect:
+
+```css
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+```
+
+---
+
+# 13. Statistics
+
+Statistics should communicate real information.
+
+Do not animate numbers simply for visual impact.
+
+Avoid fake-looking metrics such as:
+
+```text
+99.99%
+10M+
+24/7
+∞
+```
+
+unless they represent actual product data.
+
+Use static numbers when appropriate.
+
+---
+
+# 14. Testimonials
+
+Testimonials should look like actual customer quotes.
+
+Include:
+
+* Real name when available
+* Real role/business when available
+* Actual quote
+
+Do not create enormous testimonial carousels.
+
+Do not use fake avatars.
+
+Do not use generic AI-generated praise such as:
+
+> "This completely transformed our workflow."
+
+unless it is an actual customer statement.
+
+---
+
+# 15. Pricing
+
+Pricing should be extremely clear.
+
+Avoid:
+
+* Glowing featured cards
+* Giant "MOST POPULAR" pills
+* Gradient backgrounds
+* Excessive icons
+* Decorative effects
+
+Use simple cards with clear:
+
+```text
+Plan name
+Price
+Description
+Features
+CTA
+```
+
+Highlight a plan through typography, border or subtle contrast — not glow.
+
+---
+
+# 16. Footer
+
+Keep the footer simple.
+
+Use:
+
+* Logo
+* Navigation
+* Contact
+* Legal links
+* Copyright
+
+Do not place the footer inside an enormous rounded floating container.
+
+Do not add artificial system-status indicators such as:
+
+```text
+● ALL SYSTEMS OPERATIONAL
+```
+
+unless the product genuinely has a public system-status concept.
+
+---
+
+# 17. Content
+
+Content must sound human.
+
+Avoid generic AI/SaaS phrases such as:
+
+* Unlock your potential
+* Empower your business
+* The future of...
+* Built for the modern...
+* Seamless experience
+* Next-generation
+* Revolutionize your workflow
+* Supercharge your productivity
+* Smarter. Faster. Better.
+* Powered by AI
+
+unless the phrase is genuinely appropriate.
+
+Prefer concrete language.
+
+Instead of:
+
+> Revolutionize the way you manage your business.
+
+Use:
+
+> Control your inventory, sales and cash register from one place.
+
+Explain what the product actually does.
+
+---
+
+# 18. Spacing
+
+Use generous but consistent spacing.
+
+Prefer:
+
+```text
+8px
+12px
+16px
+24px
+32px
+48px
+64px
+96px
+```
+
+Do not create huge empty spaces simply to make the page look "premium".
+
+Every section should have a clear relationship with the next one.
+
+---
+
+# 19. Borders and Surfaces
+
+Use borders sparingly.
+
+Recommended:
+
+```css
+border: 1px solid #242424;
+```
+
+Use surfaces to establish hierarchy:
+
+```text
+#080808 → page
+#101010 → cards
+#151515 → elevated elements
+```
+
+No gradient surfaces.
+
+No glowing borders.
+
+No transparent colored borders.
+
+---
+
+# 20. Responsive Design
+
+Design mobile intentionally.
+
+Do not simply stack the desktop layout.
+
+Pay attention to:
+
+* Typography
+* Spacing
+* Navigation
+* Product screenshots
+* CTA placement
+* Card widths
+* Touch targets
+
+The mobile version should feel like a deliberate design, not a compressed desktop page.
+
+---
+
+# 21. Anti-AI-Slop Checklist
+
+Before considering the design finished, verify:
+
+* [ ] No gradients
+* [ ] No glowing orbs
+* [ ] No ambient blobs
+* [ ] No grain/noise texture
+* [ ] No neon glow
+* [ ] No fake technical metadata
+* [ ] No `[FEATURES]` style labels
+* [ ] No unnecessary pills
+* [ ] No excessive rounded containers
+* [ ] No animated headline words
+* [ ] No infinite marquee
+* [ ] No unnecessary count-up animations
+* [ ] No scroll animation on every element
+* [ ] No fake statistics
+* [ ] No generic AI/SaaS copy
+* [ ] No decorative icons without meaning
+* [ ] No giant empty hero
+* [ ] No artificial "AI-powered" badge
+* [ ] No gradient text
+* [ ] No glassmorphism
+* [ ] No excessive blur
+* [ ] No fake system-status badge
+* [ ] Product visuals are real and useful
+* [ ] Typography is simple and readable
+* [ ] The page still looks good with animations disabled
+
+---
+
+# 22. Overall Structure
+
+A typical landing page can use:
+
+```text
+Navigation
+↓
+Hero
+↓
+Product showcase
+↓
+Features
+↓
+Product demonstration
+↓
+Benefits / use cases
+↓
+Testimonials
+↓
+Pricing
+↓
+FAQ
+↓
+Final CTA
+↓
+Footer
+```
+
+Do not force every section into every project.
+
+The structure should depend on the actual product and content.
+
+---
+
+# 23. Technology
+
+React:
+
+```text
+React
+Tailwind CSS
+lucide-react
+```
+
+Use Tailwind for layout and responsive behavior.
+
+Use CSS variables for the design tokens.
+
+Keep the implementation simple.
+
+Avoid unnecessary dependencies.
+
+---
+
+# Final Principle
+
+**Premium design comes from restraint, not effects.**
+
+If an element can be removed without reducing usability or understanding, remove it.
+
+If a visual effect exists only to make the website look futuristic, remove it.
+
+If a section looks like it could have been generated by any AI website generator, redesign it.
+
+The final result should feel:
+
+**quiet, intentional, human, functional, elegant and original.**

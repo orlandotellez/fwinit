@@ -53,7 +53,7 @@
 ---
 
 ## Borders & Radius
-- **Cards**: 16px — more rounded than typical SaaS, not bubbly
+- **Cards**: 10px — more rounded than typical SaaS, not bubbly
 - **Large panels / footer**: 20px
 - **Buttons**: 10px — never pill-shaped on CTAs
 - **Pill / badge / status**: `border-radius: 999px`
