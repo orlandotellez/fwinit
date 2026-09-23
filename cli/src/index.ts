@@ -91,6 +91,21 @@ async function installOpenCodeFiles(
     join(projectPath, ".opencode", "commands", "create-specs.md")
   );
 
+  // Los ejemplos de prompts de create-specs son opcionales: viajan a
+  // .opencode/skills/create-specs/examples/ para que la skill pueda
+  // mostrarlos dentro del proyecto generado.
+  try {
+    const examplesDir = join(repoRoot, "skills", "create-specs", "examples");
+    await access(examplesDir);
+    await cp(
+      examplesDir,
+      join(projectPath, ".opencode", "skills", "create-specs", "examples"),
+      { recursive: true }
+    );
+  } catch {
+    // sin ejemplos, no bloquear el scaffold
+  }
+
   // La biblioteca de diseño es opcional: si el repo no la trae, el
   // scaffold sigue sin ella (mismo criterio que el bundle de skills).
   try {
