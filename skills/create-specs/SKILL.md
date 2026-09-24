@@ -145,7 +145,10 @@ Business-level documentation written for the client/stakeholder — plain langua
 ### frontend/ files
 
 - **01-stack.md** — `Framework`, `Lenguaje`, `Versiones clave`, `Por qué`, `Comandos` (real from package.json/app.json).
-- **02-design.md** — `Tokens` (colors, spacing, radius, typography scale), `Estilo visual`, `Componentes base` (list), `Iconografía`, `Modo oscuro` (when the app has it).
+- **02-design.md** — the project's design system, consumable by the design skills (they read the tokens from here):
+  - `Design tokens` — semantic color roles: `base`, `surface`, `surface-elevated`, `border`, `text`, `text-secondary`, `text-muted`, `accent` (the model's ONLY brand-color input; design skills derive their scale from it) + `success`/`error`. Each role as a concrete value + usage note.
+  - `Tipografía` (scale + font stack), `Espaciado`, `Radio y sombras`, `Componentes base` (list), `Iconografía`, `Modo oscuro` (when the app has it).
+- **Regla de paleta**: if the prompt describes colors in natural language (e.g. "rosa, morado y blanco", "azul marino con acentos dorados"), translate the description into concrete, coherent values for each semantic role — never leave the description unresolved, never copy palettes from other projects, and verify AA contrast on every text role.
 - **03-architecture.md** — `Estructura de carpetas` (real), `Capas`, `Estado global` (store/solution when applicable), `Data fetching` (strategy: hooks, tanstack, rtk...), `Navegación` (routes/screens registry).
 - **04-screens.md** — one section per screen: `Propósito`, `Datos que muestra`, `Acciones del usuario`, `Navegación desde/hacia`, `Estados` (loading/empty/error). The full set of screens the app needs.
 - **05-quality.md** — `Lint`, `Formateo`, `Tests` (framework, targets), `Accesibilidad`, `Rendimiento objetivo`, `Comandos`.

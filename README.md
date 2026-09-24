@@ -143,7 +143,20 @@ Cada una es una carpeta con `SKILL.md` (frontmatter + reglas y triggers de activ
 
 Para sumar un estilo nuevo: creá la carpeta `skills/design/<estilo>/` con su `SKILL.md` (mismo nombre de carpeta en el frontmatter `name`, `description` con triggers distintivos en inglés y español) y su `DESIGN.md`, reiniciá opencode y listo.
 
-## Uso Directo (sin CLI)
+### Sistema de tokens de diseño
+
+Cada skill de diseño distingue **invariantes del sistema** (protectores, no negociables: base, superficies, textos, bordes) de **un único token de marca**: el `accent`. Todos los valores derivados del accent (hover, glows, bordes accent, sombras) se **computan por fórmula** desde ese único input — así un proyecto puede traer su color sin romper la armonía del estilo.
+
+Resolución del accent (en orden):
+
+1. **Override en el prompt** — `/dark-luxury accent #42b872`.
+2. **Design system del proyecto** — el token `accent` en `specs/frontend/02-design.md` (generado por `/create-specs`).
+3. **Tokens del framework** — `tailwind.config` / variables CSS existentes.
+4. **Default del sistema** — `#d4a03c`.
+
+El modelo aplica guardrails (base oscura con luminancia < 15%, texto con contraste AA); si un valor entrante los viola, la skill lo ajusta al rango válido y lo avisa, en vez de romper el sistema. `dark-luxury-design` ya implementa esto; el resto de la biblioteca lo adopta en iteraciones siguientes.
+
+### Uso Directo (sin CLI)
 
 Si preferís clonar directamente:
 

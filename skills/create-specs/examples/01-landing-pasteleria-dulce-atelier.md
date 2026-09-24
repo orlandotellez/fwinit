@@ -28,13 +28,10 @@ Uso: pegá este prompt después de `/create-specs`.
 >
 > ## 1. Sistema de diseño (aplica a TODO el sitio)
 >
-> ### 1.1 Paleta (valores exactos)
-> - Fondo base: `#FFF9F3` (crema) · blanco puro para tarjetas: `#FFFFFF`
-> - Texto principal: `#2E1B12` (chocolate oscuro) · texto secundario: `#7A5C4E` (chocolate suave)
-> - Acento rosado (detalles y CTAs secundarios): `#E8A0A0` · hover del acento: `#D98A8A`
-> - Bordes y separadores: `#F0E4D8`
-> - Estado éxito (ej. formulario enviado): `#7A9E7E` sobre fondo `#EAF2EA`
-> - Estado error (ej. campo requerido): `#C97A6A` sobre fondo `#FBEAE6`
+> ### 1.1 Paleta (en lenguaje natural — vos la convertís en sistema de diseño)
+> El sitio es de color **blanco, rosa y morado**: fondos blancos y crema muy claro; textos en **morado oscuro** (con **morado grisáceo** para el texto secundario); acentos en **rosa** (detalles, hover, estados activos) y **morado** (enlaces, elementos destacados, secciones oscuras como el footer); bordes y separadores en **crema suave**; éxito en verde suave y errores en rojo suave.
+>
+> **Regla**: en este prompt los colores se nombran de forma natural — **no definas valores hex aquí**. Al generar las specs, traducí esta descripción al sistema de diseño en `specs/frontend/02-design.md`: roles semánticos (`base`, `surface`, `surface-elevated`, `border`, `text`, `text-secondary`, `text-muted`, `accent`, `success`, `error`) con valores concretos y coherentes entre sí, contraste AA en todo el texto, y la escala derivada de los acentos (rosa y morado) para hover, focus, bordes destacados y fondos suaves.
 >
 > ### 1.2 Tipografía
 > **Inter** en toda la interfaz (display, texto, botones, formularios — sin excepciones, sin fuentes manuscritas ni serif).
@@ -44,15 +41,15 @@ Uso: pegá este prompt después de `/create-specs`.
 >
 > ### 1.3 Componentes globales
 > - **Header/Navbar fijo** (ver sección 2), presente en las 7 páginas, con el ítem activo resaltado (subrayado permanente, no solo hover).
-> - **Botón flotante de WhatsApp**: círculo 56px, fondo `#2E1B12`, ícono blanco, esquina inferior derecha, `position: fixed`, aparece después de 200px de scroll con fade-in 300ms, oculto en el formulario de Contacto (para no tapar el botón de enviar). `aria-label="Escribir por WhatsApp"`.
-> - **Breadcrumbs**: presentes en Menú, Ficha de producto, Nosotros, Contacto y FAQ (no en Inicio). Formato `Inicio / Menú / Pastel de Chocolate`, caption 13px, separador `/` en `#F0E4D8`, último ítem en `#2E1B12` sin link.
+> - **Botón flotante de WhatsApp**: círculo 56px, fondo morado oscuro, ícono blanco, esquina inferior derecha, `position: fixed`, aparece después de 200px de scroll con fade-in 300ms, oculto en el formulario de Contacto (para no tapar el botón de enviar). `aria-label="Escribir por WhatsApp"`.
+> - **Breadcrumbs**: presentes en Menú, Ficha de producto, Nosotros, Contacto y FAQ (no en Inicio). Formato `Inicio / Menú / Pastel de Chocolate`, caption 13px, separador `/` en crema, último ítem en morado oscuro sin link.
 > - **Footer** (ver sección 11), idéntico en todas las páginas.
 >
 > ### 1.4 Espaciado
 > Secciones separadas por 96–120px; gutter de contenedor 24px (móvil) / 32px (tablet) / 48px (desktop); ancho máximo de contenido 1200px (1040px en páginas de texto largo como Nosotros y FAQ, para mejorar legibilidad).
 >
 > ### 1.5 Formas y sombras
-> Radios 12–16px (tarjetas) y 999px (botones/inputs/chips de filtro); sombras solo `0 8px 30px rgba(46,27,18,0.08)` — muy suaves, nada de drop shadows duras ni neumorfismo.
+> Radios 12–16px (tarjetas) y 999px (botones/inputs/chips de filtro); sombras solo `0 8px 30px` morado oscuro al 8% — muy suaves, nada de drop shadows duras ni neumorfismo.
 >
 > ### 1.6 Fotografía (regla global)
 > Todas las fotos propias de pastelería, con brief visual idéntico: luz natural difusa lateral, fondo neutro cálido (crema o madera clara), encuadre editorial (no centrado perfecto), profundidad de campo baja, saturadas pero no artificiales. Cada imagen con `alt` descriptivo específico (ej. "Pastel de chocolate de tres capas con ganache brillante, vista de tres cuartos"), nunca genérico ("imagen 1").
@@ -82,14 +79,14 @@ Uso: pegá este prompt después de `/create-specs`.
 > ## 2. HEADER / NAVBAR (global, todas las páginas)
 >
 > **Layout**: barra fija arriba (74px de alto), contenido en contenedor de 1200px: logo a la izquierda, enlaces centrados, CTA a la derecha.
-> - Logo: wordmark **"Dulce Atelier"** en Inter 600, 20px, color `#2E1B12` (sin icono), linkea a Inicio.
-> - Enlaces: **Inicio · Menú · Nosotros · Contacto** (17px, color `#7A5C4E`; el ítem de la página activa en `#2E1B12` con subrayado fijo 2px).
-> - CTA derecha: botón **"Hacer pedido"** (relleno chocolate `#2E1B12`, texto crema, radio 999px, padding 12x28px) — enlaza a WhatsApp con mensaje prellenado genérico ("Hola, quiero hacer un pedido en Dulce Atelier").
+> - Logo: wordmark **"Dulce Atelier"** en Inter 600, 20px, color morado oscuro (sin icono), linkea a Inicio.
+> - Enlaces: **Inicio · Menú · Nosotros · Contacto** (17px, color morado grisáceo; el ítem de la página activa en morado oscuro con subrayado fijo 2px).
+> - CTA derecha: botón **"Hacer pedido"** (relleno morado oscuro, texto crema, radio 999px, padding 12x28px) — enlaza a WhatsApp con mensaje prellenado genérico ("Hola, quiero hacer un pedido en Dulce Atelier").
 >
 > **Comportamiento**:
-> - Al scrollear 40px+: navbar pasa a fondo `rgba(255,249,243,0.85)` + `backdrop-filter: blur(12px)` + borde inferior `1px #F0E4D8`. En páginas interiores (no Inicio) el navbar arranca directamente con este fondo, ya que no hay hero transparente debajo.
-> - Enlaces hover: color `#2E1B12` + subrayado animado (2px, ancho 0→100%, 200ms).
-> - CTA hover: reversa (fondo crema, texto chocolate) con sombra suave.
+> - Al scrollear 40px+: navbar pasa a fondo crema translúcido al 85% + `backdrop-filter: blur(12px)` + borde inferior 1px crema. En páginas interiores (no Inicio) el navbar arranca directamente con este fondo, ya que no hay hero transparente debajo.
+> - Enlaces hover: color morado oscuro + subrayado animado (2px, ancho 0→100%, 200ms).
+> - CTA hover: reversa (fondo crema, texto morado oscuro) con sombra suave.
 >
 > **Móvil (<768px)**: menú hamburguesa (3 líneas, animación a ✕ al abrir). Panel desplegable a pantalla completa con fondo crema, enlaces 24px con espacio generoso, CTA ancho completo. Cerrar con ✕, tocando fuera o con tecla `Esc`. El scroll del body se bloquea mientras está abierto. Foco atrapado dentro del panel mientras está abierto (accesibilidad).
 >
@@ -101,15 +98,15 @@ Uso: pegá este prompt después de `/create-specs`.
 > **Layout**: 2 columnas (60/40), min-height 92vh, contenedor 1200px centrado verticalmente. Desktop: texto izquierda, foto derecha. Tablet: 50/50. Móvil: columna única (texto, luego foto).
 >
 > **Contenido (izquierda)**:
-> - Eyebrow: **PASTELERÍA ARTESANAL** — caption 13px uppercase, `letter-spacing 0.08em`, color `#E8A0A0`.
-> - H1 display 64px: **"Momentos especiales merecen algo dulce."** — 2 líneas, la palabra "dulce" en itálica (Inter Italic) y color chocolate.
+> - Eyebrow: **PASTELERÍA ARTESANAL** — caption 13px uppercase, `letter-spacing 0.08em`, color rosa.
+> - H1 display 64px: **"Momentos especiales merecen algo dulce."** — 2 líneas, la palabra "dulce" en itálica (Inter Italic) y color morado oscuro.
 > - Párrafo (17px, máx 520px): "Pasteles y postres hechos artesanalmente con ingredientes seleccionados, recetas cuidadas y mucho cariño."
-> - Botones: **Ver menú** (primario, relleno chocolate, enlaza a `/menu`) · **Hacer un pedido** (secundario, contorno 2px `#2E1B12`, enlaza a WhatsApp).
+> - Botones: **Ver menú** (primario, relleno morado oscuro, enlaza a `/menu`) · **Hacer un pedido** (secundario, contorno 2px morado oscuro, enlaza a WhatsApp).
 > - Micro-línea: "Pedidos con 48h de anticipación" con punto rosado decorativo.
 >
 > **Foto (derecha)**: pastel de chocolate de 3 capas recién decorado sobre pedestal de cerámica, luz lateral, fondo crema difuso, ganache brillante con movimiento capturado. Proporción 4:5, radio 20px, sin marco ni sombra dura (ocupa todo el alto de la columna). Hover: escala 1.02 suave (600ms). `alt`: "Pastel de chocolate de tres capas recién decorado sobre pedestal de cerámica".
 >
-> **Debajo del hero** (borde superior `1px #F0E4D8`): 3 indicadores en fila, check rosado + texto 17px — **100% artesanal · Ingredientes seleccionados · Pedidos personalizados**. Móvil: apilados, espaciado 16px.
+> **Debajo del hero** (borde superior 1px crema): 3 indicadores en fila, check rosado + texto 17px — **100% artesanal · Ingredientes seleccionados · Pedidos personalizados**. Móvil: apilados, espaciado 16px.
 >
 > ### 3.2 CATEGORÍAS / EXPLORAR
 > **Layout**: grid editorial asimétrico de 5 tarjetas en 2 filas (desktop): una ancha (2 columnas, foto 4:5), una estrecha (1 columna, foto 16:10), segunda fila invertida. Tablet: 3+2. Móvil: 1 columna, tarjetas 4:5.
@@ -126,7 +123,7 @@ Uso: pegá este prompt después de `/create-specs`.
 >
 > **Cada tarjeta de producto** enlaza a su ficha individual `/productos/[slug]` (ver sección 5):
 > - Foto 3:4 (brief: pastel entero/porción estilizada, luz difusa, fondo crema).
-> - Nombre H3 24px · descripción corta 15px `#7A5C4E` (máx 2 líneas, elipsis) · precio 17px 600 chocolate (formato "$12.900").
+> - Nombre H3 24px · descripción corta 15px morado grisáceo (máx 2 líneas, elipsis) · precio 17px 600 morado oscuro (formato "$12.900").
 > - Botón **"Ver producto"** (texto chocolate, contorno fino ancho completo inferior; hover: relleno chocolate + texto crema).
 >
 > **4 productos destacados** (subconjunto del catálogo completo de la sección 5.4): Pastel de Chocolate, Red Velvet, Tarta de Fresas, Cheesecake.
@@ -137,15 +134,15 @@ Uso: pegá este prompt después de `/create-specs`.
 > **Layout**: 2 columnas 55/45. Desktop: foto izquierda, texto derecha. Móvil: foto arriba (4:5), texto debajo.
 >
 > - Foto: persona decorando un pastel con manga pastelera — manos en acción, encuadre cerrado, luz de ventana, fondo con ingredientes desenfocados.
-> - Eyebrow **HECHO A MANO** (`#E8A0A0`). H2 40px **"Cada detalle importa."** Párrafo (máx 480px): "Desde la preparación de nuestras masas hasta la decoración final, cada creación pasa por nuestras manos. Queremos que cada pastel no solo se vea especial, sino que también se recuerde."
+> - Eyebrow **HECHO A MANO** (rosa). H2 40px **"Cada detalle importa."** Párrafo (máx 480px): "Desde la preparación de nuestras masas hasta la decoración final, cada creación pasa por nuestras manos. Queremos que cada pastel no solo se vea especial, sino que también se recuerde."
 > - Botón **"Conoce nuestra historia"** (primario chocolate, enlaza a `/nosotros`).
 > - Firma Inter 600 15px: "— Dulce Atelier".
 >
 > ### 3.5 PASTEL PERSONALIZADO
-> **Layout**: fondo `#2E1B12` (única sección oscura de Inicio). Texto centrado, ancho 720px.
+> **Layout**: fondo morado oscuro (única sección oscura de Inicio). Texto centrado, ancho 720px.
 >
-> - H2 blanco **"¿Tienes algo especial en mente?"** Párrafo `#E8D9CF`: "Diseñamos pasteles personalizados para cumpleaños, bodas, aniversarios y cualquier celebración."
-> - Botón **"Solicitar un pastel personalizado"** (relleno crema, texto chocolate; hover: relleno rosado) — enlaza a `/contacto?motivo=personalizado`.
+> - H2 blanco **"¿Tienes algo especial en mente?"** Párrafo en crema: "Diseñamos pasteles personalizados para cumpleaños, bodas, aniversarios y cualquier celebración."
+> - Botón **"Solicitar un pastel personalizado"** (relleno crema, texto morado oscuro; hover: relleno rosa) — enlaza a `/contacto?motivo=personalizado`.
 > - Lista de 4 checks en 2 columnas (desktop): **✓ Diseño personalizado · ✓ Sabores a elección · ✓ Tamaños diferentes · ✓ Decoración artesanal**.
 > - Galería mini (si hay espacio): 3 fotos horizontales de pasteles personalizados (boda, cumpleaños, empresarial), radio 16px, `alt` propio. Móvil: ocultar 1 foto.
 >
@@ -153,11 +150,11 @@ Uso: pegá este prompt después de `/create-specs`.
 > **Layout**: 3 columnas (desktop) / 1 columna (móvil), padding vertical 120px, gap 48px.
 >
 > - H2 **"Así de fácil"** + "Tres pasos, cero complicaciones."
-> - Número gigante 96px Inter 600 en `#F0E4D8`: **01 — Elige** ("Explora nuestros sabores y diseños.", ícono magdalena) · **02 — Personaliza** ("Cuéntanos cómo quieres tu pastel.", ícono lápiz) · **03 — Recibe** ("Preparamos tu pedido y coordinamos la entrega.", ícono camioneta).
+> - Número gigante 96px Inter 600 en crema: **01 — Elige** ("Explora nuestros sabores y diseños.", ícono magdalena) · **02 — Personaliza** ("Cuéntanos cómo quieres tu pastel.", ícono lápiz) · **03 — Recibe** ("Preparamos tu pedido y coordinamos la entrega.", ícono camioneta).
 > - Móvil: pasos apilados con línea vertical conectora izquierda.
 >
 > ### 3.7 TESTIMONIOS
-> **Layout**: 3 tarjetas blancas en fila (desktop) / 1 columna (móvil), gap 24px, radio 16px, borde `1px #F0E4D8`, sin sombra.
+> **Layout**: 3 tarjetas blancas en fila (desktop) / 1 columna (móvil), gap 24px, radio 16px, borde 1px crema, sin sombra.
 >
 > - H2 **"Lo que dicen nuestros clientes"**.
 > - "Además de precioso, estaba delicioso. Todos preguntaron dónde lo habíamos comprado." — **María**, etiqueta "Pedido de cumpleaños".
@@ -173,11 +170,11 @@ Uso: pegá este prompt después de `/create-specs`.
 > - Fade-up al scroll por grupo de fotos (no individual). Hover: zoom 1.03 con sombra suave.
 >
 > ### 3.9 CTA FINAL
-> **Layout**: ancho completo con fondo fotográfico (pastel en mesa de madera), overlay `rgba(46,27,18,0.55)`, texto centrado, padding 140px vertical.
+> **Layout**: ancho completo con fondo fotográfico (pastel en mesa de madera), overlay morado oscuro al 55%, texto centrado, padding 140px vertical.
 >
 > - H1/H2 blanco 60px: **"Haz que tu próxima celebración sea un poco más dulce."**
-> - Párrafo `#F0E4D8` (máx 560px): "Cuéntanos qué estás celebrando y nosotros nos encargamos del resto."
-> - Botones: **"Hacer un pedido"** (relleno crema, texto chocolate) + **"Hablar por WhatsApp"** (contorno 2px crema, ícono WhatsApp; hover: relleno rosado).
+> - Párrafo en crema (máx 560px): "Cuéntanos qué estás celebrando y nosotros nos encargamos del resto."
+> - Botones: **"Hacer un pedido"** (relleno crema, texto morado oscuro) + **"Hablar por WhatsApp"** (contorno 2px crema, ícono WhatsApp; hover: relleno rosado).
 > - `alt` del fondo vacío (`aria-hidden`) — foto decorativa.
 >
 > ---
@@ -188,7 +185,7 @@ Uso: pegá este prompt después de `/create-specs`.
 >
 > **Header de página**: H1 48px **"Nuestro menú"** + párrafo 17px "Cada creación está hecha por encargo, con ingredientes frescos y mucho cuidado en cada detalle." Breadcrumb: `Inicio / Menú`.
 >
-> **Filtros por categoría** (chips horizontales, scroll horizontal en móvil): **Todos · Pasteles · Cupcakes · Tartas · Galletas · Postres individuales**. Chip activo: fondo chocolate, texto crema. Chip inactivo: borde `1px #F0E4D8`, texto `#7A5C4E`, hover con borde chocolate. El filtro actualiza la URL (`?categoria=`) sin recargar la página; permite compartir el link filtrado.
+> **Filtros por categoría** (chips horizontales, scroll horizontal en móvil): **Todos · Pasteles · Cupcakes · Tartas · Galletas · Postres individuales**. Chip activo: fondo morado oscuro, texto crema. Chip inactivo: borde 1px crema, texto morado grisáceo, hover con borde morado oscuro. El filtro actualiza la URL (`?categoria=`) sin recargar la página; permite compartir el link filtrado.
 >
 > **Buscador simple** (opcional, a la derecha de los filtros en desktop): input con ícono de lupa, placeholder "Buscar un postre...", filtra por nombre en tiempo real (client-side, sin backend).
 >
@@ -241,7 +238,7 @@ Uso: pegá este prompt después de `/create-specs`.
 > **Info (derecha)**:
 > - Categoría (caption uppercase, rosado) enlaza de vuelta a `/menu?categoria=`.
 > - H1 40px: nombre del producto.
-> - Precio H3 24px 600 chocolate. Si el producto tiene variantes de tamaño/formato (ej. galletas y alfajores con precio por unidad y por caja), mostrar un selector tipo chip (**Unidad · Caja x6**) que actualiza el precio mostrado.
+> - Precio H3 24px 600 morado oscuro. Si el producto tiene variantes de tamaño/formato (ej. galletas y alfajores con precio por unidad y por caja), mostrar un selector tipo chip (**Unidad · Caja x6**) que actualiza el precio mostrado.
 > - Descripción larga (2–3 párrafos, 17px, tono cálido y artesanal — no genérico de e-commerce). Ejemplo de tono para Pastel de Chocolate: "Nuestro pastel insignia. Tres capas de bizcocho de chocolate intenso, separadas por una crema de vainilla suave y cubiertas con un ganache brillante que se sirve recién templado. Ideal para quienes buscan un sabor clásico, hecho sin atajos."
 > - **Selector de tamaño** (chips): Individual (6–8 porciones) · Mediano (10–12 porciones) · Grande (16–20 porciones), con nota de precio referencial por tamaño ("desde $X").
 > - Botón primario **"Consultar disponibilidad por WhatsApp"** (relleno chocolate, ancho completo en móvil) — arma automáticamente un mensaje prellenado con el nombre del producto y el tamaño elegido.
@@ -255,7 +252,7 @@ Uso: pegá este prompt después de `/create-specs`.
 > - **Conservación y entrega**: "Se conserva refrigerado hasta 4 días. Sacar 20 minutos antes de servir. Disponible para retiro en tienda o despacho a coordinar por zona."
 >
 > ### 5.3 Personalización
-> Bloque destacado (fondo crema, borde `1px #F0E4D8`, radio 16px): "¿Querés personalizar este pastel?" + texto corto + botón secundario a `/contacto?motivo=personalizado&producto=[nombre]`.
+> Bloque destacado (fondo crema, borde 1px crema, radio 16px): "¿Querés personalizar este pastel?" + texto corto + botón secundario a `/contacto?motivo=personalizado&producto=[nombre]`.
 >
 > ### 5.4 Productos relacionados
 > H2 **"También te puede gustar"** + grid de 4 tarjetas (mismo componente que Menú) con productos de la misma categoría o categorías afines. Mismo comportamiento de hover que el resto del sitio.
@@ -277,7 +274,7 @@ Uso: pegá este prompt después de `/create-specs`.
 >
 > **El obrador**: mini-galería de 4–6 fotos (grid 2x2 o 2x3) del espacio de trabajo — mesas de madera, utensilios, ingredientes ordenados, proceso de horneado — para transmitir transparencia y calidad artesanal.
 >
-> **CTA de cierre**: banda con fondo `#2E1B12`, texto centrado "¿Querés probar lo que hacemos?" + botón **"Ver menú"** (a `/menu`) + botón secundario **"Escribinos"** (a `/contacto`).
+> **CTA de cierre**: banda con fondo morado oscuro, texto centrado "¿Querés probar lo que hacemos?" + botón **"Ver menú"** (a `/menu`) + botón secundario **"Escribinos"** (a `/contacto`).
 >
 > ---
 >
@@ -301,11 +298,11 @@ Uso: pegá este prompt después de `/create-specs`.
 > - **Fecha del evento** (date, opcional).
 > - **Mensaje** (textarea, requerido, mín. 20 caracteres).
 > - Checkbox de consentimiento simple: "Acepto ser contactado/a por Dulce Atelier para responder esta consulta."
-> - Botón **"Enviar mensaje"** (relleno chocolate, ancho completo en móvil), con estado de carga (spinner simple) y estado de confirmación ("¡Gracias! Te responderemos dentro de 24 horas hábiles." — fondo `#EAF2EA`, ícono de check).
-> - Manejo de error inline por campo (borde `#C97A6A`, texto de error 13px debajo del input, `aria-live="polite"`).
+> - Botón **"Enviar mensaje"** (relleno morado oscuro, ancho completo en móvil), con estado de carga (spinner simple) y estado de confirmación ("¡Gracias! Te responderemos dentro de 24 horas hábiles." — fondo verde suave, ícono de check).
+> - Manejo de error inline por campo (borde rojo suave, texto de error 13px debajo del input, `aria-live="polite"`).
 >
 > ### 7.2 Información de contacto (derecha)
-> Tarjeta blanca, radio 16px, borde `1px #F0E4D8`:
+> Tarjeta blanca, radio 16px, borde 1px crema:
 > - **WhatsApp**: +56 9 1234 5678, con botón directo "Escribir por WhatsApp" (ícono + mensaje prellenado).
 > - **Email**: hola@dulceatelier.cl (mailto directo).
 > - **Instagram**: @dulceatelier (enlace externo).
@@ -372,15 +369,15 @@ Uso: pegá este prompt después de `/create-specs`.
 >
 > ## 11. FOOTER (global, todas las páginas)
 >
-> **Layout**: fondo `#2E1B12`, contenido en 1200px, 4 columnas (desktop) / 2 (tablet) / 1 (móvil), padding 80px vertical.
+> **Layout**: fondo morado oscuro, contenido en 1200px, 4 columnas (desktop) / 2 (tablet) / 1 (móvil), padding 80px vertical.
 >
-> - **Columna 1 (marca)**: wordmark **Dulce Atelier** (crema, 600) + "Pastelería artesanal para momentos especiales." (`#E8D9CF`, 15px) + 3 iconos de redes (Instagram, Facebook, WhatsApp — lineales, 20px, hover rosado).
+> - **Columna 1 (marca)**: wordmark **Dulce Atelier** (crema, 600) + "Pastelería artesanal para momentos especiales." (crema, 15px) + 3 iconos de redes (Instagram, Facebook, WhatsApp — lineales, 20px, hover rosado).
 > - **Explorar**: Inicio · Menú · Nosotros · Contacto.
 > - **Ayuda**: Preguntas frecuentes · Cómo pedir · Despacho y entregas (ancla a la sección correspondiente de FAQ) · Contacto.
 > - **Contacto**: WhatsApp (+56 9 1234 5678) · Instagram (@dulceatelier) · Email (hola@dulceatelier.cl) · Dirección (Av. Alameda 1234, Santiago).
-> - Links crema `#E8D9CF` 15px con hover → blanco + subrayado.
+> - Links crema 15px con hover → blanco + subrayado.
 >
-> **Barra final**: borde superior `1px rgba(255,249,243,0.15)`, texto 13px centrado: **"© 2026 Dulce Atelier. Todos los derechos reservados."**
+> **Barra final**: borde superior 1px crema al 15%, texto 13px centrado: **"© 2026 Dulce Atelier. Todos los derechos reservados."**
 >
 > ---
 >
@@ -396,7 +393,7 @@ Uso: pegá este prompt después de `/create-specs`.
 > 5. Diseño responsive real (3 breakpoints verificados en cada página, no solo en Inicio).
 > 6. Navegación clara y consistente (navbar fijo con blur al scrollear, breadcrumbs, menú hamburguesa accesible, footer idéntico en todas las páginas).
 > 7. Conversión hacia **"Hacer un pedido"** en cada página relevante (navbar, hero de Inicio, ficha de producto, personalizado, cierre final, contacto).
-> 8. Identidad visual coherente en todo el sitio (paleta exacta, radios, sombras y fotografía consistentes entre Inicio, Menú, fichas de producto, Nosotros, Contacto y FAQ).
+> 8. Identidad visual coherente en todo el sitio (la paleta rosa/morado/blanco derivada al sistema de diseño de `02-design.md`, radios, sombras y fotografía consistentes entre Inicio, Menú, fichas de producto, Nosotros, Contacto y FAQ).
 > 9. Cada producto del catálogo tiene su propia página completa y navegable (`/productos/[slug]`), no solo una tarjeta en un grid.
 > 10. El formulario de Contacto y los CTAs de WhatsApp son los únicos "sistemas" de conversión — nunca implementar carrito, checkout, cuentas de usuario ni backend propio.
 >

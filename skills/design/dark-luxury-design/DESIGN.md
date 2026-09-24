@@ -8,25 +8,37 @@
 ---
 
 ## Color Palette
-- **Background**: #0a0907 — warm near-black
-- **Surface / Elevated**: #100f0d — section alternates
-- **Card**: #161412 — card and panel backgrounds
-- **Footer Panel**: #141210 — slightly lighter than base
-- **Accent (Primary)**: #d4a03c — amber gold; button borders, section labels, icon strokes, key numbers
-- **Accent Bright**: #e8b84e — hover states
-- **Accent Glow**: rgba(212, 160, 60, 0.18) — button halos, orb tint
-- **Accent Subtle**: rgba(212, 160, 60, 0.08) — icon container fills
-- **Border Subtle**: rgba(255, 248, 230, 0.07) — dividers, input borders
-- **Border Medium**: rgba(255, 248, 230, 0.13) — visible dividers
-- **Border Accent**: rgba(212, 160, 60, 0.55) — primary button border, featured card outline
-- **Text Primary**: #f0ebe0 — bright warm white; key headline words, headings
-- **Text Muted**: #5a544a — dark grey; supporting headline words (same weight as primary, just dimmer)
-- **Text Body**: #8a8070 — body copy, nav links at rest
-- **Text Tertiary**: #524c42 — captions, metadata
-- **Success**: #3d9e5c
-- **Error**: #b83c38
 
-> **Alternate accent palettes**: Silver `#b4c0d4` on `#080809` · Emerald `#42b872` on `#070908` · Crimson `#c8385a` on `#09070a`
+The color system has **invariants** (protected) and exactly **one brand input**: the `accent`. Every accent-derived value is computed, never hardcoded independently. This file documents the reference instance (warm near-black); `SKILL.md` ("Design Tokens — Source of Truth") owns the canonical token list and guardrails.
+
+### Token roles
+
+| Role (CSS var) | Reference instance | Guardrail |
+|---|---|---|
+| `--bg` | `#0a0907` — warm near-black | luminance < 15% |
+| `--surface` | `#100f0d` — section alternates | near-black |
+| `--surface-elevated` | `#161412` — card and panel backgrounds | near-black |
+| `--border` | `rgba(255,248,230,0.07)` subtle · `0.13` medium | derived from warm white |
+| `--text` | `#f0ebe0` — bright warm white | AA (4.5:1) vs `--bg` |
+| `--text-secondary` | `#8a8070` — body copy, nav links at rest | — |
+| `--text-muted` | `#5a544a` — supporting headline words | — |
+| `--accent` | `#d4a03c` — amber gold | any hue — the only brand input |
+
+> **Naming notes**: this file's `text-primary` ≈ `--text` · `text-body` ≈ `--text-secondary` · `text-muted` == `--text-muted`. Fixed utilities: `text-tertiary` (`#524c42`), Success (`#3d9e5c`), Error (`#b83c38`).
+
+### Accent scale (derived from `--accent`, never hardcoded)
+
+| CSS var (derived) | Default instance | Formula |
+|---|---|---|
+| `--accent-bright` | `#e8b84e` | accent lightness +12% |
+| `--accent-glow` | `rgba(212,160,60,0.18)` | accent @ 18% alpha |
+| `--accent-subtle` | `rgba(212,160,60,0.08)` | accent @ 8% alpha |
+| `--accent-border` | `rgba(212,160,60,0.55)` | accent @ 55% alpha |
+| `--accent-shadow` | `rgba(212,160,60,0.12)` | accent @ 12% alpha |
+
+The amber values above are the default instance (`#d4a03c`). For a project, substitute the project accent and re-derive — never mix values from two instances.
+
+> **Alternate accent instances**: Silver `#b4c0d4` on `#080809` · Emerald `#42b872` on `#070908` · Crimson `#c8385a` on `#09070a` — each keeps the dark base untouched and only swaps the accent input.
 
 ---
 
@@ -34,7 +46,7 @@
 - **Primary Font**: Inter — geometric sans-serif, weights 400–800
 - **Mono Font**: JetBrains Mono or Fira Code — used for section labels and metadata lines
 - **Display / Hero**: `clamp(52px, 7vw, 96px)`, weight 700–800, letter-spacing -0.03em. Must feel tight
-- **Signature move**: Headlines use **color contrast, not weight contrast** — all words are the same bold weight (700–800), but supporting words are `#5a544a` (near-invisible grey) and key words snap to `#f0ebe0` (bright white). Never use a thin (300) weight line
+- **Signature move**: Headlines use **color contrast, not weight contrast** — all words are the same bold weight (700–800), but supporting words are `--text-muted` (near-invisible grey) and key words snap to `--text` (bright white). Never use a thin (300) weight line
 - **Section Headings (h2)**: `clamp(28px, 3vw, 44px)`, weight 700, letter-spacing -0.03em
 - **Card Headings (h3)**: `clamp(17px, 1.6vw, 20px)`, weight 600, letter-spacing -0.02em
 - **Body**: 16px, weight 400, line-height 1.65, `text-body` color
@@ -64,28 +76,28 @@
 ## Shadows & Elevation
 
 Cards look raised off the page with no visible border line. Three things create this:
-1. Card background (`#161412`) is noticeably lighter than page background (`#0a0907`)
-2. `inset 0 1px 0 rgba(255,248,230,0.08)` — a top-edge inner highlight simulating light hitting a raised surface
+1. Card background (`--surface-elevated`) is noticeably lighter than page background (`--bg`)
+2. `inset 0 1px 0` in `--border` (subtle intensity) — a top-edge inner highlight simulating light hitting a raised surface
 3. `0 4px 24px rgba(0,0,0,0.45)` — soft downward shadow that grounds the card
 
 ```
-Card:         box-shadow: inset 0 1px 0 rgba(255,248,230,0.08), 0 4px 24px rgba(0,0,0,0.45)
-Card hover:   box-shadow: inset 0 1px 0 rgba(255,248,230,0.10), 0 12px 40px rgba(0,0,0,0.55)
-Card featured: add 0 0 0 1px rgba(212,160,60,0.55), 0 0 30px rgba(212,160,60,0.12)
+Card:          box-shadow: inset 0 1px 0 var(--border), 0 4px 24px rgba(0,0,0,0.45)
+Card hover:    box-shadow: inset 0 1px 0 var(--border), 0 12px 40px rgba(0,0,0,0.55)
+Card featured: add 0 0 0 1px var(--accent-border), 0 0 30px var(--accent-shadow)
 ```
 
 - **Grain texture**: `body::before`, SVG fractalNoise, 4% opacity, `mix-blend-mode: overlay` — non-negotiable
-- **Hero orb**: One large elliptical radial gradient (900×500px), bottom-center, amber at ~28% → transparent. Not multiple orbs.
+- **Hero orb**: One large elliptical radial gradient (900×500px), bottom-center, accent at ~28% → transparent. Not multiple orbs.
 
 ---
 
 ## Buttons
 
-All buttons have a **dark background** with a **border**. No button ever has a filled amber/accent background.
+All buttons have a **dark background** with a **border**. No button ever has a filled accent background.
 
-- **Primary**: Dark bg + amber border (`rgba(212,160,60,0.55)`) + always-visible multi-layer glow. The glow is a real light-source effect with three layers: tight bright edge (8px, 55% opacity), medium halo (20px, 25%), wide ambient bloom (40px, 10%). Pulses gently at rest between moderate and strong — never fades to invisible.
-- **Secondary**: Dark bg + subtle grey border (`rgba(255,248,230,0.13)`). No glow.
-- **Hover — primary**: Glow intensifies, border brightens to `#e8b84e`, `translateY(-1px)`
+- **Primary**: Dark bg + accent border (`--accent-border`) + always-visible multi-layer glow. The glow is a real light-source effect with three layers: tight bright edge (8px, 55% opacity), medium halo (20px, 25%), wide ambient bloom (40px, 10%). Pulses gently at rest between moderate and strong — never fades to invisible.
+- **Secondary**: Dark bg + subtle grey border (`--border` medium intensity). No glow.
+- **Hover — primary**: Glow intensifies, border brightens to `--accent-bright`, `translateY(-1px)`
 - **Hover — secondary**: Border opacity increases slightly, faint white bg tint
 - **Radius**: 10px on all buttons
 - **Size SM** (nav): `padding: 8px 18px`, 13px text
@@ -99,7 +111,7 @@ Every section has a label above its heading. Format is **`[Label]`** bracket not
 
 - Font: monospace (`JetBrains Mono` or similar)
 - Size: 13px
-- Color: `var(--accent)` amber
+- Color: `var(--accent)` (the project accent — any hue)
 - Letter-spacing: 0.06em
 - No background, no pill, no border — bare bracketed text only
 
@@ -124,10 +136,10 @@ Examples: `[Features]` `[Pricing]` `[Foundation]` `[Achievements]`
 - **Technical Metadata**: Architecture/foundation cards include a monospace line below the title: `3F1C9 // CONTEXT DEPTH: 12.4 // INSIGHT HASH: 7B` — invented but realistic metrics in `text-tertiary`
 - **Stats**: Split layout (text + heading left, floating stat cards right) or centered large numbers. Binary/hex code as background texture at low opacity
 - **Testimonials**: Two rows, scrolling in opposite directions via CSS marquee
-- **Pricing Cards**: 3-column. Icon (square container) + tier name on same line. Featured middle card distinguished by amber border + ambient glow only — no background color change. Full-width button inside each card
-- **Pricing Checklist**: Small square checkbox SVG (not bare checkmarks), amber stroke, grey border
+- **Pricing Cards**: 3-column. Icon (square container) + tier name on same line. Featured middle card distinguished by accent border (`--accent-border`) + ambient glow (`--accent-glow`) only — no background color change. Full-width button inside each card
+- **Pricing Checklist**: Small square checkbox SVG (not bare checkmarks), accent stroke, grey border
 - **Logo Marquee**: Infinite scroll, logos greyscale at ~30% opacity, fade mask on left/right edges
-- **Footer**: Sits inside a **rounded elevated panel** (`border-radius: 20px`, `background: #141210`) on the page background — not flush. Contains logo, tagline, link columns, and a `[ALL SYSTEMS OPERATIONAL]` status badge (green dot + monospace green text)
+- **Footer**: Sits inside a **rounded elevated panel** (`border-radius: 20px`, `--surface-elevated` surface) on the page background — not flush. Contains logo, tagline, link columns, and a `[ALL SYSTEMS OPERATIONAL]` status badge (Success dot + monospace Success text)
 - **CTA Banner**: Centered headline, dual buttons (primary + secondary), single orb glow behind
 
 ---
@@ -158,8 +170,8 @@ Examples: `[Features]` `[Pricing]` `[Foundation]` `[Achievements]`
 - Headline contrast is COLOR not weight — both "dim" and "bright" words are bold. Don't use a thin weight line
 - Section labels are `[Label]` in monospace, not dashes, not uppercase pills
 - Cards have no border — the inset top highlight IS the edge definition
-- Buttons are never filled amber — dark bg + amber border + multi-layer glow
+- Buttons are never filled with the accent — dark bg + accent border + multi-layer glow
 - The primary button glow never disappears — it pulses between two visible states
 - One orb in the hero, elliptical, bottom-center — not multiple symmetric blobs
-- Accent is surgical — labels, borders, numbers. Never a large fill
+- Accent is surgical — labels, borders, numbers. Never a large fill. All accent-derived values come from the accent scale, never hand-written
 - SVG icons only. No emoji. No icon fonts.

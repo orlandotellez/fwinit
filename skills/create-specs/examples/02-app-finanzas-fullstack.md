@@ -278,6 +278,7 @@ Uso: pegá la semilla o la versión detallada después de `/create-specs`. La se
 >
 > ### REGLAS IMPORTANTES PARA LAS SPECS
 >
+> - **Diseño**: la interfaz usa los colores **blanco, rosa y morado** — fondo blanco, superficies blancas/crema, textos en morado oscuro (secundario en morado grisáceo), acentos en **rosa** y **morado**, verde = ingreso, rojo = gasto, ámbar = presupuesto al límite. No definas valores hex en este prompt: al generar las specs, traducí esta descripción al sistema de diseño en `specs/frontend/02-design.md` (roles semánticos `base`, `surface`, `surface-elevated`, `border`, `text`, `text-secondary`, `text-muted`, `accent`, `success`, `error` + escala derivada de los acentos para hover/focus/estados) con valores concretos y contraste AA.
 > - Las specs se organizan en los módulos listados (backend + db + frontend), con archivos y tasks por módulo — nada genérico, nada de placeholder.
 > - Cada pantalla, endpoint y entidad de las specs debe existir por esta descripción: si una pantalla lista campos, los fields aparecen en el frontend, en el schema de la DB y en la validación del backend.
 > - Los flujos críticos deben recorrerse de punta a punta en las specs: alta de transacción → afecta saldo de cuenta, dashboard y presupuesto; importación con duplicados → alerta al terminar.
