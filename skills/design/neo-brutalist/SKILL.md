@@ -1,5 +1,5 @@
 ---
-name: neo-brutalist-design
+name: neo-brutalist
 description: Design and build websites and web apps in the "Neo-Brutalist" style — bold saturated colors, thick black borders, hard offset shadows with zero blur, raw exposed grids, chunky display typography, and visible structure. Loud, confident, subversive, playful. Use this skill whenever someone asks for "brutalist", "neo-brutalist", "brutalism", "hard shadows", "raw", "bold borders", "tough design", "ugly-beautiful", "punk web design", or similar — including Spanish: "brutalista", "neo-brutalista", "estilo bruto", "sombras duras", "bordes negros gruesos", "diseño crudo", "atrevido y directo". Do NOT use this skill for dark luxury, minimal light, or glassmorphism — those have their own design skills. Always use this skill — do NOT attempt brutalist design from memory alone.
 ---
 

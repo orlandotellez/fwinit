@@ -1,5 +1,5 @@
 ---
-name: glassmorphism-design
+name: glassmorphism
 description: Design and build websites and web apps in the "Glassmorphism" style — frosted glass panels with backdrop blur, translucent layers, soft gradient aurora backgrounds, subtle light borders, floating depth, and gentle ambient glow. Dreamy, modern, airy, dimensional. Use this skill whenever someone asks for "glassmorphism", "glass effect", "frosted glass", "glassy", "translucent", "blur backgrounds", "aurora", "gradient gradient background", "crystal ui", "glass ui" or similar — including Spanish: "glassmorphism", "efecto vidrio", "cristal", "vidrio esmerilado", "translúcido", "blur", "fondo aurora", "gradientes suaves", "estilo cristal". Do NOT use this skill for dark luxury, minimal light, or neo-brutalist — those have their own design skills. Always use this skill — do NOT attempt glassmorphism design from memory alone.
 ---
 

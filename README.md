@@ -121,7 +121,8 @@ La capa es metadata de cada template (`layer` en `templates/<TEMPLATE>/template.
 Todo proyecto generado incluye `.opencode/skills/create-specs`, el comando `/create-specs` y la biblioteca de diseño completa:
 
 - `/create-specs <descripción>` genera la carpeta `specs/` con módulos `backend/`, `db/` y `frontend/`, cada uno con sus `tasks` listas para implementar.
-- `skills/design/` — biblioteca de diseño con 4 estilos listos para usar en el proyecto: `dark-luxury-design`, `minimal-light-design`, `neo-brutalist-design` y `glassmorphism-design` (cada uno con su `SKILL.md` y `DESIGN.md`).
+- `skills/design/` — biblioteca de diseño con 4 estilos listos para usar en el proyecto: `dark-luxury`, `minimal-light`, `neo-brutalist` y `glassmorphism` (cada uno con su `SKILL.md` y `DESIGN.md`).
+- `/design` y `/design-<estilo>` — comandos para aplicar un sistema de diseño: cargan la skill del estilo elegido y leen automáticamente el design system del proyecto en `specs/frontend/02-design.md`.
 - La db se documenta en `specs/db/` (schemas por entidad, enums y use-cases) aunque la implementación viva en el template backend.
 - Los templates y los proyectos traen `.gitignore` con el estado de AI de desarrollo (`.atl/`, `odd` y `.opencode/`) ya excluido.
 
@@ -131,17 +132,29 @@ El repo es la fuente de verdad de **skills de diseño** para opencode, una por e
 
 ```
 skills/design/
-├── dark-luxury-design/     # Oscuro premium: negro cálido, acentos dorados/plata, grano, glow
-├── minimal-light-design/   # Light minimal: blanco, whitespace generoso, un acento
-├── neo-brutalist-design/   # Brutalista: sombras duras, bordes gruesos negros, colores vivos
-└── glassmorphism-design/   # Cristal: paneles translúcidos con blur, fondos aurora
+├── dark-luxury/     # Oscuro premium: negro cálido, acentos dorados/plata, grano, glow
+├── minimal-light/   # Light minimal: blanco, whitespace generoso, un acento
+├── neo-brutalist/   # Brutalista: sombras duras, bordes gruesos negros, colores vivos
+├── glassmorphism/   # Cristal: paneles translúcidos con blur, fondos aurora
+└── commands/        # /design y /design-<estilo> (cargar skill + leer specs/frontend/02-design.md)
 ```
 
 Cada una es una carpeta con `SKILL.md` (frontmatter + reglas y triggers de activación, inglés + español) y `DESIGN.md` (paleta, tipografía y especificación completa). Están registradas globalmente en `~/.config/opencode/opencode.json` vía `skills.paths`, así que al pedir un estilo ("hacelo dark luxury", "estilo brutalista", "efecto vidrio"...) la skill correspondiente se carga sola, en cualquier proyecto.
 
 **Cobertura total**: cada skill declara un contrato normativo — el estilo se aplica a la **aplicación completa**: páginas públicas, landing y panel administrativo/privado, sin excepción. Si pedís un estilo y alguna vista queda sin aplicarlo, es un defecto; exígile al agente que cubra toda la app antes de dar la tarea por terminada.
 
-Para sumar un estilo nuevo: creá la carpeta `skills/design/<estilo>/` con su `SKILL.md` (mismo nombre de carpeta en el frontmatter `name`, `description` con triggers distintivos en inglés y español) y su `DESIGN.md`, reiniciá opencode y listo.
+Para sumar un estilo nuevo: creá la carpeta `skills/design/<estilo>/` con su `SKILL.md` (mismo nombre de carpeta en el frontmatter `name`, `description` con triggers distintivos en inglés y español), su `DESIGN.md` y un command `skills/design/commands/design-<estilo>.md`, reiniciá opencode y listo.
+
+### Comandos `/design`
+
+Para aplicar un sistema de diseño a un estilo concreto:
+
+- `/design` — pregunta qué estilo querés aplicar y lo carga.
+- `/design-dark-luxury`, `/design-minimal-light`, `/design-neo-brutalist`, `/design-glassmorphism` — cargan directamente la skill del estilo.
+
+Todos leen automáticamente el design system del proyecto (`specs/frontend/02-design.md`) y lo usan como fuente de verdad (accent, paleta, tipografía, componentes); si el archivo no existe, usan los defaults de la skill y avisan. Cualquier texto después del comando se pasa como contexto extra (ej. `/design-dark-luxury rehacé el header`).
+
+Los commands viven en `skills/design/commands/`, viajan a `.opencode/commands/` en cada proyecto generado (la CLI los copia al hacer scaffold) y también se pueden instalar globalmente en `~/.config/opencode/command/` para que funcionen en cualquier proyecto sin re-scaffold. Reiniciá opencode después de agregar o modificar un command.
 
 ### Sistema de tokens de diseño
 
@@ -154,7 +167,7 @@ Resolución del accent (en orden):
 3. **Tokens del framework** — `tailwind.config` / variables CSS existentes.
 4. **Default del sistema** — `#d4a03c`.
 
-El modelo aplica guardrails (base oscura con luminancia < 15%, texto con contraste AA); si un valor entrante los viola, la skill lo ajusta al rango válido y lo avisa, en vez de romper el sistema. `dark-luxury-design` ya implementa esto; el resto de la biblioteca lo adopta en iteraciones siguientes.
+El modelo aplica guardrails (base oscura con luminancia < 15%, texto con contraste AA); si un valor entrante los viola, la skill lo ajusta al rango válido y lo avisa, en vez de romper el sistema. `dark-luxury` ya implementa esto; el resto de la biblioteca lo adopta en iteraciones siguientes.
 
 ### Uso Directo (sin CLI)
 
@@ -176,10 +189,11 @@ fwinit/
 ├── skills/
 │   ├── create-specs/    # Skill embebida en los proyectos generados
 │   └── design/          # Biblioteca de skills de diseño (registrada vía skills.paths)
-│       ├── dark-luxury-design/
-│       ├── minimal-light-design/
-│       ├── neo-brutalist-design/
-│       └── glassmorphism-design/
+│       ├── dark-luxury/
+│       ├── minimal-light/
+│       ├── neo-brutalist/
+│       ├── glassmorphism/
+│       └── commands/    # /design y /design-<estilo>
 ├── templates/           # Templates clasificados por capa (metadata "layer")
 │   ├── ASPNET/          # API ASP.NET Core + Clean Architecture (backend)
 │   ├── EXPRESS/         # API Express + Prisma + TypeScript (backend)

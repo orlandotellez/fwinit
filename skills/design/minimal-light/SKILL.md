@@ -1,5 +1,5 @@
 ---
-name: minimal-light-design
+name: minimal-light
 description: Design and build websites and web apps in the "Minimal Light" style — clean near-white backgrounds, generous whitespace, editorial typography, one restrained accent color, hairline borders, and subtle motion. Calm, precise, confident without decoration. Use this skill whenever someone asks for "minimal", "clean white", "light minimal", "editorial minimal", "all-white", "simple and elegant", "less is more", "white space", "minimalist SaaS" design, or similar — including Spanish: "minimalista", "blanco limpio", "light", "limpio y elegante", "simple", "mucho espacio en blanco", "estilo editorial limpio". Do NOT use this skill for dark, premium/luxury, brutalist, or glassmorphism styles — those have their own design skills. Always use this skill — do NOT attempt minimal light design from memory alone.
 ---
 

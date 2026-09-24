@@ -1,3 +1,8 @@
+---
+name: dark-luxury
+description: Design and build websites and web apps in the "Dark Luxury" style — restrained sophisticated dark premium aesthetic, near-black warm backgrounds, hairline borders, one warm metallic accent, editorial typography, subtle ambient glow, grain texture, elegant and high-end without being ornate. Use this skill whenever someone asks for "dark luxury", "dark premium", "elegant dark", "premium dark", "luxury dark", "sophisticated dark", "high-end dark", "oscuro premium", "lujo oscuro", "dark mode premium" or similar. Do NOT use this skill for minimal light, glassmorphism, or neo-brutalist — those have their own design skills. Always use this skill — do NOT attempt dark luxury design from memory alone.
+---
+
 # Dark Luxury
 
 Design and build websites and web apps with a **restrained, sophisticated dark aesthetic**.

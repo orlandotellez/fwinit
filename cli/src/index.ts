@@ -4,7 +4,7 @@ import { Command } from "commander";
 import ora from "ora";
 import chalk from "chalk";
 import { readFileSync } from "node:fs";
-import { mkdir, cp, access, readFile } from "fs/promises";
+import { mkdir, cp, access, readFile, readdir } from "fs/promises";
 import { join, basename } from "path";
 import {
   TEMPLATES,
@@ -115,6 +115,26 @@ async function installOpenCodeFiles(
     });
   } catch {
     // sin biblioteca de diseño, no bloquear el scaffold
+  }
+
+  // Los commands de diseño (/design, /design-<estilo>) son opcionales:
+  // viven en skills/design/commands/ y viajan a .opencode/commands/ para
+  // que el proyecto generado pueda aplicar un sistema de diseño cargando
+  // la skill + leyendo specs/frontend/02-design.md.
+  try {
+    const designCommandsDir = join(designDir, "commands");
+    await access(designCommandsDir);
+    const commandFiles = (await readdir(designCommandsDir)).filter((f) =>
+      f.endsWith(".md")
+    );
+    for (const file of commandFiles) {
+      await cp(
+        join(designCommandsDir, file),
+        join(projectPath, ".opencode", "commands", file)
+      );
+    }
+  } catch {
+    // sin commands de diseño, no bloquear el scaffold
   }
 }
 
