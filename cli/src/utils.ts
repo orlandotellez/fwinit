@@ -202,8 +202,9 @@ export async function adaptToNodeRuntime(projectPath: string): Promise<void> {
 }
 
 // .gitignore raíz de los proyectos con layout de capa: protege los
-// hermanos de AI (.atl/, odd y .opencode/) que viven fuera de la carpeta
-// del template. Solo si no existe — no pisa lo que ya haya creado el usuario.
+// hermanos de AI (.atl/, odd, .opencode/ y .pi/) que viven fuera de la
+// carpeta del template. Solo si no existe — no pisa lo que ya haya
+// creado el usuario.
 export async function writeRootGitignore(projectPath: string): Promise<void> {
   const { writeFile, access } = await import("fs/promises");
   const { join } = await import("path");
@@ -214,7 +215,7 @@ export async function writeRootGitignore(projectPath: string): Promise<void> {
   } catch {
     await writeFile(
       gitignorePath,
-      "# AI dev state\n.atl/\nodd\n.opencode/\n"
+      "# AI dev state\n.atl/\nodd\n.opencode/\n.pi/\n"
     );
   }
 }
@@ -243,7 +244,7 @@ export interface RootProjectInfo {
 }
 
 // Archivos raíz del modo fullstack: .gitignore (protege los hermanos de
-// AI: .atl/, odd y .opencode/) y README.md del monorepo. Solo si no
+// AI: .atl/, odd, .opencode/ y .pi/) y README.md del monorepo. Solo si no
 // existen — no pisa lo que ya haya creado el usuario.
 export async function writeRootFiles(info: RootProjectInfo): Promise<void> {
   const { writeFile } = await import("fs/promises");
@@ -274,7 +275,7 @@ export async function writeRootFiles(info: RootProjectInfo): Promise<void> {
     "",
     `- \`backend/\` — ${info.backend.description}`,
     `- \`frontend/\` — ${info.frontend.description}`,
-    "- `.opencode/` — skills de opencode: `/create-specs` para las specs + biblioteca de diseño (dark-luxury, minimal-light, neo-brutalist, glassmorphism)",
+    "- `.opencode/` y `.pi/` — skills de agentes: `/create-specs` para las specs + biblioteca de diseño (dark-luxury, minimal-light, neo-brutalist, glassmorphism). Mismo bundle en `.opencode/` (opencode) y `.pi/` (Pi)",
     "- `specs/` — especificaciones del proyecto",
     "",
     "## Backend",

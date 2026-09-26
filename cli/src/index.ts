@@ -56,11 +56,18 @@ function getCliVersion(): string {
   }
 }
 
-// Instala el bundle de skills de opencode (skills/ de la raíz del repo)
-// dentro del proyecto nuevo, en .opencode/. Sin esto, el proyecto
-// generado no traería la skill create-specs ni la biblioteca de diseño
-// y habría que copiarlas a mano.
-async function installOpenCodeFiles(
+// Directorio raíz por agente donde vive el bundle de skills. Las
+// convenciones de cada agente son compatibles: skills en <root>/skills/<name>/
+// con SKILL.md (descubrimiento recursivo) y commands en <root>/commands/
+// <name>.md → /<name>. En Pi los commands son prompt templates y también
+// existe /skill:<name> como alternativa.
+const AGENT_DIRS = [".opencode", ".pi"] as const;
+
+// Instala el bundle de skills del repo (skills/) en cada agente soportado
+// (.opencode/ y .pi/), con el mismo layout en ambos: skills/<name>/ con
+// SKILL.md + ejemplos, commands/<name>.md con el comando slash y la
+// biblioteca de diseño skills/design/ con sus commands.
+async function installAgentSkills(
   repoRoot: string,
   projectPath: string
 ): Promise<void> {
@@ -76,65 +83,69 @@ async function installOpenCodeFiles(
     return;
   }
 
-  await mkdir(join(projectPath, ".opencode", "skills", "create-specs"), {
-    recursive: true,
-  });
-  await mkdir(join(projectPath, ".opencode", "commands"), {
-    recursive: true,
-  });
-  await cp(
-    skill,
-    join(projectPath, ".opencode", "skills", "create-specs", "SKILL.md")
-  );
-  await cp(
-    command,
-    join(projectPath, ".opencode", "commands", "create-specs.md")
-  );
+  for (const agentDir of AGENT_DIRS) {
+    const skillsDir = join(projectPath, agentDir, "skills");
+    const commandsDir = join(projectPath, agentDir, "commands");
 
-  // Los ejemplos de prompts de create-specs son opcionales: viajan a
-  // .opencode/skills/create-specs/examples/ para que la skill pueda
-  // mostrarlos dentro del proyecto generado.
-  try {
+    // Los ejemplos de prompts de create-specs son opcionales: viajan a
+    // <agent>/skills/create-specs/examples/ para que la skill pueda
+    // mostrarlos dentro del proyecto generado.
     const examplesDir = join(repoRoot, "skills", "create-specs", "examples");
-    await access(examplesDir);
-    await cp(
-      examplesDir,
-      join(projectPath, ".opencode", "skills", "create-specs", "examples"),
-      { recursive: true }
-    );
-  } catch {
-    // sin ejemplos, no bloquear el scaffold
-  }
+    let hasExamples = false;
+    try {
+      await access(examplesDir);
+      hasExamples = true;
+    } catch {
+      // sin ejemplos, no bloquear el scaffold
+    }
 
-  // La biblioteca de diseño es opcional: si el repo no la trae, el
-  // scaffold sigue sin ella (mismo criterio que el bundle de skills).
-  try {
-    await access(designDir);
-    await cp(designDir, join(projectPath, ".opencode", "skills", "design"), {
-      recursive: true,
-    });
-  } catch {
-    // sin biblioteca de diseño, no bloquear el scaffold
-  }
+    // La biblioteca de diseño es opcional: si el repo no la trae, el
+    // scaffold sigue sin ella (mismo criterio que el bundle de skills).
+    let hasDesign = false;
+    try {
+      await access(designDir);
+      hasDesign = true;
+    } catch {
+      // sin biblioteca de diseño, no bloquear el scaffold
+    }
 
-  // Los commands de diseño (/design, /design-<estilo>) son opcionales:
-  // viven en skills/design/commands/ y viajan a .opencode/commands/ para
-  // que el proyecto generado pueda aplicar un sistema de diseño cargando
-  // la skill + leyendo specs/frontend/02-design.md.
-  try {
-    const designCommandsDir = join(designDir, "commands");
-    await access(designCommandsDir);
-    const commandFiles = (await readdir(designCommandsDir)).filter((f) =>
-      f.endsWith(".md")
-    );
-    for (const file of commandFiles) {
+    await mkdir(join(skillsDir, "create-specs"), { recursive: true });
+    await mkdir(commandsDir, { recursive: true });
+
+    await cp(skill, join(skillsDir, "create-specs", "SKILL.md"));
+
+    if (hasExamples) {
       await cp(
-        join(designCommandsDir, file),
-        join(projectPath, ".opencode", "commands", file)
+        examplesDir,
+        join(skillsDir, "create-specs", "examples"),
+        { recursive: true }
       );
     }
-  } catch {
-    // sin commands de diseño, no bloquear el scaffold
+
+    // El comando /create-specs: mismo archivo para ambos agentes.
+    await cp(command, join(commandsDir, "create-specs.md"));
+
+    // Los commands de diseño (/design, /design-<estilo>) son opcionales:
+    // viven en skills/design/commands/ y viajan a <agent>/commands/ para
+    // que el proyecto generado pueda aplicar un sistema de diseño cargando
+    // la skill + leyendo specs/frontend/02-design.md.
+    if (hasDesign) {
+      await cp(designDir, join(skillsDir, "design"), { recursive: true });
+      try {
+        const designCommandsDir = join(designDir, "commands");
+        const commandFiles = (await readdir(designCommandsDir)).filter((f) =>
+          f.endsWith(".md")
+        );
+        for (const file of commandFiles) {
+          await cp(
+            join(designCommandsDir, file),
+            join(commandsDir, file)
+          );
+        }
+      } catch {
+        // sin commands de diseño, no bloquear el scaffold
+      }
+    }
   }
 }
 
@@ -178,7 +189,7 @@ async function createFullStackProject(
   );
   await substituteTemplate(backendPath, projectName, backendTpl.folder);
   await substituteTemplate(frontendPath, projectName, frontendTpl.folder);
-  await installOpenCodeFiles(repoRoot, projectPath);
+  await installAgentSkills(repoRoot, projectPath);
 
   // Template nativo de bun + npm/pnpm → portar a runtime node
   if (backendTpl.runtime === "bun" && pm !== "bun") {
@@ -214,10 +225,9 @@ async function createFullStackProject(
     pm
   );
 
-  console.log(
-    chalk.dim(
-      "  Estructura: backend/ (API) · frontend/ (app) · .opencode/ y specs/ (al mismo nivel)\n"
-    )
+  console.log(      chalk.dim(
+          "  Estructura: backend/ (API) · frontend/ (app) · .opencode/, .pi/ y specs/ (al mismo nivel)\n"
+        )
   );
 }
 
@@ -432,11 +442,11 @@ program
 
           await copyTemplate(templatePath, codePath);
           await substituteTemplate(codePath, projectName, template!.folder);
-          await installOpenCodeFiles(repoRoot, projectPath);
+          await installAgentSkills(repoRoot, projectPath);
 
-          // Con layout de capa, .opencode/ y specs/ viven fuera de la
-          // carpeta del template → .gitignore raíz que los protege
-          // (.atl/, odd y .opencode/).
+          // Con layout de capa, .opencode/ y .pi/ y specs/ viven fuera de
+          // la carpeta del template → .gitignore raíz que los protege
+          // (.atl/, odd, .opencode/ y .pi/).
           if (useLayerLayout) {
             await writeRootGitignore(projectPath);
           }
@@ -462,7 +472,7 @@ program
           if (useLayerLayout) {
             console.log(
               chalk.dim(
-                `  Estructura: ${layer}/ (código) · .opencode/ y specs/ (al mismo nivel)\n`
+                `  Estructura: ${layer}/ (código) · .opencode/, .pi/ y specs/ (al mismo nivel)\n`
               )
             );
           }
