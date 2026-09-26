@@ -17,7 +17,7 @@
 - **Glass Background**: `rgba(255,255,255,0.06)` · strong: `rgba(255,255,255,0.12)`
 - **Glass Border**: `rgba(255,255,255,0.18)` · highlight: `rgba(255,255,255,0.32)`
 - **Accent**: `#a78bfa` (violet) · strong: `#8b5cf6` · glow: `rgba(139,92,246,0.35)`
-- **Text Primary**: `#f4f4ff` · Muted: `rgba(244,244,255,0.65)` · Faint: `rgba(244,244,255,0.40)`
+- **Text Primary**: `#f4f4ff` · Muted: `rgba(244,244,255,0.72)` · Faint: `rgba(244,244,255,0.55)` — faint is for large/decorative text only; body copy must hold ≥ 4.5:1 contrast against the glass composite
 - **Light mode**: pastel radial gradients + `--glass-bg: rgba(255,255,255,0.55)`, borders `rgba(255,255,255,0.65)`, text `#1a1a2e`
 
 ---
@@ -99,7 +99,7 @@
 ## Imagery & Illustration
 - Screenshots inside glass frames (panel + clipped image, or image with glass overlay edge)
 - Abstract decoration: blurred color orbs and soft gradient meshes — never sharp geometry, never heavy grain
-- Optional subtle noise overlay 2–3% to ground the glass
+- Optional subtle noise overlay 2–3% to ground the glass — omit entirely unless it clearly improves the surface, never heavier
 - No stock photos of people unless a portrait is required — then inside a glass rectangle
 
 ---
@@ -112,6 +112,7 @@
 - **Accordion**: 300ms easeOut opening
 - **Primary button**: glow breathes subtly between 24px and 36px (2.8s alternate) — one gentle glow, never aggressive
 - **NO** hard slams, no marquees at brutalist speed, no jumps — movement is smooth and weightless
+- **Reduced motion**: orbs static, reveals shown, glass intact — the page must look finished with animations off
 
 ---
 

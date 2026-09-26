@@ -17,8 +17,8 @@
 - **Accent Strong**: `#4338ca` — hover states
 - **Accent Soft**: `rgba(79,70,229,0.08)` — selected backgrounds, feature tint
 - **Text Primary**: `#111111` — headings, body
-- **Text Muted**: `#686868` — secondary copy, nav links
-- **Text Faint**: `#9c9c9c` — captions, metadata, labels
+- **Text Muted**: `#555555` — secondary copy, nav links (AA-safe at body size)
+- **Text Faint**: `#6b6b6b` — large captions & decorative metadata ONLY (does not pass AA at body size; never body copy or inputs)
 - **Success**: `#16a34a` · **Error**: `#dc2626`
 
 ---
@@ -74,7 +74,7 @@
 ## Section Labels
 - Tiny uppercase text: 12px, weight 600, letter-spacing 0.12em, `text-faint`
 - Examples: `FEATURES` `PRICING` `WHY US`
-- Never bracketed `[Label]`, never monospace-amber — that belongs to dark-luxury
+- Never bracketed `[Label]`, never monospace-amber, never colored chips — quiet uppercase text is this system's signature
 
 ---
 
@@ -116,6 +116,7 @@
 - **Logo marquee**: 40s linear infinite, edge fade
 - **Button**: color/border transitions 150ms. No pulse, no glow, no continual animation
 - **Number countup**: 1.2s easeOut when scrolled into view
+- **Reduced motion**: reveals shown, marquee swapped for a static wrapped logo row — the page must look finished with animations off
 
 ---
 

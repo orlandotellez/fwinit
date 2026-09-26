@@ -16,6 +16,7 @@
   - **Hot Pink**: `#ff2e88`
   - **Acid Green**: `#b6ff00`
   - **Sky Blue**: `#00a8ff`
+- **Text on accent**: always BLACK — never white on accent fills (white fails AA on every saturated hue here)
 - **Text Muted**: `#4a4a4a` — body copy on white
 - **Success / Error**: use accent saturation (`#16a34a`, `#dc2626`) or black on accent chips
 
@@ -62,6 +63,7 @@ Active:  box-shadow: 3px 3px 0 0 #000; transform: translate(2px,2px)
 
 - Never soften, never blur, never use rgba alpha for the shadow
 - Interactive elements physically MOVE with the shadow — press feels like paper
+- Hard shadows stick OUT of their element: use 4px offsets on tight mobile grids and `body { overflow-x: clip; }` — never horizontal scroll
 
 ---
 
@@ -115,12 +117,14 @@ Active:  box-shadow: 3px 3px 0 0 #000; transform: translate(2px,2px)
 ---
 
 ## Micro-Animations (punchy, all required)
-- **Reveal**: slam in from `translateY(24px)`, 400ms with `steps(2)` easing edge or strong easeOut — elements arrive with impact, not elegance
+- **Reveal**: slam in from `translateY(24px)`, 400ms strong easeOut — elements arrive with impact, not elegance. No `steps()` easing (reads as glitch, not impact)
 - **Hover**: lift + shadow grow (120ms) · **Active**: squish + shadow shrink (120ms)
 - **Marquee**: 18s linear — fast, constant, mechanical
 - **Accordion**: 200ms hard easeOut, no bounce
 - **Ticker/counter**: mono numerals, black on accent chips, ticks like a machine
 - **NO** glows, blurs, gradients, glass, parallax softness, or gentle floats
+- **Marquee**: pause on hover/focus (`animation-play-state: paused`) so the text is readable — one moving strip per viewport max
+- **Reduced motion**: marquee becomes a static wrapped strip, reveals shown — the design still reads 100% brutalist with animations off
 
 ---
 

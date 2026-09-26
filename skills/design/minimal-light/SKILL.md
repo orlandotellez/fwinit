@@ -1,6 +1,10 @@
 ---
 name: minimal-light
 description: Design and build websites and web apps in the "Minimal Light" style — clean near-white backgrounds, generous whitespace, editorial typography, one restrained accent color, hairline borders, and subtle motion. Calm, precise, confident without decoration. Use this skill whenever someone asks for "minimal", "clean white", "light minimal", "editorial minimal", "all-white", "simple and elegant", "less is more", "white space", "minimalist SaaS" design, or similar — including Spanish: "minimalista", "blanco limpio", "light", "limpio y elegante", "simple", "mucho espacio en blanco", "estilo editorial limpio". Do NOT use this skill for dark, premium/luxury, brutalist, or glassmorphism styles — those have their own design skills. Always use this skill — do NOT attempt minimal light design from memory alone.
+license: Apache-2.0
+metadata:
+  author: gentleman-programming
+  version: "1.1"
 ---
 
 # Minimal Light Design Skill
@@ -29,6 +33,11 @@ Ask before writing code. Skip to defaults if user says so.
 4. **Type**: Landing page *(default)* · Web app · Portfolio · Other
 5. **Sections** (default): Hero, Logos, Features, Stats, Testimonials, Pricing, FAQ, CTA, Footer
 
+The accent is the **only brand input**. If the user picks a custom accent,
+verify it keeps ≥ 4.5:1 contrast against `--bg-base` for text usage (or ≥ 3:1
+when used only on large display text / borders) — adjust lightness until it
+passes and SAY SO, never silently ship a failing accent.
+
 ---
 
 ## Step 2 — Tokens
@@ -41,8 +50,8 @@ Ask before writing code. Skip to defaults if user says so.
   --border-strong: rgba(17,17,17,0.16);
   --accent:       #4f46e5;   --accent-strong: #4338ca;
   --accent-soft:  rgba(79,70,229,0.08);
-  --text-primary: #111111;   --text-muted:   #686868;
-  --text-faint:   #9c9c9c;
+  --text-primary: #111111;   --text-muted:   #555555;
+  --text-faint:   #6b6b6b;
   --font-sans: 'Inter', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
   --text-display: clamp(44px,6vw,72px);
@@ -76,7 +85,7 @@ Ask before writing code. Skip to defaults if user says so.
 ```
 - Elevation = background contrast (`#ffffff` on `#fafafa`) + hairline. Use shadows ONLY on modals/dropdowns, and only `0 8px 30px rgba(0,0,0,0.08)`.
 
-### ④ Headlines — sharp, tight, inverse color contrast
+### ④ Headlines — sharp, tight, weight and one accent word
 ```html
 <h1 class="display">
   <span class="dim">Ship software</span><br>
@@ -88,7 +97,8 @@ Ask before writing code. Skip to defaults if user says so.
   line-height:var(--leading-tight); color:var(--text-primary); }
 .accent-word { color:var(--accent); }
 ```
-- Thin weights (300–400) ARE allowed in minimal light — use 400 for body, 600–700 for headings. Contrast = weight AND one accent word. No gradient text.
+- Weights: 400 body, 600–700 headings. Contrast comes from weight, size and the single accent word — not from dimming or thinning text to extremes. Do not set headings below 600.
+- No gradient text, no dimmed spans inside the headline beyond `--text-muted` on supporting lines (never on the main headline itself).
 
 ### ⑤ Buttons — filled primary, silent secondary
 ```css
@@ -101,12 +111,12 @@ Ask before writing code. Skip to defaults if user says so.
 .btn-sm { padding:8px 16px; font-size:13px; }
 ```
 
-### ⑥ Section labels — tiny uppercase, not bracketed
+### ⑥ Section labels — quiet uppercase
 ```css
 .section-label { font-size:var(--text-label); font-weight:600; letter-spacing:0.12em;
   text-transform:uppercase; color:var(--text-faint); display:block; margin-bottom:16px; }
 ```
-- This is the OPPOSITE of dark-luxury's `[Label]` monospace — minimal light uses quiet uppercase text, `text-faint`.
+- Quiet uppercase text in `--text-faint` — never monospace-bracketed labels (`[FEATURES]` is not this language), never accent-colored chips.
 
 ### ⑦ Feature cards — quiet rows, no illustration panels
 - Icon (24px, 1.5px stroke, `var(--accent)`) in a 40×40px rounded square (`background:var(--bg-muted)`) + title + one-line description.
@@ -120,14 +130,31 @@ Ask before writing code. Skip to defaults if user says so.
 .nav { position:fixed; top:0; left:0; right:0; background:rgba(250,250,250,0.90);
   backdrop-filter:blur(12px); border-bottom:1px solid var(--border); z-index:200; }
 ```
-- Logo left (wordmark, weight 700), links center `var(--text-muted)`, CTA right.
+- Logo left (wordmark, weight 700), links center `--text-muted`, CTA right. Mobile: collapse links into a simple menu; keep the hairline bar.
 
 ### ⑩ Imagery
 - Product screenshots on white/muted background at natural exposure (`brightness(1) contrast(1)`) — never dark-treated, never grayscale-filtered, no grain. Abstract imagery: soft gradients at low opacity.
 
 ---
 
-## Step 4 — Animations (subtle, all required)
+## Step 4 — Contrast & Accessibility (guardrails, non-negotiable)
+
+Minimal light lives on low-contrast relationships — verify they stay readable:
+
+- Body text (`--text-muted`) on `--bg-base`/`--bg-elevated`: ≥ 4.5:1. Muted is for supporting copy; it must still pass AA at body sizes.
+- `--text-faint` is ONLY for large text (≥ 18.66px bold / 24px) or decorative
+  metadata — it does NOT pass AA at body size. Never use it for body copy,
+  inputs, or anything a user must read.
+- White text on `--accent` (buttons): verify ≥ 4.5:1 for the chosen accent; if
+  the accent is too light for white text, flip to dark text on accent.
+- Focus states: `outline: 2px solid var(--accent)` + 2px offset on ALL
+  interactive elements — hairline borders are not a focus indicator.
+- Placeholder text: `--text-faint` minimum is fine visually, but the typed
+  value must always be `--text-primary`.
+
+---
+
+## Step 5 — Animations (subtle, all required, with an off switch)
 
 ```css
 .reveal { opacity:0; transform:translateY(12px);
@@ -136,13 +163,43 @@ Ask before writing code. Skip to defaults if user says so.
 .logo-marquee .track { display:flex; gap:64px; width:max-content;
   animation:marquee 40s linear infinite; mask-image:linear-gradient(to right,transparent,black 15%,black 85%,transparent); }
 @keyframes marquee { to { transform:translateX(-50%); } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation:none !important; transition:none !important; }
+  .reveal { opacity:1; transform:none; }
+  .logo-marquee .track { animation:none; flex-wrap:wrap; justify-content:center; }
+}
 ```
-- Hover: `translateY(-1px)` + border-darken (220ms). No scale, no glows, no continuous pulses.
-- Scroll reveal offset 12px (dark-luxury uses 20px) — minimal light moves LESS.
+- Hover: `translateY(-1px)` + border-darken (220ms). No scale, no glows, no continuous pulses — the marquee (logo row) is the single exception.
+- Scroll reveal offset 12px — minimal light moves LESS than other styles; reveals are a breath, not a show.
+- With reduced motion: reveals shown, marquee replaced by a static wrapped logo row. The page must look finished with animations off.
 
 ---
 
-## Step 5 — Anti-Pattern Checklist
+## Step 6 — Responsive & Performance
+
+- Grid collapses 3→1 columns; section padding scales down to 64–80px vertical on mobile (never remove whitespace entirely — it is the style).
+- Typography scales via the `clamp()` tokens; check the display line-height holds at mobile sizes.
+- Nav: hairline bar persists; links collapse into a simple dropdown without animations beyond a 150ms fade.
+- Pricing columns stack with the featured plan first; keep the accent ring.
+- Marquee: on small screens either slow it or swap to the static wrapped row — two moving rows on mobile feels chaotic.
+- Performance: this style is naturally cheap — keep it that way. System-font fallback first in the stack, no web fonts beyond the one family, images `loading="lazy"` below the fold, no JS animation libraries (CSS transitions cover everything here).
+- Touch targets ≥ 44px; keep `--r-md` radius consistent across breakpoints.
+
+---
+
+## Step 7 — Content (same restraint as the visuals)
+
+Minimal design with noisy copy is a contradiction. The text does the work:
+
+- Concrete language: say what the product does in plain words.
+- No AI-slop phrases: "Unlock your potential", "Seamless experience", "Built for the modern...", "Next-generation" — unless literally true and necessary.
+- No fake stats, no invented testimonials, no fake logo walls (only real customers/logos).
+- Fewer words per section is on-style: one headline, one subline, one CTA pair.
+
+---
+
+## Step 8 — Anti-Pattern Checklist
 
 - [ ] Shadows everywhere → **hairline borders; shadows only on overlays**
 - [ ] Second accent color / rainbow micro-charts → **one accent, surgical use**
@@ -152,12 +209,18 @@ Ask before writing code. Skip to defaults if user says so.
 - [ ] Glow/pulse animations → **150–220ms micro-transitions only**
 - [ ] Cluttered hero → **one headline, one subline, one CTA pair, one visual**
 - [ ] Grain textures, orbs, neon → **none of that belongs here**
+- [ ] `--text-faint` on body copy → **it fails AA; muted for body, faint for large/decorative only**
+- [ ] Missing focus outlines → **2px accent outline on every interactive element**
+- [ ] Motion with no reduced-motion fallback → **static logo row, visible reveals**
+- [ ] AI-slop copy or fake metrics/logos → **concrete, honest content only**
 
 ---
 
-## Step 6 — Page Structure & Stack
+## Step 9 — Page Structure & Stack
 
 **Structure:** Nav → Hero (label + headline + sub + CTAs + product visual) → Logo marquee → Features (3-col quiet rows) → Stats (large numbers, huge whitespace) → Testimonials (2-col, hairline cards) → Pricing (3-col, accent ring featured) → FAQ (border-rows accordion) → CTA → Footer (hairline top border, 4 columns)
+
+Adapt sections to the real product — never pad with empty sections.
 
 **React:** `lucide-react` for icons · Tailwind for layout only · tokens as CSS variables
 **HTML:** All tokens on `:root` · no framework needed

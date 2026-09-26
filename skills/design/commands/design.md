@@ -4,7 +4,7 @@ description: Choose a design system for this project — lists the available /de
 
 The user wants to apply a design system to this project. Present the available design systems and ask ONE focused question to pick one (or infer from context if the user already stated a style):
 
-- `/design-dark-luxury` — restrained, sophisticated dark premium (near-black, warm metallic accent, grain, glow)
+- `/design-dark-luxury` — restrained, sophisticated dark premium (near-black, warm metallic accent, editorial typography)
 - `/design-minimal-light` — clean near-white, generous whitespace, editorial typography, one restrained accent
 - `/design-neo-brutalist` — bold saturated colors, thick black borders, hard offset shadows, chunky type
 - `/design-glassmorphism` — frosted glass panels, backdrop blur, translucent layers, aurora gradient backgrounds
