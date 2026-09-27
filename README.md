@@ -71,8 +71,10 @@ Pregunta qué backend querés (ASP.NET, Express, Fastify, Node.js Vanilla) y qu�
 mi-proyecto/
 ├── backend/          # API (template elegido — trae su DB: Prisma o EF)
 ├── frontend/         # App (template frontend elegido)
-├── .gitignore        # .atl/ · odd  (.opencode/ y .pi/ SÍ se versionan)
+├── .gitignore        # .atl/ · odd  (.opencode/, .pi/ y .agents/ SÍ se versionan)
 ├── .opencode/        # Skills de opencode (create-specs + create-specs-from-code + biblioteca de diseño)
+├── .pi/              # Mismo bundle para Pi (skills + prompt templates)
+├── .agents/          # Mismo bundle para Freebuff y agentes Agent Skills
 ├── README.md         # Cómo correr backend y frontend
 └── specs/            # La creás con /create-specs
 ```

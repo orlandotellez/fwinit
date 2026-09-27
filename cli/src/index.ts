@@ -61,11 +61,12 @@ function getCliVersion(): string {
 // convenciones de cada agente son compatibles: skills en <root>/skills/<name>/
 // con SKILL.md (descubrimiento recursivo) y commands en <root>/commands/
 // <name>.md → /<name>. En Pi los commands son prompt templates y también
-// existe /skill:<name> como alternativa.
-const AGENT_DIRS = [".opencode", ".pi"] as const;
+// existe /skill:<name> como alternativa. .agents/ es la ubicación estándar
+// de Agent Skills: la lee Freebuff y cualquier agente compatible.
+const AGENT_DIRS = [".opencode", ".pi", ".agents"] as const;
 
 // Instala el bundle de skills del repo (skills/) en cada agente soportado
-// (.opencode/ y .pi/), con el mismo layout en ambos: skills/<name>/ con
+// (.opencode/, .pi/ y .agents/), con el mismo layout en todos: skills/<name>/ con
 // SKILL.md + extras, commands/<name>.md con el comando slash, y las
 // bibliotecas de skills con sus commands.
 //
@@ -185,7 +186,7 @@ async function createFullStackProject(
   );
 
   console.log(      chalk.dim(
-          "  Estructura: backend/ (API) · frontend/ (app) · .opencode/, .pi/ y specs/ (al mismo nivel)\n"
+          "  Estructura: backend/ (API) · frontend/ (app) · .opencode/, .pi/, .agents/ y specs/ (al mismo nivel)\n"
         )
   );
 }
@@ -403,7 +404,7 @@ program
           await substituteTemplate(codePath, projectName, template!.folder);
           await installAgentSkills(repoRoot, projectPath);
 
-          // Con layout de capa, .opencode/ y .pi/ y specs/ viven fuera de
+          // Con layout de capa, .opencode/, .pi/, .agents/ y specs/ viven fuera de
           // la carpeta del template → .gitignore raíz que solo ignora el
           // estado local de AI (.atl/, odd). Los bundles de skills se
           // versionan con el proyecto.
@@ -432,7 +433,7 @@ program
           if (useLayerLayout) {
             console.log(
               chalk.dim(
-                `  Estructura: ${layer}/ (código) · .opencode/, .pi/ y specs/ (al mismo nivel)\n`
+                `  Estructura: ${layer}/ (código) · .opencode/, .pi/, .agents/ y specs/ (al mismo nivel)\n`
               )
             );
           }

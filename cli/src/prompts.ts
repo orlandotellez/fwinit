@@ -50,7 +50,7 @@ export async function selectTemplateFromLayer(
 }
 
 // Al crear el proyecto, ¿inicializar un repositorio git? El git init
-// corre en la raíz del proyecto (cubre backend/ + .opencode/ + specs/).
+// corre en la raíz del proyecto (cubre backend/ + .opencode/ + .agents/ + specs/).
 export async function askGitInit(): Promise<boolean> {
   const { initGit } = await inquirer.prompt([
     {
@@ -99,7 +99,7 @@ export async function askProjectName(): Promise<string> {
 }
 
 // Estructura de monorepo liviano: el código del template va dentro de
-// backend/ (o frontend/), y .opencode/ (skills) + specs/ (creadas por
+// backend/ (o frontend/), y .opencode/, .agents/ (skills) + specs/ (creadas por
 // create-specs) quedan al mismo nivel, en la raíz del proyecto.
 export async function askLayerLayout(layer: TemplateLayer): Promise<boolean> {
   const { layout } = await inquirer.prompt([

@@ -203,9 +203,9 @@ export async function adaptToNodeRuntime(projectPath: string): Promise<void> {
 
 // .gitignore raíz de los proyectos con layout de capa: ignora solo el estado
 // local de AI (.atl/ y odd) que vive fuera de la carpeta del template.
-// .opencode/ y .pi/ NO se ignoran: los bundles de skills se versionan con
-// el proyecto para que el equipo los comparta. Solo si no existe — no pisa
-// lo que ya haya creado el usuario.
+// .opencode/, .pi/ y .agents/ NO se ignoran: los bundles de skills se
+// versionan con el proyecto para que el equipo los comparta. Solo si no
+// existe — no pisa lo que ya haya creado el usuario.
 export async function writeRootGitignore(projectPath: string): Promise<void> {
   const { writeFile, access } = await import("fs/promises");
   const { join } = await import("path");
@@ -276,7 +276,7 @@ export async function writeRootFiles(info: RootProjectInfo): Promise<void> {
     "",
     `- \`backend/\` — ${info.backend.description}`,
     `- \`frontend/\` — ${info.frontend.description}`,
-    "- `.opencode/` y `.pi/` — skills de agentes: `/create-specs` para las specs + biblioteca de diseño (dark-luxury, minimal-light, neo-brutalist, glassmorphism). Mismo bundle en `.opencode/` (opencode) y `.pi/` (Pi)",
+    "- `.opencode/`, `.pi/` y `.agents/` — skills de agentes: `/create-specs` para las specs + biblioteca de diseño (dark-luxury, minimal-dashboard, minimal-light, neo-brutalist, glassmorphism). Mismo bundle en `.opencode/` (opencode), `.pi/` (Pi) y `.agents/` (Freebuff / estándar Agent Skills)",
     "- `specs/` — especificaciones del proyecto",
     "",
     "## Backend",
