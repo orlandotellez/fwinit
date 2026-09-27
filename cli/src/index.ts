@@ -4,7 +4,7 @@ import { Command } from "commander";
 import ora from "ora";
 import chalk from "chalk";
 import { readFileSync } from "node:fs";
-import { mkdir, cp, access, readFile, readdir } from "fs/promises";
+import { mkdir, cp, readFile } from "fs/promises";
 import { join, basename } from "path";
 import {
   TEMPLATES,
@@ -19,6 +19,7 @@ import {
   cleanup,
   substituteTemplate,
 } from "./downloader.js";
+import { planAgentBundle } from "./agent-bundle.js";
 import {
   selectScope,
   selectTemplateFromLayer,
@@ -65,115 +66,45 @@ const AGENT_DIRS = [".opencode", ".pi"] as const;
 
 // Instala el bundle de skills del repo (skills/) en cada agente soportado
 // (.opencode/ y .pi/), con el mismo layout en ambos: skills/<name>/ con
-// SKILL.md + ejemplos, commands/<name>.md con el comando slash y la
-// biblioteca de diseño skills/design/ con sus commands.
+// SKILL.md + extras, commands/<name>.md con el comando slash, y las
+// bibliotecas de skills con sus commands.
+//
+// El bundle viene del repo remoto, así que puede no coincidir con lo que el
+// CLI instalado espera (version skew). Cuando eso pasa se instala todo lo que
+// haya y se avisa: silenciosamente no instalar nada dejaba al usuario sin
+// /create-specs y sin /design, que es peor que un bundle parcial.
 async function installAgentSkills(
   repoRoot: string,
   projectPath: string
 ): Promise<void> {
-  const skill = join(repoRoot, "skills", "create-specs", "SKILL.md");
-  const command = join(repoRoot, "skills", "create-specs", "command.md");
-  // Skill espejo para proyectos que YA existen: misma familia de skills, el
-  // comando /create-specs rutea entre las dos según el estado del repo.
-  // Comparten el Spec Tree Contract, que vive en create-specs/SKILL.md, así
-  // que la segunda no copia ejemplos: referencia los de la primera.
-  const fromCodeSkill = join(
-    repoRoot,
-    "skills",
-    "create-specs-from-code",
-    "SKILL.md"
-  );
-  const fromCodeCommand = join(
-    repoRoot,
-    "skills",
-    "create-specs-from-code",
-    "command.md"
-  );
-  const designDir = join(repoRoot, "skills", "design");
-
-  // Si el repo no trae el bundle de skills, no bloquear el scaffold. El
-  // bundle es atómico: create-specs y create-specs-from-code son requeridas
-  // juntas porque el comando /create-specs rutea entre ambas y quedaría roto
-  // si solo llegara una.
-  try {
-    await access(skill);
-    await access(command);
-    await access(fromCodeSkill);
-    await access(fromCodeCommand);
-  } catch {
-    return;
-  }
+  const plan = await planAgentBundle(repoRoot);
 
   for (const agentDir of AGENT_DIRS) {
-    const skillsDir = join(projectPath, agentDir, "skills");
-    const commandsDir = join(projectPath, agentDir, "commands");
-
-    // Los ejemplos de prompts de create-specs son opcionales: viajan a
-    // <agent>/skills/create-specs/examples/ para que la skill pueda
-    // mostrarlos dentro del proyecto generado.
-    const examplesDir = join(repoRoot, "skills", "create-specs", "examples");
-    let hasExamples = false;
-    try {
-      await access(examplesDir);
-      hasExamples = true;
-    } catch {
-      // sin ejemplos, no bloquear el scaffold
+    const root = join(projectPath, agentDir);
+    for (const dir of plan.skillDirs) {
+      await mkdir(join(root, dir), { recursive: true });
     }
-
-    // La biblioteca de diseño es opcional: si el repo no la trae, el
-    // scaffold sigue sin ella (mismo criterio que el bundle de skills).
-    let hasDesign = false;
-    try {
-      await access(designDir);
-      hasDesign = true;
-    } catch {
-      // sin biblioteca de diseño, no bloquear el scaffold
+    for (const dir of plan.commandDirs) {
+      await mkdir(join(root, dir), { recursive: true });
     }
+    for (const item of plan.installs) {
+      // `recursive: undefined` hace explotaar fs.cp (ERR_INVALID_ARG_TYPE):
+      // la opción solo se pasa cuando la copia es de un directorio.
+      await cp(item.from, join(root, item.to), {
+        recursive: item.recursive === true,
+      });
+    }
+  }
 
-    await mkdir(join(skillsDir, "create-specs"), { recursive: true });
-    await mkdir(join(skillsDir, "create-specs-from-code"), { recursive: true });
-    await mkdir(commandsDir, { recursive: true });
-
-    await cp(skill, join(skillsDir, "create-specs", "SKILL.md"));
-    await cp(
-      fromCodeSkill,
-      join(skillsDir, "create-specs-from-code", "SKILL.md")
+  // Aviso explícito: mejor saber que falta una skill que creer que el bundle
+  // se instaló completo. Casi siempre es que el CLI local va más adelante que
+  // el repo remoto (o al revés) y hay que pushear o actualizar.
+  if (plan.missingRequired.length > 0) {
+    console.log(
+      chalk.yellow(
+        `  Skills: el bundle remoto no trae ${plan.missingRequired.join(", ")} — omitido\n`
+      )
     );
-
-    if (hasExamples) {
-      await cp(
-        examplesDir,
-        join(skillsDir, "create-specs", "examples"),
-        { recursive: true }
-      );
-    }
-
-    // Los comandos /create-specs (router) y /create-specs-from-code:
-    // mismo archivo para ambos agentes.
-    await cp(command, join(commandsDir, "create-specs.md"));
-    await cp(fromCodeCommand, join(commandsDir, "create-specs-from-code.md"));
-
-    // Los commands de diseño (/design, /design-<estilo>) son opcionales:
-    // viven en skills/design/commands/ y viajan a <agent>/commands/ para
-    // que el proyecto generado pueda aplicar un sistema de diseño cargando
-    // la skill + leyendo specs/frontend/02-design.md.
-    if (hasDesign) {
-      await cp(designDir, join(skillsDir, "design"), { recursive: true });
-      try {
-        const designCommandsDir = join(designDir, "commands");
-        const commandFiles = (await readdir(designCommandsDir)).filter((f) =>
-          f.endsWith(".md")
-        );
-        for (const file of commandFiles) {
-          await cp(
-            join(designCommandsDir, file),
-            join(commandsDir, file)
-          );
-        }
-      } catch {
-        // sin commands de diseño, no bloquear el scaffold
-      }
-    }
   }
 }
 

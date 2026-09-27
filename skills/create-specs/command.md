@@ -27,6 +27,8 @@ The description can be short (e.g. "app de finanzas personales") — the skill i
 
 Load the `create-specs-from-code` skill instead and follow it. The project already has real code: every fact in the specs must come from reading an actual file, and `tasks/` holds the debt and gaps found in that code.
 
+**Guard:** only route here if that skill is actually installed (`skills/create-specs-from-code/SKILL.md` exists in this project). If it is missing, say so plainly and offer to run `fwinit` again or install the skill — do NOT silently fall back to `create-specs`, because that mode invents a future project instead of documenting the one that exists.
+
 ## Examples
 
 Example prompts to show users how to write good descriptions live in `skills/create-specs/examples/` (rich public-landing prompt, full-stack finance app detailed module by module). If the user asks for example prompts, reference that folder before generating.
