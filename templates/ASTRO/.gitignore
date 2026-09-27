@@ -21,7 +21,6 @@ pnpm-debug.log*
 # macOS
 .DS_Store
 
-# AI dev state
+# Local AI runtime state
 .atl/
 odd
-.opencode/

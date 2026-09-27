@@ -32,7 +32,6 @@ appsettings.Development.json
 **/TestResults/
 **/coverage/
 
-# AI dev state
+# Local AI runtime state
 .atl/
 odd
-.opencode/

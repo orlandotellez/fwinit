@@ -3,7 +3,6 @@ dist/
 .env
 *.log
 
-# AI dev state
+# Local AI runtime state
 .atl/
 odd
-.opencode/

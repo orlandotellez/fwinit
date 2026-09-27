@@ -445,8 +445,9 @@ program
           await installAgentSkills(repoRoot, projectPath);
 
           // Con layout de capa, .opencode/ y .pi/ y specs/ viven fuera de
-          // la carpeta del template → .gitignore raíz que los protege
-          // (.atl/, odd, .opencode/ y .pi/).
+          // la carpeta del template → .gitignore raíz que solo ignora el
+          // estado local de AI (.atl/, odd). Los bundles de skills se
+          // versionan con el proyecto.
           if (useLayerLayout) {
             await writeRootGitignore(projectPath);
           }

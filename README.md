@@ -71,7 +71,7 @@ Pregunta qué backend querés (ASP.NET, Express, Fastify, Node.js Vanilla) y qu�
 mi-proyecto/
 ├── backend/          # API (template elegido — trae su DB: Prisma o EF)
 ├── frontend/         # App (template frontend elegido)
-├── .gitignore        # .atl/ · odd · .opencode/
+├── .gitignore        # .atl/ · odd  (.opencode/ y .pi/ SÍ se versionan)
 ├── .opencode/        # Skills de opencode (create-specs + biblioteca de diseño)
 ├── README.md         # Cómo correr backend y frontend
 └── specs/            # La creás con /create-specs
@@ -124,7 +124,7 @@ Todo proyecto generado incluye `.opencode/skills/create-specs`, el comando `/cre
 - `skills/design/` — biblioteca de diseño con 4 estilos listos para usar en el proyecto: `dark-luxury`, `minimal-light`, `neo-brutalist` y `glassmorphism` (cada uno con su `SKILL.md` y `DESIGN.md`).
 - `/design` y `/design-<estilo>` — comandos para aplicar un sistema de diseño: cargan la skill del estilo elegido y leen automáticamente el design system del proyecto en `specs/frontend/02-design.md`.
 - La db se documenta en `specs/db/` (schemas por entidad, enums y use-cases) aunque la implementación viva en el template backend.
-- Los templates y los proyectos traen `.gitignore` con el estado de AI de desarrollo (`.atl/`, `odd` y `.opencode/`) ya excluido.
+- Los templates y los proyectos traen `.gitignore` que excluye solo el estado local de AI (`.atl/` y `odd`). `.opencode/` y `.pi/` se versionan: las skills, los commands y el design system viajan con el repo para que todo el equipo los tenga.
 
 ### Biblioteca de skills de diseño
 

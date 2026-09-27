@@ -25,7 +25,6 @@ pnpm-debug.log*
 # typescript
 *.tsbuildinfo
 
-# AI dev state
+# Local AI runtime state
 .atl/
 odd
-.opencode/

@@ -201,10 +201,11 @@ export async function adaptToNodeRuntime(projectPath: string): Promise<void> {
   } catch { }
 }
 
-// .gitignore raíz de los proyectos con layout de capa: protege los
-// hermanos de AI (.atl/, odd, .opencode/ y .pi/) que viven fuera de la
-// carpeta del template. Solo si no existe — no pisa lo que ya haya
-// creado el usuario.
+// .gitignore raíz de los proyectos con layout de capa: ignora solo el estado
+// local de AI (.atl/ y odd) que vive fuera de la carpeta del template.
+// .opencode/ y .pi/ NO se ignoran: los bundles de skills se versionan con
+// el proyecto para que el equipo los comparta. Solo si no existe — no pisa
+// lo que ya haya creado el usuario.
 export async function writeRootGitignore(projectPath: string): Promise<void> {
   const { writeFile, access } = await import("fs/promises");
   const { join } = await import("path");
@@ -215,7 +216,7 @@ export async function writeRootGitignore(projectPath: string): Promise<void> {
   } catch {
     await writeFile(
       gitignorePath,
-      "# AI dev state\n.atl/\nodd\n.opencode/\n.pi/\n"
+      "# Local AI runtime state\n.atl/\nodd\n"
     );
   }
 }
@@ -243,9 +244,9 @@ export interface RootProjectInfo {
   pm: PackageManager;
 }
 
-// Archivos raíz del modo fullstack: .gitignore (protege los hermanos de
-// AI: .atl/, odd, .opencode/ y .pi/) y README.md del monorepo. Solo si no
-// existen — no pisa lo que ya haya creado el usuario.
+// Archivos raíz del modo fullstack: .gitignore (ignora el estado local de
+// AI: .atl/ y odd) y README.md del monorepo. Solo si no existen — no pisa
+// lo que ya haya creado el usuario.
 export async function writeRootFiles(info: RootProjectInfo): Promise<void> {
   const { writeFile } = await import("fs/promises");
   const { join } = await import("path");

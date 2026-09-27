@@ -65,7 +65,7 @@ Pregunta qué backend querés (ASP.NET, Express, Fastify, Node.js Vanilla) y qu�
 mi-proyecto/
 ├── backend/          # API (template elegido — trae su DB: Prisma o EF)
 ├── frontend/         # App (template frontend elegido)
-├── .gitignore        # .atl/ · odd · .opencode/ · .pi/
+├── .gitignore        # .atl/ · odd  (.opencode/ y .pi/ SÍ se versionan)
 ├── .opencode/        # Skills de opencode (create-specs incluida)
 ├── .pi/              # Mismo bundle de skills para Pi (badlogic)
 ├── README.md         # Cómo correr backend y frontend
@@ -128,7 +128,7 @@ El runtime `bun` de un template se porta automáticamente a `node` (npm/pnpm) si
 7. Si lo elegís (o pasás `--git`), inicializa un repositorio git en la raíz
 8. Te muestra los próximos pasos (install y dev de cada carpeta)
 
-En modo fullstack (y single con layout de capa) crea además `.gitignore` y `README.md` en la raíz: el `.gitignore` protege el estado de AI de desarrollo (`.atl/`, `odd` y `.opencode/`), que viven fuera de la carpeta del template.
+En modo fullstack (y single con layout de capa) crea además `.gitignore` y `README.md` en la raíz: el `.gitignore` excluye solo el estado local de AI (`.atl/` y `odd`). `.opencode/` y `.pi/` NO se ignoran — los bundles de skills se versionan con el proyecto.
 
 ## Desarrollo
 
