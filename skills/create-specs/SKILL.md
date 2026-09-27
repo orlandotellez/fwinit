@@ -1,6 +1,6 @@
 ---
 name: create-specs
-description: "Trigger: create-specs, specs, crear specs, especificaciones, spec folder. Create the specs/ folder at the project root: docs, modules split by backend/db/frontend, and mandatory per-module task checklists."
+description: "Trigger: create-specs, specs, crear specs, especificaciones, proyecto nuevo. Create the specs/ folder for a NEW project: docs, modules by backend/db/frontend, per-module task checklists. For an existing codebase use create-specs-from-code."
 license: Apache-2.0
 metadata:
   author: "orlandotellez"

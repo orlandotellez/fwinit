@@ -73,12 +73,33 @@ async function installAgentSkills(
 ): Promise<void> {
   const skill = join(repoRoot, "skills", "create-specs", "SKILL.md");
   const command = join(repoRoot, "skills", "create-specs", "command.md");
+  // Skill espejo para proyectos que YA existen: misma familia de skills, el
+  // comando /create-specs rutea entre las dos según el estado del repo.
+  // Comparten el Spec Tree Contract, que vive en create-specs/SKILL.md, así
+  // que la segunda no copia ejemplos: referencia los de la primera.
+  const fromCodeSkill = join(
+    repoRoot,
+    "skills",
+    "create-specs-from-code",
+    "SKILL.md"
+  );
+  const fromCodeCommand = join(
+    repoRoot,
+    "skills",
+    "create-specs-from-code",
+    "command.md"
+  );
   const designDir = join(repoRoot, "skills", "design");
 
-  // Si el repo no trae el bundle de skills, no bloquear el scaffold
+  // Si el repo no trae el bundle de skills, no bloquear el scaffold. El
+  // bundle es atómico: create-specs y create-specs-from-code son requeridas
+  // juntas porque el comando /create-specs rutea entre ambas y quedaría roto
+  // si solo llegara una.
   try {
     await access(skill);
     await access(command);
+    await access(fromCodeSkill);
+    await access(fromCodeCommand);
   } catch {
     return;
   }
@@ -110,9 +131,14 @@ async function installAgentSkills(
     }
 
     await mkdir(join(skillsDir, "create-specs"), { recursive: true });
+    await mkdir(join(skillsDir, "create-specs-from-code"), { recursive: true });
     await mkdir(commandsDir, { recursive: true });
 
     await cp(skill, join(skillsDir, "create-specs", "SKILL.md"));
+    await cp(
+      fromCodeSkill,
+      join(skillsDir, "create-specs-from-code", "SKILL.md")
+    );
 
     if (hasExamples) {
       await cp(
@@ -122,8 +148,10 @@ async function installAgentSkills(
       );
     }
 
-    // El comando /create-specs: mismo archivo para ambos agentes.
+    // Los comandos /create-specs (router) y /create-specs-from-code:
+    // mismo archivo para ambos agentes.
     await cp(command, join(commandsDir, "create-specs.md"));
+    await cp(fromCodeCommand, join(commandsDir, "create-specs-from-code.md"));
 
     // Los commands de diseño (/design, /design-<estilo>) son opcionales:
     // viven en skills/design/commands/ y viajan a <agent>/commands/ para

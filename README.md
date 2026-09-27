@@ -72,7 +72,7 @@ mi-proyecto/
 ├── backend/          # API (template elegido — trae su DB: Prisma o EF)
 ├── frontend/         # App (template frontend elegido)
 ├── .gitignore        # .atl/ · odd  (.opencode/ y .pi/ SÍ se versionan)
-├── .opencode/        # Skills de opencode (create-specs + biblioteca de diseño)
+├── .opencode/        # Skills de opencode (create-specs + create-specs-from-code + biblioteca de diseño)
 ├── README.md         # Cómo correr backend y frontend
 └── specs/            # La creás con /create-specs
 ```
@@ -118,9 +118,11 @@ La capa es metadata de cada template (`layer` en `templates/<TEMPLATE>/template.
 
 ## Skills de opencode
 
-Todo proyecto generado incluye `.opencode/skills/create-specs`, el comando `/create-specs` y la biblioteca de diseño completa:
+Todo proyecto generado incluye `.opencode/skills/create-specs`, `.opencode/skills/create-specs-from-code`, sus comandos y la biblioteca de diseño completa:
 
 - `/create-specs <descripción>` genera la carpeta `specs/` con módulos `backend/`, `db/` y `frontend/`, cada uno con sus `tasks` listas para implementar.
+- `/create-specs-from-code` hace lo mismo pero sobre un proyecto que **ya existe**: lee el código real y documenta lo que hay. Cada entidad, endpoint, pantalla y tabla queda con su path, y `tasks/` contiene la deuda y los huecos que encuentra (tests faltantes, validación ausente, endpoints sin auth). No inventa nada.
+- `/create-specs` **rutea solo**: si el proyecto ya tiene código con historia de git, pregunta cuál de las dos querés. Si es un scaffold recién generado, va directo a modo proyecto nuevo.
 - `skills/design/` — biblioteca de diseño con 4 estilos listos para usar en el proyecto: `dark-luxury`, `minimal-light`, `neo-brutalist` y `glassmorphism` (cada uno con su `SKILL.md` y `DESIGN.md`).
 - `/design` y `/design-<estilo>` — comandos para aplicar un sistema de diseño: cargan la skill del estilo elegido y leen automáticamente el design system del proyecto en `specs/frontend/02-design.md`.
 - La db se documenta en `specs/db/` (schemas por entidad, enums y use-cases) aunque la implementación viva en el template backend.

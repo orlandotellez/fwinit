@@ -66,7 +66,7 @@ mi-proyecto/
 ├── backend/          # API (template elegido — trae su DB: Prisma o EF)
 ├── frontend/         # App (template frontend elegido)
 ├── .gitignore        # .atl/ · odd  (.opencode/ y .pi/ SÍ se versionan)
-├── .opencode/        # Skills de opencode (create-specs incluida)
+├── .opencode/        # Skills de opencode (create-specs, create-specs-from-code y biblioteca de diseño)
 ├── .pi/              # Mismo bundle de skills para Pi (badlogic)
 ├── README.md         # Cómo correr backend y frontend
 └── specs/            # La creás con /create-specs
@@ -123,7 +123,7 @@ El runtime `bun` de un template se porta automáticamente a `node` (npm/pnpm) si
 2. Extrae y copia el template (o los dos, `backend/` + `frontend/`) al proyecto
 3. Sustituye el nombre del proyecto (package.json, app.json de Expo, proyectos ASP.NET con "Example")
 4. Si corresponde, porta el template de runtime bun a node (npm/pnpm)
-5. Instala `.opencode/` y `.pi/` con la skill `create-specs` y el comando `/create-specs` (mismo bundle para opencode y Pi: elegí el agente que quieras)
+5. Instala `.opencode/` y `.pi/` con las skills `create-specs` y `create-specs-from-code`, sus comandos (`/create-specs` rutea entre ambos según el estado del repo) y la biblioteca de diseño (mismo bundle para opencode y Pi: elegí el agente que quieras)
 6. Limpia los lock files (cada proyecto instala los suyos)
 7. Si lo elegís (o pasás `--git`), inicializa un repositorio git en la raíz
 8. Te muestra los próximos pasos (install y dev de cada carpeta)
