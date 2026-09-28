@@ -27,7 +27,18 @@ import {
   selectPackageManager,
   askLayerLayout,
   askGitInit,
+  selectGlobalTargets,
+  selectGlobalTargetsToRemove,
+  selectSkillsAction,
+  askGlobalSkillsToo,
 } from "./prompts.js";
+import {
+  resolveGlobalTargets,
+  installGlobalSkills,
+  uninstallGlobalSkills,
+  filterBundleByNames,
+  type GlobalTargetSpec,
+} from "./global-skills.js";
 import {
   getProjectPath,
   projectExists,
@@ -106,6 +117,32 @@ async function installAgentSkills(
         `  Skills: el bundle remoto no trae ${plan.missingRequired.join(", ")} — omitido\n`
       )
     );
+  }
+}
+
+// Descarga el bundle del repo e instala las skills en los destinos globales
+// elegidos. Compartido por `fwinit skills` y la pregunta post-creación.
+// `bundle` permite instalar un subconjunto (--only).
+async function installGlobalSkillsWithSpinner(
+  targets: GlobalTargetSpec[],
+  bundle?: Parameters<typeof installGlobalSkills>[2]
+): Promise<void> {
+  const spinner = ora("Descargando bundle de skills...").start();
+  const { tempDir, repoRoot } = await downloadAndExtractRepo();
+  try {
+    spinner.text = "Instalando skills...";
+    const results = await installGlobalSkills(repoRoot, targets, bundle);
+    spinner.succeed("Skills globales instaladas");
+    for (const r of results) {
+      if (r.error) {
+        console.log(chalk.red(`  ✖ ${r.target.label}: ${r.error}`));
+      } else {
+        console.log(chalk.dim(`  ✔ ${r.target.label} — ${r.copied} archivos`));
+      }
+    }
+    console.log();
+  } finally {
+    await cleanup(tempDir);
   }
 }
 
@@ -217,6 +254,119 @@ program
     }
   });
 
+// Flujo completo de skills globales, con o sin flags. Usado por el comando
+// `fwinit skills` y por la opción "Skills globales" del menú principal.
+// Devuelve true si ejecutó una acción; false si el usuario canceló.
+async function runSkillsFlow(
+  opts: { global?: string; only?: string; remove?: boolean } = {}
+): Promise<boolean> {
+  const all = resolveGlobalTargets();
+  if (all.length === 0) {
+    console.error(chalk.red("\n✖ No se pudo resolver el HOME del usuario\n"));
+    process.exit(1);
+  }
+
+  console.log(chalk.bold("\nSkills disponibles:\n"));
+  console.log(chalk.dim("  create-specs — specs para proyecto nuevo (/create-specs)"));
+  console.log(chalk.dim("  create-specs-from-code — specs desde código existente (/create-specs-from-code)"));
+  console.log(chalk.dim("  design/ — dark-luxury, glassmorphism, minimal-dashboard, minimal-light, neo-brutalist (/design-<estilo>)\n"));
+
+  // --only: subconjunto del bundle. Nombres desconocidos se avisan y
+  // se ignoran (no abortan): el resto viaja igual.
+  let bundle: Parameters<typeof installGlobalSkills>[2] | undefined;
+  if (opts.only) {
+    const names = opts.only.split(",").map((s) => s.trim()).filter(Boolean);
+    const { bundle: filtered, unknown } = filterBundleByNames(names);
+    if (unknown.length > 0) {
+      console.log(chalk.yellow(`  ⚠ Skills desconocidas (ignoradas): ${unknown.join(", ")}\n`));
+    }
+    if (filtered.length === 0) {
+      console.log(chalk.dim("\n  Ninguna skill válida en --only — no se hizo nada.\n"));
+      return false;
+    }
+    bundle = filtered;
+  }
+
+  const remove = opts.remove === true;
+  const interactive = !opts.global;
+
+  // Interactivo: preguntar instalar/eliminar (salvo que --remove lo diga).
+  let action: "install" | "remove" = remove ? "remove" : "install";
+  if (interactive && !remove) {
+    action = await selectSkillsAction();
+  }
+
+  // Elegir destinos: por flag, o checkboxes según la acción.
+  let targets: GlobalTargetSpec[];
+  if (opts.global) {
+    const ids = opts.global.split(",").map((s) => s.trim().toLowerCase());
+    if (ids.includes("all")) {
+      targets = all;
+    } else {
+      const valid = new Map(all.map((t) => [t.id, t] as const));
+      targets = [];
+      for (const id of ids) {
+        const t = valid.get(id as never);
+        if (!t) {
+          console.error(
+            chalk.red(`\n✖ Destino "${id}" inválido. Usá: ${all.map((x) => x.id).join(", ")} o all\n`)
+          );
+          process.exit(1);
+        }
+        targets.push(t);
+      }
+    }
+  } else {
+    const pick = action === "remove" ? selectGlobalTargetsToRemove : selectGlobalTargets;
+    const selected = await pick(all.map((t) => ({ name: t.label, value: t.id })));
+    if (selected.length === 0) {
+      console.log(
+        chalk.dim(`\n  Nada seleccionado — no se ${action === "remove" ? "eliminó" : "instaló"} nada.\n`)
+      );
+      return false;
+    }
+    targets = all.filter((t) => selected.includes(t.id));
+  }
+
+  if (action === "remove") {
+    const results = await uninstallGlobalSkills(targets, bundle);
+    for (const r of results) {
+      console.log(chalk.dim(`  ✔ ${r.target.label} — ${r.removed.length} eliminados`));
+    }
+    console.log();
+    return true;
+  }
+
+  await installGlobalSkillsWithSpinner(targets, bundle);
+  return true;
+}
+
+program
+  .command("skills")
+  .description(
+    "Instalar o eliminar las skills del repo en ubicaciones globales (OpenCode, Pi, Agent Skills)"
+  )
+  .option(
+    "-g, --global <targets>",
+    "Destinos separados por coma: opencode, pi, agents (o 'all'). Saltea la pregunta"
+  )
+  .option(
+    "-o, --only <skills>",
+    "Solo estas skills, separadas por coma: create-specs, create-specs-from-code, design"
+  )
+  .option(
+    "-r, --remove",
+    "Eliminar en vez de instalar (combinar con --global y opcionalmente --only)"
+  )
+  .action(async (opts: { global?: string; only?: string; remove?: boolean }) => {
+    try {
+      await runSkillsFlow(opts);
+    } catch (error) {
+      console.error(chalk.red(`\n✖ Error: ${(error as Error).message}\n`));
+      process.exit(1);
+    }
+  });
+
 program
   .argument("[template]", "Template a usar (o 'fullstack' para backend + frontend)")
   .argument("[project-name]", "Nombre del proyecto")
@@ -261,6 +411,12 @@ program
 
         if (rawArg === undefined) {
           const scope = await selectScope();
+          if (scope === "skills") {
+            // Opción del menú principal: mismo flujo que `fwinit skills`,
+            // completamente interactivo (instalar/eliminar → destinos).
+            await runSkillsFlow();
+            return;
+          }
           if (scope === "fullstack") {
             isFullStack = true;
           } else {
@@ -453,6 +609,32 @@ program
                 "  \u26a0 No se pudo inicializar git (¿está instalado?)\n"
               )
             );
+          }
+        }
+
+        // Skills globales (solo modo interactivo): después de crear el
+        // proyecto, ofrecer instalar el bundle también en los destinos
+        // globales. Con flags (--git/--no-git) no se pregunta: scripting.
+        if (git === undefined) {
+          const wantsGlobalSkills = await askGlobalSkillsToo();
+          if (wantsGlobalSkills) {
+            const all = resolveGlobalTargets();
+            if (all.length === 0) {
+              console.log(
+                chalk.yellow(
+                  "  \u26a0 No se pudo resolver el HOME — skills globales omitidas\n"
+                )
+              );
+            } else {
+              const selected = await selectGlobalTargets(
+                all.map((t) => ({ name: t.label, value: t.id }))
+              );
+              if (selected.length > 0) {
+                await installGlobalSkillsWithSpinner(
+                  all.filter((t) => selected.includes(t.id))
+                );
+              }
+            }
           }
         }
       } catch (error) {

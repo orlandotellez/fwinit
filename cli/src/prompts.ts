@@ -5,11 +5,13 @@ import {
   type TemplateLayer,
 } from "./templates.js";
 import type { PackageManager } from "./utils.js";
+import type { GlobalTarget } from "./global-skills.js";
 
-export type ProjectScope = "fullstack" | "backend" | "frontend";
+export type ProjectScope = "fullstack" | "backend" | "frontend" | "skills";
 
 // Menú principal: qué tipo de proyecto crear. En fullstack el CLI
-// combina un template de backend con uno de frontend.
+// combina un template de backend con uno de frontend. La última opción
+// delega en el flujo de skills globales (instalar/eliminar).
 export async function selectScope(): Promise<ProjectScope> {
   const { scope } = await inquirer.prompt([
     {
@@ -20,6 +22,7 @@ export async function selectScope(): Promise<ProjectScope> {
         { name: "Full stack (backend + frontend)", value: "fullstack" },
         { name: "Solo backend (API)", value: "backend" },
         { name: "Solo frontend (app)", value: "frontend" },
+        { name: "Skills globales (instalar / eliminar)", value: "skills" },
       ],
     },
   ]);
@@ -114,4 +117,67 @@ export async function askLayerLayout(layer: TemplateLayer): Promise<boolean> {
     },
   ]);
   return layout;
+}
+
+// Checkboxes de destinos globales para fwinit skills. Devuelve vacío si el
+// usuario no marca ninguno (el comando solo informa, no falla).
+export async function selectGlobalTargets(
+  choices: Array<{ name: string; value: GlobalTarget }>
+): Promise<GlobalTarget[]> {
+  const { targets } = await inquirer.prompt([
+    {
+      type: "checkbox",
+      name: "targets",
+      message: "¿Dónde querés instalar las skills?",
+      choices,
+    },
+  ]);
+  return targets;
+}
+
+// Checkboxes de destinos para eliminar (misma lista, otro mensaje).
+export async function selectGlobalTargetsToRemove(
+  choices: Array<{ name: string; value: GlobalTarget }>
+): Promise<GlobalTarget[]> {
+  const { targets } = await inquirer.prompt([
+    {
+      type: "checkbox",
+      name: "targets",
+      message: "¿De dónde querés eliminar las skills?",
+      choices,
+    },
+  ]);
+  return targets;
+}
+
+// Acción de fwinit skills en modo interactivo: instalar o eliminar.
+export type SkillsAction = "install" | "remove";
+export async function selectSkillsAction(): Promise<SkillsAction> {
+  const { action } = await inquirer.prompt([
+    {
+      type: "list",
+      name: "action",
+      message: "¿Qué querés hacer con las skills globales?",
+      choices: [
+        { name: "Instalar / actualizar", value: "install" },
+        { name: "Eliminar", value: "remove" },
+      ],
+    },
+  ]);
+  return action;
+}
+
+// Post-creación: instalar el bundle también en los destinos globales.
+// Default en "no": el bundle de proyecto ya viaja versionado con el repo,
+// así que instalar en global es una decisión consciente, no el default.
+export async function askGlobalSkillsToo(): Promise<boolean> {
+  const { global } = await inquirer.prompt([
+    {
+      type: "confirm",
+      name: "global",
+      message: "¿Instalar las skills también globalmente (OpenCode/Pi/Agent Skills)?",
+      default: false,
+    },
+  ]);
+  return global;
 }

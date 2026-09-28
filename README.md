@@ -43,6 +43,19 @@ fwinit fullstack mi-proyecto -b fastify -f react-native -p pnpm
 
 # Ver templates disponibles (agrupados por capa)
 fwinit list
+
+# Instalar skills globalmente (OpenCode, Pi, Agent Skills) — interactivo
+fwinit skills
+
+# Instalar skills globalmente sin preguntas (modo scripting/CI)
+fwinit skills --global opencode,pi   # o: --global all
+
+# Instalar solo algunas skills
+fwinit skills --global all --only create-specs,design
+
+# Eliminar skills globales (mismos flags; interactivo pregunta qué eliminar)
+fwinit skills --remove
+fwinit skills --global all --remove
 ```
 
 ### Modo interactivo
@@ -54,6 +67,7 @@ fwinit list
 > Full stack (backend + frontend)
   Solo backend (API)
   Solo frontend (app)
+  Skills globales (instalar / eliminar)
 ```
 
 - **Full stack**: te pregunta primero el backend y después el frontend, y arma el monorepo completo.
