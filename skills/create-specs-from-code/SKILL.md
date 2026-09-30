@@ -19,6 +19,8 @@ The tree shape, file naming, and per-file structure are IDENTICAL to `create-spe
 
 ## Hard Rules
 
+- **Write independent files in PARALLEL, in batches** — the same batching rule as `create-specs`. This tree is ~90 files; writing them one at a time is the single largest cost of this skill. A reasonable batch is 5-10 files. Serialize only what depends on a previous result.
+- The two root index files (`descripcion-proyecto.md`, `global-instruction.md`) are **pointers, not summaries**: one line plus the link to the `docs/` version. Never restate their content inline — restating is what lets the two copies drift.
 - The CODE is the source of truth. Every entity, endpoint, screen, table, enum, env var, and integration documented MUST be found in a real file, and the file path MUST be cited inline. Never invent a single fact.
 - When something is unknown, READ THE FILE. Never guess, never infer from naming conventions, never fill gaps with what a project of this shape "usually" has.
 - `Estado Actual` in every task file describes real existing code with paths. It never says "Proyecto nuevo, no hay código" — there is always real code here.
@@ -42,16 +44,20 @@ The tree shape, file naming, and per-file structure are IDENTICAL to `create-spe
 
 ## Execution Steps
 
-1. Map the repository before writing anything: entry points, directory layout, framework and dependency manifest, routing tables, ORM/schema files, migration history, test suites, env/config files, CI config. Build the mental model first — the spec is a report of the model, not a guess.
-2. Read the modules in dependency order (config → db → backend → frontend) and collect evidence per file: path + what it does + the concrete entities, endpoints, and screens it defines.
-3. Detect the stack exactly as `create-specs` does (`*.csproj`, `package.json`, `prisma/`, `migrations/`, `*.sql`, `app.json`) so the module content matches the real stack.
-4. Create the base tree per the inherited Spec Tree Contract. Apply the gates: `modules/api/` only when a public contract actually exists in code; skip `modules/db/` only when there is genuinely no persistence.
-5. Write `specs/descripcion-proyecto.md` and `specs/global-instruction.md` from what the code shows, not from what the user hopes to build.
-6. Write the `docs/` files using the inherited Document Templates. `03-ejecucion-local.md` MUST use real commands from the real `package.json`/scripts.
-7. Write the module files using the inherited templates. For `03-api.md`, enumerate the endpoints that EXIST — read the actual route definitions, do not extrapolate a REST pattern to invent missing CRUD.
-8. Write `specs/tasks/README.md` plus one task file per feature area per module, following the inherited tasks template: real `Estado Actual` with paths, objective, scope, numbered actionable checklist of debt/gaps, Done criteria.
-9. Write `specs/documentacion-cliente.md` LAST, from the completed tree, following the inherited 12-section template.
-10. Review: every endpoint/entity/screen cited must resolve to a real file; no module referenced without existing; `tasks/` non-empty for every module; no placeholder text. Report the tree (module → files → purpose) and the debt areas found, then state the recommended first task file.
+Steps are grouped into BATCHES. Within a batch, write every file in the same turn. Only cross-batch dependencies are serialized. Batching is mandatory, not an optimization.
+
+1. **Map.** Repository before writing anything: entry points, directory layout, framework and dependency manifest, routing tables, ORM/schema files, migration history, test suites, env/config files, CI config. Build the mental model first — the spec is a report of the model, not a guess.
+2. **Collect evidence.** Read the modules in dependency order (config → db → backend → frontend) and record per file: path + what it does + the concrete entities, endpoints, and screens it defines.
+3. **Detect the stack** exactly as `create-specs` does (`*.csproj`, `package.json`, `prisma/`, `migrations/`, `*.sql`, `app.json`) so the module content matches the real stack, and create the directories per the inherited Spec Tree Contract. Apply the gates: `modules/api/` only when external third-party consumers exist in code (the app's own frontend uses `backend/03-api.md`); skip `modules/db/` only when there is genuinely no persistence. Group `schemas/` and `use-cases/` by DOMAIN, never 1:1 with entities.
+4. **Batch A — `docs/` (parallel).** Inherited Document Templates. `03-ejecucion-local.md` MUST use real commands from the real `package.json`/scripts.
+5. **Batch B — backend module (parallel).** For `03-api.md`, enumerate the endpoints that EXIST — read the actual route definitions, do not extrapolate a REST pattern to invent missing CRUD.
+6. **Batch C — db module (parallel).**
+7. **Batch D — frontend module (parallel).**
+8. **Batch E — api module (parallel, when the gate triggered).**
+9. **Batch F — tasks (parallel).** `specs/tasks/README.md` plus one task file per feature area per module, following the inherited tasks template: real `Estado Actual` with paths, objective, scope, numbered actionable checklist of debt/gaps, Done criteria.
+10. **Batch G — root index pointers (parallel).** `specs/descripcion-proyecto.md` and `specs/global-instruction.md`, one line each plus a link, written after `docs/` so the links are real.
+11. **Batch H — serialized, one file.** `specs/documentacion-cliente.md` LAST, derived from the completed tree, following the inherited 12-section template.
+12. **Review from memory, not by re-reading.** You wrote every file in this session. Verify that every endpoint/entity/screen cited resolves to a real file, that no module is referenced without existing, and that `tasks/` is non-empty for every module. Report the tree and the debt areas found, then state the recommended first task file.
 
 ## Output Contract
 

@@ -82,8 +82,13 @@ Aim for 8-12 modules for a full-stack app. Fewer means thin; more means the user
 
 ## References
 
-- `create-specs/SKILL.md` — the target contract. Every Hard Rule there is a requirement on your output.
-- `create-specs/examples/02-app-finanzas-fullstack.md` — the depth mold: 11 modules, per-module Pantallas/Reglas/Endpoints, data model, indexes, non-functional requirements, closing rules. Match this level of detail.
-- `create-specs/examples/01-landing-pasteleria-dulce-atelier.md` — the minimal case (public-only landing, no persistence) for how to use the no-storage gate.
-- `create-specs/examples/03-pos-system.md` — reference for money and tenancy invariants.
-- `create-specs/examples/ejemplo-documentacion-cliente-cursinet.md` — what the downstream client doc looks like; a reminder of who ends up reading these decisions.
+Read **at most one** of these. The four files total ~1400 lines; loading more than one spends a large slice of the context on material that does not apply to the project in front of you.
+
+| Situation | Read this one |
+|-----------|--------------|
+| A full-stack project from a rough idea (the common case) | `create-specs/examples/02-app-finanzas-fullstack.md` — the depth mold: 11 modules, per-module Pantallas/Reglas/Endpoints, data model, indexes, non-functional requirements, closing rules |
+| A public-only landing or static site with no persistence | `create-specs/examples/01-landing-pasteleria-dulce-atelier.md` — how to use the no-storage gate |
+| Money, stock, or tenancy in the domain | `create-specs/examples/03-pos-system.md` — the reference for money and tenancy invariants |
+| Unsure of the downstream client-doc register | `create-specs/examples/ejemplo-documentacion-cliente-cursinet.md` — a reminder of who ends up reading the decisions you propose |
+
+- `create-specs/SKILL.md` — the target contract. Every Hard Rule there is a requirement on your output. Note its batching rule: the prompt you write will be consumed by a ~90-file tree, so completeness of the module set matters more than prose.
