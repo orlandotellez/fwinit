@@ -20,14 +20,14 @@ The tree shape, file naming, and per-file structure are IDENTICAL to `create-spe
 ## Hard Rules
 
 - **Write independent files in PARALLEL, in batches** — the same batching rule as `create-specs`. This tree is ~90 files; writing them one at a time is the single largest cost of this skill. A reasonable batch is 5-10 files. Serialize only what depends on a previous result.
-- The two root index files (`descripcion-proyecto.md`, `global-instruction.md`) are **pointers, not summaries**: one line plus the link to the `docs/` version. Never restate their content inline — restating is what lets the two copies drift.
+- Keep the specs root free of standalone documents — the same rule as `create-specs`: `docs/` is the single container, the root holds only `docs/`, `modules/`, `tasks/`. Never write a root copy of a document that lives in `docs/`.
 - The CODE is the source of truth. Every entity, endpoint, screen, table, enum, env var, and integration documented MUST be found in a real file, and the file path MUST be cited inline. Never invent a single fact.
 - When something is unknown, READ THE FILE. Never guess, never infer from naming conventions, never fill gaps with what a project of this shape "usually" has.
 - `Estado Actual` in every task file describes real existing code with paths. It never says "Proyecto nuevo, no hay código" — there is always real code here.
 - A module or file that cannot be evidenced is OMITTED, and the omission is reported with the reason. Do not pad the tree to match the contract.
 - `tasks/` is DEBT AND GAPS derived from reading the code: missing tests, absent validation, unhandled errors, undocumented endpoints, missing auth, security holes, stale dependencies, TODOs. Every task cites the real file it came from.
 - A product feature backlog is NOT derivable from code. Do not invent one. After the debt tasks exist, ask ONE question whether a feature backlog is also wanted.
-- `documentacion-cliente.md` is MANDATORY, written LAST, and derived only from the generated tree — same template and same rules as `create-specs`.
+- `docs/08-documentacion-cliente.md` is MANDATORY, written LAST, and derived only from the generated tree — same template and same rules as `create-specs`.
 - Write artifacts in the project's language with a neutral, professional register. English repos get English docs; Spanish repos get neutral Spanish — never slang.
 - `specs/` only at the project root. Never overwrite an existing `specs/` tree without explicit user approval.
 
@@ -55,13 +55,12 @@ Steps are grouped into BATCHES. Within a batch, write every file in the same tur
 7. **Batch D — frontend module (parallel).**
 8. **Batch E — api module (parallel, when the gate triggered).**
 9. **Batch F — tasks (parallel).** `specs/tasks/README.md` plus one task file per feature area per module, following the inherited tasks template: real `Estado Actual` with paths, objective, scope, numbered actionable checklist of debt/gaps, Done criteria.
-10. **Batch G — root index pointers (parallel).** `specs/descripcion-proyecto.md` and `specs/global-instruction.md`, one line each plus a link, written after `docs/` so the links are real.
-11. **Batch H — serialized, one file.** `specs/documentacion-cliente.md` LAST, derived from the completed tree, following the inherited 12-section template.
-12. **Review from memory, not by re-reading.** You wrote every file in this session. Verify that every endpoint/entity/screen cited resolves to a real file, that no module is referenced without existing, and that `tasks/` is non-empty for every module. Report the tree and the debt areas found, then state the recommended first task file.
+10. **Batch G — serialized, one file.** `specs/docs/08-documentacion-cliente.md` LAST, derived from the completed tree, following the inherited 12-section template.
+11. **Review from memory, not by re-reading.** You wrote every file in this session. Verify that every endpoint/entity/screen cited resolves to a real file, that no module is referenced without existing, and that `tasks/` is non-empty for every module. Report the tree and the debt areas found, then state the recommended first task file.
 
 ## Output Contract
 
-Return the list of created paths (including `specs/documentacion-cliente.md`) and the module/task coverage. `specs/tasks/` must never be empty. State the next implementation step (first task file to tick). Every fact in the specs must be traceable to a file path in the repository. The tasks folder is the single tracked source of work: implementation progress is recorded by ticking the checkboxes in place.
+Return the list of created paths (including `specs/docs/08-documentacion-cliente.md`) and the module/task coverage. `specs/tasks/` must never be empty. State the next implementation step (first task file to tick). Every fact in the specs must be traceable to a file path in the repository. The tasks folder is the single tracked source of work: implementation progress is recorded by ticking the checkboxes in place.
 
 ## References
 
