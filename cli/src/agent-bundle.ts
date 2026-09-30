@@ -54,6 +54,15 @@ export const AGENT_BUNDLE: AgentBundleEntry[] = [
     required: true,
   },
   {
+    // Editor de prompts: detalla una idea de proyecto nuevo en
+    // specs/prompt.md, listo para /create-specs. Opcional a propósito —
+    // depende de create-specs (que sí es required) y sin ella el proyecto
+    // conserva /create-specs funcional. Degradar, no abortar.
+    kind: "skill",
+    dir: "create-prompt",
+    required: false,
+  },
+  {
     // Biblioteca de estilos: skills/design/ con una subskill por estilo y sus
     // commands (/design, /design-<estilo>) que leen specs/frontend/02-design.md.
     kind: "library",

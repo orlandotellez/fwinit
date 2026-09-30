@@ -86,7 +86,7 @@ mi-proyecto/
 ├── backend/          # API (template elegido — trae su DB: Prisma o EF)
 ├── frontend/         # App (template frontend elegido)
 ├── .gitignore        # .atl/ · odd  (.opencode/, .pi/ y .agents/ SÍ se versionan)
-├── .opencode/        # Skills de opencode (create-specs + create-specs-from-code + biblioteca de diseño)
+├── .opencode/        # Skills de opencode (create-specs, create-specs-from-code, create-prompt + biblioteca de diseño)
 ├── .pi/              # Mismo bundle para Pi (skills + prompt templates)
 ├── .agents/          # Mismo bundle para Freebuff y agentes Agent Skills
 ├── README.md         # Cómo correr backend y frontend
@@ -134,12 +134,13 @@ La capa es metadata de cada template (`layer` en `templates/<TEMPLATE>/template.
 
 ## Skills de opencode
 
-Todo proyecto generado incluye `.opencode/skills/create-specs`, `.opencode/skills/create-specs-from-code`, sus comandos y la biblioteca de diseño completa:
+Todo proyecto generado incluye `.opencode/skills/create-specs`, `.opencode/skills/create-specs-from-code`, `.opencode/skills/create-prompt`, sus comandos y la biblioteca de diseño completa:
 
+- `/create-prompt <idea>` **detalla tu idea antes de generar las specs**. Toma una descripción suelta (`una tienda de floristería`) y escribe `specs/prompt.md`: el prompt módulo por módulo que escribirías a mano, con pantallas, reglas de negocio, endpoints, modelo de datos y requisitos no funcionales. Las decisiones que tu idea no define van marcadas `[PENDIENTE]` para que las revises. Después `/create-specs` lo consume.
 - `/create-specs <descripción>` genera la carpeta `specs/` con módulos `backend/`, `db/` y `frontend/`, cada uno con sus `tasks` listas para implementar.
 - `/create-specs-from-code` hace lo mismo pero sobre un proyecto que **ya existe**: lee el código real y documenta lo que hay. Cada entidad, endpoint, pantalla y tabla queda con su path, y `tasks/` contiene la deuda y los huecos que encuentra (tests faltantes, validación ausente, endpoints sin auth). No inventa nada.
 - `/create-specs` **rutea solo**: si el proyecto ya tiene código con historia de git, pregunta cuál de las dos querés. Si es un scaffold recién generado, va directo a modo proyecto nuevo.
-- `skills/design/` — biblioteca de diseño con 4 estilos listos para usar en el proyecto: `dark-luxury`, `minimal-light`, `neo-brutalist` y `glassmorphism` (cada uno con su `SKILL.md` y `DESIGN.md`).
+- `skills/design/` — biblioteca de diseño con 5 estilos listos para usar en el proyecto: `dark-luxury`, `minimal-dashboard`, `minimal-light`, `neo-brutalist` y `glassmorphism` (cada uno con su `SKILL.md` y `DESIGN.md`).
 - `/design` y `/design-<estilo>` — comandos para aplicar un sistema de diseño: cargan la skill del estilo elegido y leen automáticamente el design system del proyecto en `specs/frontend/02-design.md`.
 - La db se documenta en `specs/db/` (schemas por entidad, enums y use-cases) aunque la implementación viva en el template backend.
 - Los templates y los proyectos traen `.gitignore` que excluye solo el estado local de AI (`.atl/` y `odd`). `.opencode/` y `.pi/` se versionan: las skills, los commands y el design system viajan con el repo para que todo el equipo los tenga.
@@ -150,11 +151,12 @@ El repo es la fuente de verdad de **skills de diseño** para opencode, una por e
 
 ```
 skills/design/
-├── dark-luxury/     # Oscuro premium: negro cálido, acentos dorados/plata, grano, glow
-├── minimal-light/   # Light minimal: blanco, whitespace generoso, un acento
-├── neo-brutalist/   # Brutalista: sombras duras, bordes gruesos negros, colores vivos
-├── glassmorphism/   # Cristal: paneles translúcidos con blur, fondos aurora
-└── commands/        # /design y /design-<estilo> (cargar skill + leer specs/frontend/02-design.md)
+├── dark-luxury/       # Oscuro premium: negro cálido, acentos dorados/plata, grano, glow
+├── minimal-dashboard/ # UI funcional densa: paneles admin, POS, back-office (no es estilo de página)
+├── minimal-light/     # Light minimal: blanco, whitespace generoso, un acento
+├── neo-brutalist/     # Brutalista: sombras duras, bordes gruesos negros, colores vivos
+├── glassmorphism/     # Cristal: paneles translúcidos con blur, fondos aurora
+└── commands/          # /design y /design-<estilo> (cargar skill + leer specs/frontend/02-design.md)
 ```
 
 Cada una es una carpeta con `SKILL.md` (frontmatter + reglas y triggers de activación, inglés + español) y `DESIGN.md` (paleta, tipografía y especificación completa). Están registradas globalmente en `~/.config/opencode/opencode.json` vía `skills.paths`, así que al pedir un estilo ("hacelo dark luxury", "estilo brutalista", "efecto vidrio"...) la skill correspondiente se carga sola, en cualquier proyecto.
@@ -168,7 +170,7 @@ Para sumar un estilo nuevo: creá la carpeta `skills/design/<estilo>/` con su `S
 Para aplicar un sistema de diseño a un estilo concreto:
 
 - `/design` — pregunta qué estilo querés aplicar y lo carga.
-- `/design-dark-luxury`, `/design-minimal-light`, `/design-neo-brutalist`, `/design-glassmorphism` — cargan directamente la skill del estilo.
+- `/design-dark-luxury`, `/design-minimal-dashboard`, `/design-minimal-light`, `/design-neo-brutalist`, `/design-glassmorphism` — cargan directamente la skill del estilo. `minimal-dashboard` es el único que **no** es un estilo de página: es UI funcional densa para paneles admin, POS y back-office, y su propia skill descarta landings y páginas de marketing (usá `dark-luxury` para eso).
 
 Todos leen automáticamente el design system del proyecto (`specs/frontend/02-design.md`) y lo usan como fuente de verdad (accent, paleta, tipografía, componentes); si el archivo no existe, usan los defaults de la skill y avisan. Cualquier texto después del comando se pasa como contexto extra (ej. `/design-dark-luxury rehacé el header`).
 
@@ -206,8 +208,10 @@ fwinit/
 │   └── package.json
 ├── skills/
 │   ├── create-specs/    # Skill embebida en los proyectos generados
+│   ├── create-prompt/   # Detalla una idea de proyecto nuevo en specs/prompt.md
 │   └── design/          # Biblioteca de skills de diseño (registrada vía skills.paths)
 │       ├── dark-luxury/
+│       ├── minimal-dashboard/
 │       ├── minimal-light/
 │       ├── neo-brutalist/
 │       ├── glassmorphism/

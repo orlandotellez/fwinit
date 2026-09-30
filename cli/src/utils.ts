@@ -276,7 +276,7 @@ export async function writeRootFiles(info: RootProjectInfo): Promise<void> {
     "",
     `- \`backend/\` — ${info.backend.description}`,
     `- \`frontend/\` — ${info.frontend.description}`,
-    "- `.opencode/`, `.pi/` y `.agents/` — skills de agentes: `/create-specs` para las specs + biblioteca de diseño (dark-luxury, minimal-dashboard, minimal-light, neo-brutalist, glassmorphism). Mismo bundle en `.opencode/` (opencode), `.pi/` (Pi) y `.agents/` (Freebuff / estándar Agent Skills)",
+    "- `.opencode/`, `.pi/` y `.agents/` — skills de agentes: `/create-prompt` para detallar tu idea, `/create-specs` para generar las specs, `/create-specs-from-code` para documentar un proyecto que ya existe, + biblioteca de diseño (dark-luxury, minimal-dashboard, minimal-light, neo-brutalist, glassmorphism). Mismo bundle en las 3 ubicaciones",
     "- `specs/` — especificaciones del proyecto",
     "",
     "## Backend",
