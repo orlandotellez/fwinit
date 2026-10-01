@@ -19,7 +19,13 @@ The tree shape, file naming, and per-file structure are IDENTICAL to `create-spe
 
 ## Hard Rules
 
-- **Write independent files in PARALLEL, in batches** — the same batching rule as `create-specs`. This tree is ~90 files; writing them one at a time is the single largest cost of this skill. A reasonable batch is 5-10 files. Serialize only what depends on a previous result.
+- **BATCHING OBLIGATORIO — Escribe en PARALELO, en lotes** — la misma regla que `create-specs`. Este árbol es ~90 archivos; escribirlos de a uno es el mayor costo. Agrupa 5-10 archivos independientes por turno. Serializa SOLO lo que depende de un resultado previo (ej. `docs/03-requisitos-del-producto.md`).
+- **CHECKLIST OBLIGATORIO antes de cada turno:**
+  [ ] Identifiqué 5-10 archivos independientes
+  [ ] Los agrupé en una sola llamada multi-Write
+  [ ] No hay dependencias entre ellos
+  [ ] Solo entonces ejecuto
+- **Prohibido:** escribir 1 archivo por turno. "Un archivo por turno" duplica el tiempo de pared sin ganancia.
 - Keep the specs root free of standalone documents — the same rule as `create-specs`: `docs/` is the single container, the root holds only `docs/`, `modules/`, `tasks/`. Never write a root copy of a document that lives in `docs/`.
 - The CODE is the source of truth. Every entity, endpoint, screen, table, enum, env var, and integration documented MUST be found in a real file, and the file path MUST be cited inline. Never invent a single fact.
 - When something is unknown, READ THE FILE. Never guess, never infer from naming conventions, never fill gaps with what a project of this shape "usually" has.

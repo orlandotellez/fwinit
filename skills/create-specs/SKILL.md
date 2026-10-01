@@ -14,7 +14,13 @@ Run when invoked via `/create-specs <project description>` or when the user asks
 ## Hard Rules
 
 - **Group DB files by DOMAIN, never 1:1 with entities.** `schemas/` and `use-cases/` hold 3-6 files each (catalog.md, orders.md, ...), each covering the full tables and flows of its domain. This is a layout rule with a hard requirement behind it: the ENTITY SET is never reduced — every entity and every use case implied by the description must be documented, just grouped. "20 entities = 20 files" is forbidden; "20 entities in 4 domain files" is mandatory.
-- **Write independent files in PARALLEL, in batches.** This tree is ~90 files; writing them one at a time is the single largest cost of this skill. Group every file whose content does not depend on another and issue those writes in the same turn. A reasonable batch is 5-10 files. Serialize only what genuinely depends on a previous result (e.g. `docs/03-requisitos-del-producto.md`, which is derived from the finished tree). Never let "one file per turn" become the default — it roughly doubles the wall time for no gain.
+- **BATCHING OBLIGATORIO — Escribe en PARALELO, en lotes.** Este árbol es ~90 archivos; escribirlos de a uno es el mayor costo. Agrupa TODO archivo cuyo contenido no dependa de otro y ejecuta esos writes en el MISMO turno. Lote razonable: 5-10 archivos. Serializa SOLO lo que DEPENDE genuinamente de un resultado previo (ej. `docs/03-requisitos-del-producto.md`, que deriva del árbol terminado).
+- **CHECKLIST OBLIGATORIO antes de cada turno:**
+  [ ] Identifiqué 5-10 archivos independientes
+  [ ] Los agrupé en una sola llamada multi-Write
+  [ ] No hay dependencias entre ellos
+  [ ] Solo entonces ejecuto
+- **Prohibido:** escribir 1 archivo por turno. "Un archivo por turno" duplica el tiempo de pared sin ganancia.
 - **Keep the specs root free of standalone documents.** `docs/` is the single container for every project document; the root holds only the three folders (`docs/`, `modules/`, `tasks/`). Never write `descripcion-proyecto.md`, `global-instruction.md`, or any newer document at the root — a root copy and a `docs/` copy of the same document is how they drift apart.
 - Create `specs/` only at the project root. Never overwrite an existing `specs/` tree without explicit user approval.
 - `specs/tasks/` is MANDATORY: never finish without per-module task files, one per feature area, each with a current-state section plus an actionable numbered checklist.

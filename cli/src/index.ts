@@ -37,6 +37,7 @@ import {
   installGlobalSkills,
   uninstallGlobalSkills,
   filterBundleByNames,
+  ensureGlobalOpencodeConfig,
   type GlobalTargetSpec,
 } from "./global-skills.js";
 import {
@@ -140,6 +141,8 @@ async function installGlobalSkillsWithSpinner(
         console.log(chalk.dim(`  ✔ ${r.target.label} — ${r.copied} archivos`));
       }
     }
+    // Asegura que la config global de opencode tenga parallel_tool_calls habilitado
+    await ensureGlobalOpencodeConfig();
     console.log();
   } finally {
     await cleanup(tempDir);

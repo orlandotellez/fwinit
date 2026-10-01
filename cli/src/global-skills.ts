@@ -12,7 +12,7 @@
 //   templates en ~/.pi/agent/prompts/<name>.md (nombre de archivo = comando).
 // - Agent Skills: ~/.agents/skills/<name>/ con SKILL.md + extras. Sin
 //   commands: es la ubicación estándar de Agent Skills y no define commands.
-import { mkdir, cp, rm, readdir } from "node:fs/promises";
+import { mkdir, cp, rm, readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import {
   planAgentBundle,
@@ -77,6 +77,42 @@ export function filterBundleByNames(only: string[]): BundleFilter {
   const bundle = AGENT_BUNDLE.filter((e) => set.has(e.dir));
   const known = new Set(AGENT_BUNDLE.map((e) => e.dir));
   return { bundle, unknown: only.filter((n) => !known.has(n)) };
+}
+
+// Asegura que la config global de opencode tenga parallel_tool_calls habilitado.
+// Se ejecuta al instalar skills globalmente para que el batching funcione.
+export async function ensureGlobalOpencodeConfig(): Promise<void> {
+  const home = process.env.HOME;
+  if (!home) return;
+  const configPath = join(home, ".config", "opencode", "opencode.json");
+  try {
+    let data: Record<string, unknown>;
+    try {
+      const content = await readFile(configPath, "utf-8");
+      data = JSON.parse(content);
+    } catch {
+      // Si no existe, creamos estructura mínima
+      data = { agent: {} };
+    }
+    const agent = (data.agent as Record<string, unknown>) ?? {};
+    const dangerousGentleman = (agent["dangerous-gentleman"] as Record<string, unknown>) ?? {};
+    let changed = false;
+    if (dangerousGentleman.parallel_tool_calls !== true) {
+      dangerousGentleman.parallel_tool_calls = true;
+      changed = true;
+    }
+    if (dangerousGentleman.max_parallel_calls !== 10) {
+      dangerousGentleman.max_parallel_calls = 10;
+      changed = true;
+    }
+    if (changed) {
+      agent["dangerous-gentleman"] = dangerousGentleman;
+      data.agent = agent;
+      await writeFile(configPath, JSON.stringify(data, null, 2), "utf-8");
+    }
+  } catch {
+    // Silencioso: la config global es opcional, no bloquear el scaffold
+  }
 }
 
 // Convierte el plan de proyecto (installs relativos a <agent>/) en copias
