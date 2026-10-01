@@ -1,6 +1,6 @@
-# Referencia de estilo: ejemplo de `documentacion-cliente.md` (CURSINET)
+# Referencia de estilo: ejemplo de requisitos del producto (CURSINET)
 
-Este archivo es un **ejemplo de salida** — muestra cómo debe sentirse y estructurarse `specs/documentacion-cliente.md` (el documento de negocio para el cliente, en lenguaje no técnico). Corresponde al template de 12 secciones del SKILL.md de create-specs. Es un proyecto real distinto al que se esté especificando: se usa como molde de estilo, redacción y formato, nunca como contenido copiable.
+Este archivo es un **ejemplo de salida** — muestra cómo debe sentirse y estructurarse `docs/03-requisitos-del-producto.md` (los requisitos del producto en lenguaje no técnico). Corresponde al template de 12 secciones del SKILL.md de create-specs. Es un proyecto real distinto al que se esté especificando: se usa como molde de estilo, redacción y formato, nunca como contenido copiable.
 
 ---
 

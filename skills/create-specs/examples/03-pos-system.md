@@ -12,9 +12,9 @@ Uso: pegá este prompt después de `/create-specs`.
 >
 > El repositorio **puede tener ya un árbol `specs/`** generado previamente. Antes de escribir nada:
 >
-> 1. Leé `specs/descripcion-proyecto.md` y `specs/global-instruction.md` si existen, para no duplicar ni contradecir lo ya escrito.
+> 1. Leé `specs/docs/01-descripcion-proyecto.md` y `specs/docs/02-ejecucion-local.md` si existen, para no duplicar ni contradecir lo ya escrito.
 > 2. **No borres ni sobrescribas** archivos de specs existentes sin aprobación explícita. Actualizá en el lugar, agregá lo que falta y creá solo los archivos nuevos que la descripción de abajo justifique.
-> 3. El árbol final debe quedar con esta forma: `descripcion-proyecto.md`, `global-instruction.md`, `documentacion-cliente.md`, `docs/`, `modules/backend/`, `modules/db/`, `modules/frontend/`, `modules/api/`, y `tasks/` con un archivo por área de funcionalidad (nunca vacío).
+> 3. El árbol final debe quedar con esta forma: `docs/` (01-descripcion-proyecto, 02-ejecucion-local, 03-requisitos-del-producto), `modules/backend/`, `modules/db/`, `modules/frontend/`, `modules/api/`, y `tasks/` con un archivo por área de funcionalidad (nunca vacío).
 >
 > ---
 >
@@ -369,6 +369,6 @@ Uso: pegá este prompt después de `/create-specs`.
 > - No inventar funcionalidades fuera de los módulos declarados. Explícitamente **fuera de alcance**: pagos en línea o pasarelas, marketplace, app móvil nativa, e-commerce público, suscripciones y facturación del software, multi-idioma, modo offline, y comisiones por vendedor.
 > - Los flujos críticos se recorren de punta a punta en las specs: **crear tienda → el admin inicia sesión → crea cajeros → carga productos y proveedores → registra un lote de entrada → vende un producto regular y un servicio con override → el stock de todos los productos baja correctamente → la venta aparece en el reporte y en la tendencia de ingresos**.
 > - Las tareas de `tasks/` cubren backend, db y frontend de cada área, y los task files de db incluyen los índices y las restricciones únicas que sostienen las invariantes de datos de arriba.
-> - `specs/documentacion-cliente.md` se escribe al final, en lenguaje de negocio, con la tabla de roles, las pantallas, las tecnologías por capa, el resumen de endpoints y tablas, y los flujos paso a paso.
+> - `docs/03-requisitos-del-producto.md` se escribe al final, en lenguaje de negocio, con la tabla de roles, las pantallas, las tecnologías por capa, el resumen de endpoints y tablas, y los flujos paso a paso.
 
 

@@ -27,7 +27,7 @@ The tree shape, file naming, and per-file structure are IDENTICAL to `create-spe
 - A module or file that cannot be evidenced is OMITTED, and the omission is reported with the reason. Do not pad the tree to match the contract.
 - `tasks/` is DEBT AND GAPS derived from reading the code: missing tests, absent validation, unhandled errors, undocumented endpoints, missing auth, security holes, stale dependencies, TODOs. Every task cites the real file it came from.
 - A product feature backlog is NOT derivable from code. Do not invent one. After the debt tasks exist, ask ONE question whether a feature backlog is also wanted.
-- `docs/08-documentacion-cliente.md` is MANDATORY, written LAST, and derived only from the generated tree — same template and same rules as `create-specs`.
+- `docs/03-requisitos-del-producto.md` is MANDATORY, written LAST, and derived only from the generated tree — same template and same rules as `create-specs`.
 - Write artifacts in the project's language with a neutral, professional register. English repos get English docs; Spanish repos get neutral Spanish — never slang.
 - `specs/` only at the project root. Never overwrite an existing `specs/` tree without explicit user approval.
 
@@ -39,8 +39,8 @@ The tree shape, file naming, and per-file structure are IDENTICAL to `create-spe
 | Code exists but is tiny (a few files, no clear layers) | Ask whether to document what exists or define what should exist — the honest answer may be the second |
 | Entity exists in code but is undocumented anywhere | Document it as IS (including the missing docs) and add a task to document it |
 | Legacy code with two competing implementations | Document both, mark one as legacy in `Estado Actual`, and add a task to converge them |
-| Project has no persistent storage | Same gate as `create-specs`: record the decision in `docs/05-requisitos-no-funcionales.md` and skip `modules/db/` |
-| A strong architectural decision already made in the code | Record it in `docs/07-decisiones.md` with the evidence that forced it |
+| Project has no persistent storage | Same gate as `create-specs`: state it in the "Fuera de alcance" section of `docs/01-descripcion-proyecto.md` and skip `modules/db/` |
+| A strong architectural decision already made in the code | Record it in `docs/03-requisitos-del-producto.md` with the evidence that forced it |
 
 ## Execution Steps
 
@@ -49,20 +49,20 @@ Steps are grouped into BATCHES. Within a batch, write every file in the same tur
 1. **Map.** Repository before writing anything: entry points, directory layout, framework and dependency manifest, routing tables, ORM/schema files, migration history, test suites, env/config files, CI config. Build the mental model first — the spec is a report of the model, not a guess.
 2. **Collect evidence.** Read the modules in dependency order (config → db → backend → frontend) and record per file: path + what it does + the concrete entities, endpoints, and screens it defines.
 3. **Detect the stack** exactly as `create-specs` does (`*.csproj`, `package.json`, `prisma/`, `migrations/`, `*.sql`, `app.json`) so the module content matches the real stack, and create the directories per the inherited Spec Tree Contract. Apply the gates: `modules/api/` only when external third-party consumers exist in code (the app's own frontend uses `backend/03-api.md`); skip `modules/db/` only when there is genuinely no persistence. Group `schemas/` and `use-cases/` by DOMAIN, never 1:1 with entities.
-4. **Batch A — `docs/` (parallel).** Inherited Document Templates. `03-ejecucion-local.md` MUST use real commands from the real `package.json`/scripts.
+4. **Batch A — `docs/` (parallel).** `01-descripcion-proyecto.md` and `02-ejecucion-local.md` (real commands from the real `package.json`/scripts), using the inherited Document Templates.
 5. **Batch B — backend module (parallel).** For `03-api.md`, enumerate the endpoints that EXIST — read the actual route definitions, do not extrapolate a REST pattern to invent missing CRUD.
 6. **Batch C — db module (parallel).**
 7. **Batch D — frontend module (parallel).**
 8. **Batch E — api module (parallel, when the gate triggered).**
 9. **Batch F — tasks (parallel).** `specs/tasks/README.md` plus one task file per feature area per module, following the inherited tasks template: real `Estado Actual` with paths, objective, scope, numbered actionable checklist of debt/gaps, Done criteria.
-10. **Batch G — serialized, one file.** `specs/docs/08-documentacion-cliente.md` LAST, derived from the completed tree, following the inherited 12-section template.
+10. **Batch G — serialized, one file.** `specs/docs/03-requisitos-del-producto.md` LAST, derived from the completed tree, following the inherited 12-section template.
 11. **Review from memory, not by re-reading.** You wrote every file in this session. Verify that every endpoint/entity/screen cited resolves to a real file, that no module is referenced without existing, and that `tasks/` is non-empty for every module. Report the tree and the debt areas found, then state the recommended first task file.
 
 ## Output Contract
 
-Return the list of created paths (including `specs/docs/08-documentacion-cliente.md`) and the module/task coverage. `specs/tasks/` must never be empty. State the next implementation step (first task file to tick). Every fact in the specs must be traceable to a file path in the repository. The tasks folder is the single tracked source of work: implementation progress is recorded by ticking the checkboxes in place.
+Return the list of created paths (including `specs/docs/03-requisitos-del-producto.md`) and the module/task coverage. `specs/tasks/` must never be empty. State the next implementation step (first task file to tick). Every fact in the specs must be traceable to a file path in the repository. The tasks folder is the single tracked source of work: implementation progress is recorded by ticking the checkboxes in place.
 
 ## References
 
 - `create-specs/SKILL.md` — normative source for the Spec Tree Contract and the Document Templates. Required reading before generating.
-- `create-specs/examples/` — output style references (including the finished `documentacion-cliente.md` mold). Use as a style mold, never as copyable content.
+- `create-specs/examples/` — output style references (including the finished `ejemplo-documentacion-cliente-cursinet.md` mold, the style model for `docs/03-requisitos-del-producto.md`). Use as a style mold, never as copyable content.

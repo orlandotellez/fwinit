@@ -14,7 +14,7 @@ Run when invoked via `/create-specs <project description>` or when the user asks
 ## Hard Rules
 
 - **Group DB files by DOMAIN, never 1:1 with entities.** `schemas/` and `use-cases/` hold 3-6 files each (catalog.md, orders.md, ...), each covering the full tables and flows of its domain. This is a layout rule with a hard requirement behind it: the ENTITY SET is never reduced — every entity and every use case implied by the description must be documented, just grouped. "20 entities = 20 files" is forbidden; "20 entities in 4 domain files" is mandatory.
-- **Write independent files in PARALLEL, in batches.** This tree is ~90 files; writing them one at a time is the single largest cost of this skill. Group every file whose content does not depend on another and issue those writes in the same turn. A reasonable batch is 5-10 files. Serialize only what genuinely depends on a previous result (e.g. `docs/08-documentacion-cliente.md`, which is derived from the finished tree). Never let "one file per turn" become the default — it roughly doubles the wall time for no gain.
+- **Write independent files in PARALLEL, in batches.** This tree is ~90 files; writing them one at a time is the single largest cost of this skill. Group every file whose content does not depend on another and issue those writes in the same turn. A reasonable batch is 5-10 files. Serialize only what genuinely depends on a previous result (e.g. `docs/03-requisitos-del-producto.md`, which is derived from the finished tree). Never let "one file per turn" become the default — it roughly doubles the wall time for no gain.
 - **Keep the specs root free of standalone documents.** `docs/` is the single container for every project document; the root holds only the three folders (`docs/`, `modules/`, `tasks/`). Never write `descripcion-proyecto.md`, `global-instruction.md`, or any newer document at the root — a root copy and a `docs/` copy of the same document is how they drift apart.
 - Create `specs/` only at the project root. Never overwrite an existing `specs/` tree without explicit user approval.
 - `specs/tasks/` is MANDATORY: never finish without per-module task files, one per feature area, each with a current-state section plus an actionable numbered checklist.
@@ -24,8 +24,8 @@ Run when invoked via `/create-specs <project description>` or when the user asks
 - Number files inside each module (`01-`, `02-`, ...) so the reading order is explicit. Each module folder gets a `README.md` linking and briefly describing its files.
 - Tasks are the single tracked source of implementation work: progress is recorded by ticking checkboxes in place; task files must never be deleted or renamed after creation.
 - Write artifacts in the project's language with a neutral, professional register. English repos get English docs; Spanish repos get neutral Spanish — never slang.
-- `docs/08-documentacion-cliente.md` is MANDATORY: a business-level document for the client in plain language. Every module, technology, screen, endpoint count, entity group, integration, and flow it mentions must exist in the generated specs tree — derive, never invent. It is written LAST, when the rest of the tree is final.
-- Review the generated tree before reporting: every module referenced in `02-global-instruction.md` must exist, and `tasks/` must have at least one file per module.
+- `docs/03-requisitos-del-producto.md` is MANDATORY: a plain-language document covering the product requirements — every module, technology, screen, endpoint count, entity group, integration, and flow it mentions must exist in the generated specs tree — derive, never invent. It is written LAST, when the rest of the tree is final.
+- Review the generated tree before reporting: every module documented in the tree must exist with its full file set, and `tasks/` must have at least one file per module.
 
 ## Decision Gates
 
@@ -34,8 +34,8 @@ Run when invoked via `/create-specs <project description>` or when the user asks
 | Description too vague to derive features/modules | Ask one focused clarifying question before generating |
 | `specs/` already exists | Confirm overwrite or merge scope with the user |
 | Project has THIRD-PARTY consumers of its API (external integrations, a public developer portal) | Add `modules/api/` with the public contract; the app's own frontend still consumes `backend/03-api.md`. Do NOT add it just because the frontend exists — that API is already covered |
-| Project has no persistent storage (pure static site, prototype) | Document that decision in `docs/05-requisitos-no-funcionales.md` and skip `modules/db/` (state it explicitly) |
-| A strong architectural decision is made during generation (pattern choice, DB engine, auth provider) | Record it in `docs/07-decisiones.md` with rationale and alternatives |
+| Project has no persistent storage (pure static site, prototype) | State it explicitly in the "Fuera de alcance" section of `docs/01-descripcion-proyecto.md` and skip `modules/db/` |
+| A strong architectural decision is made during generation (pattern choice, DB engine, auth provider) | Record it in `docs/03-requisitos-del-producto.md` with rationale and alternatives |
 
 ## Spec Tree Contract
 
@@ -45,13 +45,8 @@ Build exactly this tree (adapt module files to the detected stack — never fewe
 specs/
 ├── docs/
 │   ├── 01-descripcion-proyecto.md       # full project description
-│   ├── 02-global-instruction.md         # overview, module index, stack quick reference
-│   ├── 03-ejecucion-local.md            # how to run/build/test the project
-│   ├── 04-buenas-practicas.md           # coding conventions and quality bar
-│   ├── 05-requisitos-no-funcionales.md  # performance, security, scalability, availability
-│   ├── 06-glosario.md                   # domain terms with definitions
-│   ├── 07-decisiones.md                 # ADR log (only when a strong decision was made)
-│   └── 08-documentacion-cliente.md      # business-level doc FOR THE CLIENT: modules, technologies, use cases, flows (plain language)
+│   ├── 02-ejecucion-local.md            # how to run/build/test the project
+│   └── 03-requisitos-del-producto.md    # product requirements: modules, technologies, use cases, flows (plain language)
 ├── modules/
 │   ├── backend/                         # server-side application
 │   │   ├── README.md
@@ -99,9 +94,9 @@ specs/
 
 ## Document Templates
 
-### docs/08-documentacion-cliente.md
+### docs/03-requisitos-del-producto.md
 
-Business-level documentation written for the client/stakeholder — plain language, no jargon. EVERY fact must come from the generated specs tree (modules, screens, endpoints, entities, integrations): never invent anything. Write it in the project's language. Use this exact section structure:
+Product requirements written in plain language. EVERY fact must come from the generated specs tree (modules, screens, endpoints, entities, integrations): never invent anything. Write it in the project's language. Use this exact section structure:
 
 1. **Introducción** — qué es el sistema (pitch de 2-3 párrafos) y "¿Qué resuelve?" (lista de beneficios concretos en lenguaje simple).
 2. **Visión General del Sistema** — las grandes etapas del ciclo de vida del sistema (numeradas, de punta a punta) + tabla de roles: `Rol` | `¿Qué puede hacer?`.
@@ -119,13 +114,7 @@ Business-level documentation written for the client/stakeholder — plain langua
 ### docs/ files
 
 - **01-descripcion-proyecto.md** — sections: `Qué es` (pitch), `Para quién` (actors), `Problema que resuelve`, `Funcionalidades principales` (numbered list), `Fuera de alcance`.
-- **02-global-instruction.md** — sections: `Visión general`, `Índice de módulos` (table: module → files → purpose), `Referencia rápida del stack`, `Cómo navegar este árbol` (reading order).
-- **03-ejecucion-local.md** — sections: `Requisitos previos`, `Instalación`, `Ejecución` (dev), `Pruebas`, `Build/producción`. Real commands from the repo — never invented ones.
-- **04-buenas-practicas.md** — sections: `Convenciones de código`, `Estructura de carpetas`, `Errores y logging`, `Commits y ramas`, `Revisión de código`.
-- **05-requisitos-no-funcionales.md** — sections: `Rendimiento`, `Seguridad`, `Escalabilidad`, `Disponibilidad`, `Mantenibilidad`. Each with concrete measurable targets when the project defines them.
-- **06-glosario.md** — a definition list (term — definition). Only domain terms that appear in the rest of the tree; skip if the domain has no special terms.
-- **07-decisiones.md** — one entry per decision: `Contexto` (problem), `Decisión` (what was chosen), `Alternativas` (considered), `Consecuencias` (tradeoffs). Only when a strong decision was made.
-
+- **02-ejecucion-local.md** — sections: `Requisitos previos`, `Instalación`, `Ejecución` (dev), `Pruebas`, `Build/producción`. Real commands from the repo — never invented ones.
 ### backend/ files
 
 - **01-stack.md** — `Lenguaje y versión`, `Framework`, `Versiones clave`, `Por qué esta elección`, `Comandos de desarrollo` (from the detected package.json).
@@ -199,20 +188,20 @@ Steps are grouped into BATCHES. Within a batch, write every file in the same tur
 
 1. **Inspect.** Project root: stack markers (`.csproj`, `package.json`, `app.json`, `prisma/`, `migrations/`, `*.sql`), README, existing structure.
 2. **Create directories.** `specs/`, `specs/docs/`, `specs/modules/{backend,db,frontend}/`, `specs/tasks/{backend,db,frontend}/`. Apply the gates: add `modules/api/` only when justified; skip `modules/db/` only when the project has no persistence.
-3. **Batch A — `docs/` (parallel).** Using the Document Templates: `01-descripcion-proyecto.md`, `02-global-instruction.md`, `03-ejecucion-local.md` (real commands from the repo), `04-buenas-practicas.md`, `05-requisitos-no-funcionales.md`, `06-glosario.md`, and `07-decisiones.md` only when a strong decision was made. Write all of them in this turn.
+3. **Batch A — `docs/` (parallel).** `01-descripcion-proyecto.md` and `02-ejecucion-local.md` (real commands from the inspected repo). Write both in this turn.
 4. **Batch B — backend module (parallel).** `README.md` + `01-stack.md` through `06-configuracion.md`, plus `07-integraciones.md` when external services exist.
 5. **Batch C — db module (parallel).** `README.md`, `setup.md`, one file per DOMAIN in `schemas/` + `index.md`, one file per enum in `enums/` + README, one file per DOMAIN in `use-cases/` + README. All in this turn.
 6. **Batch D — frontend module (parallel).** `README.md` + `01-stack.md` through `05-quality.md` (+ `06-estado.md` when state is non-trivial).
 7. **Batch E — api module (parallel, when the gate triggered).** `README.md` + one file per resource.
 8. **Batch F — tasks (parallel).** `specs/tasks/README.md` and one task file per feature area for each module, following the tasks/ template: current state, objective, scope, numbered actionable checklist, Done criteria. Cross-check that every feature in the module docs has an implementation path here. All in this turn.
-9. **Batch G — serialized, one file.** `specs/docs/08-documentacion-cliente.md` LAST, derived from the completed tree, following its template (12 sections): modules, technologies, DB grouping, screens, integrations, flows, use cases per role. This is the only file that must wait for everything else.
+9. **Batch G — serialized, one file.** `specs/docs/03-requisitos-del-producto.md` LAST, derived from the completed tree, following its template (12 sections): modules, technologies, DB grouping, screens, integrations, flows, use cases per role. This is the only file that must wait for everything else.
 10. **Review from memory, not by re-reading.** You wrote every file in this session; verify against the Contract from what you just produced instead of re-reading the tree. Report it (table: module → files → purpose) and the feature areas covered, then state the recommended first task file to start implementation.
 
 Every endpoint, entity, screen, and task in these batches must come from the project description — derive the complete set, not a subset.
 
 ## Output Contract
 
-Return the list of created paths (including `specs/docs/08-documentacion-cliente.md`) and the module/task coverage. `specs/tasks/` must never be empty. State the next implementation step (first task file to tick). The tasks folder is the single tracked source of work: implementation progress is recorded by ticking the checkboxes in place.
+Return the list of created paths (including `specs/docs/03-requisitos-del-producto.md`) and the module/task coverage. `specs/tasks/` must never be empty. State the next implementation step (first task file to tick). The tasks folder is the single tracked source of work: implementation progress is recorded by ticking the checkboxes in place.
 
 ## Example Prompts
 
@@ -223,6 +212,6 @@ Return the list of created paths (including `specs/docs/08-documentacion-cliente
 | A full-stack project from a rich description (the common case) | `examples/02-app-finanzas-fullstack.md` — one seed vs the same app detailed **module by module (11 modules), screen by screen, with business rules, endpoints, DB entities and indexes, and non-functional requirements**. The depth reference. | — |
 | A public-only landing or static site with no persistence | `examples/01-landing-pasteleria-dulce-atelier.md` — also demonstrates the "no persistence" gate | the project has a database or an API |
 | An existing repo that may already have a `specs/` tree | `examples/03-pos-system.md` — reading and extending instead of overwriting; the reference for **money and tenancy invariants** (`DECIMAL` for every amount with zero float arithmetic in the frontend, `store_id` derived from the session and never from the request, immutable sales with frozen prices, stock that only changes through an inventory movement, soft-delete restricted to the catalog) | the project is greenfield |
-| Writing `docs/08-documentacion-cliente.md` and unsure of the target register | `examples/ejemplo-documentacion-cliente-cursinet.md` — plain business language, role tables, technology tables, numbered flows, per-role use cases, summary table | the file's 12-section template above is already clear to you |
+| Writing `docs/03-requisitos-del-producto.md` and unsure of the target register | `examples/ejemplo-documentacion-cliente-cursinet.md` — plain business language, role tables, technology tables, numbered flows, per-role use cases, summary table | the file's 12-section template above is already clear to you |
 
 Use an example as a style mold, never as copyable content. A short seed always works — the skill inspects the stack and fills the structure — so **no example is required to start**. When the user asks for example prompts to create specs, point them at the `examples/` folder instead of reading them all yourself.
