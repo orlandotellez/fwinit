@@ -1,0 +1,25 @@
+# Core
+fastapi
+uvicorn[standard]
+
+# Database
+SQLAlchemy>=2.0
+alembic
+psycopg[binary]
+
+# Auth
+PyJWT
+passlib[bcrypt]
+# passlib 1.7.4 is incompatible with bcrypt>=4.1; keep it pinned.
+bcrypt==4.0.1
+python-multipart
+
+# Validation
+pydantic>=2.7
+pydantic-settings>=2.2
+email-validator
+
+# Testing
+pytest
+pytest-asyncio
+httpx
