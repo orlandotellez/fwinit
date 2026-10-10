@@ -143,7 +143,7 @@ Todo proyecto generado incluye `.opencode/skills/create-specs`, `.opencode/skill
 - `/create-specs <descripción>` genera la carpeta `specs/` con módulos `backend/`, `db/` y `frontend/`, cada uno con sus `tasks` listas para implementar.
 - `/create-specs-from-code` hace lo mismo pero sobre un proyecto que **ya existe**: lee el código real y documenta lo que hay. Cada entidad, endpoint, pantalla y tabla queda con su path, y `tasks/` contiene la deuda y los huecos que encuentra (tests faltantes, validación ausente, endpoints sin auth). No inventa nada.
 - `/create-specs` **rutea solo**: si el proyecto ya tiene código con historia de git, pregunta cuál de las dos querés. Si es un scaffold recién generado, va directo a modo proyecto nuevo.
-- `skills/design/` — biblioteca de diseño con 5 estilos listos para usar en el proyecto: `dark-luxury`, `minimal-dashboard`, `minimal-light`, `neo-brutalist` y `glassmorphism` (cada uno con su `SKILL.md` y `DESIGN.md`).
+- `skills/design/` — biblioteca de diseño con 6 estilos listos para usar en el proyecto: `dark-luxury`, `docs-starship`, `minimal-dashboard`, `minimal-light`, `neo-brutalist` y `glassmorphism` (cada uno con su `SKILL.md` y `DESIGN.md`).
 - `/design` y `/design-<estilo>` — comandos para aplicar un sistema de diseño: cargan la skill del estilo elegido y leen automáticamente el design system del proyecto en `specs/frontend/02-design.md`.
 - La db se documenta en `specs/db/` (schemas por entidad, enums y use-cases) aunque la implementación viva en el template backend.
 - Los templates y los proyectos traen `.gitignore` que excluye solo el estado local de AI (`.atl/` y `odd`). `.opencode/`, `.pi/` y `.agents/` se versionan: las skills, los commands y el design system viajan con el repo para que todo el equipo los tenga.
@@ -159,6 +159,7 @@ skills/design/
 ├── minimal-light/     # Light minimal: blanco, whitespace generoso, un acento
 ├── neo-brutalist/     # Brutalista: sombras duras, bordes gruesos negros, colores vivos
 ├── glassmorphism/     # Cristal: paneles translúcidos con blur, fondos aurora
+├── docs-starship/     # Docs: sitios de documentación, catálogos y landings técnicas (negro azulado, un acento eléctrico, doble tema)
 └── commands/          # /design y /design-<estilo> (cargar skill + leer specs/frontend/02-design.md)
 ```
 
@@ -173,7 +174,7 @@ Para sumar un estilo nuevo: creá la carpeta `skills/design/<estilo>/` con su `S
 Para aplicar un sistema de diseño a un estilo concreto:
 
 - `/design` — pregunta qué estilo querés aplicar y lo carga.
-- `/design-dark-luxury`, `/design-minimal-dashboard`, `/design-minimal-light`, `/design-neo-brutalist`, `/design-glassmorphism` — cargan directamente la skill del estilo. `minimal-dashboard` es el único que **no** es un estilo de página: es UI funcional densa para paneles admin, POS y back-office, y su propia skill descarta landings y páginas de marketing (usá `dark-luxury` para eso).
+- `/design-dark-luxury`, `/design-minimal-dashboard`, `/design-minimal-light`, `/design-neo-brutalist`, `/design-glassmorphism`, `/design-docs-starship` — cargan directamente la skill del estilo. `minimal-dashboard` es el único que **no** es un estilo de página: es UI funcional densa para paneles admin, POS y back-office, y su propia skill descarta landings y páginas de marketing (usá `dark-luxury` para eso).
 
 Todos leen automáticamente el design system del proyecto (`specs/frontend/02-design.md`) y lo usan como fuente de verdad (accent, paleta, tipografía, componentes); si el archivo no existe, usan los defaults de la skill y avisan. Cualquier texto después del comando se pasa como contexto extra (ej. `/design-dark-luxury rehacé el header`).
 
@@ -218,6 +219,7 @@ fwinit/
 │       ├── minimal-light/
 │       ├── neo-brutalist/
 │       ├── glassmorphism/
+│       ├── docs-starship/
 │       └── commands/    # /design y /design-<estilo>
 ├── templates/           # Templates clasificados por capa (metadata "layer")
 │   ├── ASPNET/          # API ASP.NET Core + Clean Architecture (backend)
