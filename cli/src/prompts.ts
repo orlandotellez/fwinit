@@ -175,7 +175,8 @@ export async function askGlobalSkillsToo(): Promise<boolean> {
     {
       type: "confirm",
       name: "global",
-      message: "¿Instalar las skills también globalmente (OpenCode/Pi/Agent Skills)?",
+      message:
+        "¿Instalar las skills también globalmente (OpenCode/Pi/Gentle Shell/Agent Skills)?",
       default: false,
     },
   ]);

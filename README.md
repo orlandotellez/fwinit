@@ -44,11 +44,12 @@ fwinit fullstack mi-proyecto -b fastify -f react-native -p pnpm
 # Ver templates disponibles (agrupados por capa)
 fwinit list
 
-# Instalar skills globalmente (OpenCode, Pi, Agent Skills) — interactivo
+# Instalar skills globalmente (OpenCode, Pi, Gentle Shell, Agent Skills) — interactivo
 fwinit skills
 
 # Instalar skills globalmente sin preguntas (modo scripting/CI)
 fwinit skills --global opencode,pi   # o: --global all
+fwinit skills --global gentle-shell
 
 # Instalar solo algunas skills
 fwinit skills --global all --only create-specs,design

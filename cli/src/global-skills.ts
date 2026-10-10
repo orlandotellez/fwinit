@@ -10,6 +10,9 @@
 //   y commands en ~/.config/opencode/command/<name>.md (singular).
 // - Pi: ~/.pi/agent/skills/<name>/ con SKILL.md + extras, y prompt
 //   templates en ~/.pi/agent/prompts/<name>.md (nombre de archivo = comando).
+// - Gentle Shell: ~/.gentle-shell/agent/skills/<name>/ con SKILL.md + extras
+//   (o $GENTLE_SHELL_HOME si está seteada), y prompt templates en
+//   ~/.gentle-shell/agent/prompts/<name>.md (nombre de archivo = comando).
 // - Agent Skills: ~/.agents/skills/<name>/ con SKILL.md + extras. Sin
 //   commands: es la ubicación estándar de Agent Skills y no define commands.
 import { mkdir, cp, rm, readdir, readFile, writeFile } from "node:fs/promises";
@@ -21,7 +24,7 @@ import {
   type BundlePlan,
 } from "./agent-bundle.js";
 
-export type GlobalTarget = "opencode" | "pi" | "agents";
+export type GlobalTarget = "opencode" | "pi" | "gentle-shell" | "agents";
 
 export interface GlobalTargetSpec {
   id: GlobalTarget;
@@ -40,6 +43,8 @@ export interface GlobalTargetSpec {
 export function resolveGlobalTargets(): GlobalTargetSpec[] {
   const home = process.env.HOME;
   if (!home) return [];
+  const gentleShellRoot =
+    process.env.GENTLE_SHELL_HOME || join(home, ".gentle-shell", "agent");
   return [
     {
       id: "opencode",
@@ -52,6 +57,13 @@ export function resolveGlobalTargets(): GlobalTargetSpec[] {
       id: "pi",
       label: `Pi global (${home}/.pi/agent)`,
       root: join(home, ".pi", "agent"),
+      skillsDir: "skills",
+      commandsDir: "prompts",
+    },
+    {
+      id: "gentle-shell",
+      label: `Gentle Shell global (${gentleShellRoot})`,
+      root: gentleShellRoot,
       skillsDir: "skills",
       commandsDir: "prompts",
     },
