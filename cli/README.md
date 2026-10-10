@@ -35,11 +35,12 @@ fwinit fullstack mi-proyecto -b fastify -f react-native -p pnpm
 # Ver templates disponibles (agrupados por capa)
 fwinit list
 
-# Instalar skills globalmente (OpenCode, Pi, Agent Skills) — interactivo
+# Instalar skills globalmente (OpenCode, Pi, Gentle Shell, Agent Skills) — interactivo
 fwinit skills
 
 # Instalar skills globalmente sin preguntas (modo scripting/CI)
 fwinit skills --global opencode,pi   # o: --global all
+fwinit skills --global gentle-shell
 
 # Instalar solo algunas skills
 fwinit skills --global all --only create-specs,design
@@ -80,9 +81,10 @@ Pregunta qué backend querés (ASP.NET, Express, Fastify, Node.js Vanilla) y qu�
 mi-proyecto/
 ├── backend/          # API (template elegido — trae su DB: Prisma o EF)
 ├── frontend/         # App (template frontend elegido)
-├── .gitignore        # .atl/ · odd  (.opencode/ y .pi/ SÍ se versionan)
-├── .opencode/        # Skills de opencode (create-specs, create-specs-from-code y biblioteca de diseño)
-├── .pi/              # Mismo bundle de skills para Pi (badlogic)
+├── .gitignore        # .atl/ · odd  (.opencode/, .pi/ y .agents/ SÍ se versionan)
+├── .opencode/        # Skills de OpenCode (create-specs, create-specs-from-code, create-prompt + biblioteca de diseño)
+├── .pi/              # Mismo bundle para Pi y Gentle Shell (skills + prompt templates)
+├── .agents/          # Mismo bundle para Freebuff y agentes Agent Skills
 ├── README.md         # Cómo correr backend y frontend
 └── specs/            # La creás con /create-specs
 ```
@@ -138,12 +140,12 @@ El runtime `bun` de un template se porta automáticamente a `node` (npm/pnpm) si
 2. Extrae y copia el template (o los dos, `backend/` + `frontend/`) al proyecto
 3. Sustituye el nombre del proyecto (package.json, app.json de Expo, proyectos ASP.NET con "Example")
 4. Si corresponde, porta el template de runtime bun a node (npm/pnpm)
-5. Instala `.opencode/` y `.pi/` con las skills `create-specs` y `create-specs-from-code`, sus comandos (`/create-specs` rutea entre ambos según el estado del repo) y la biblioteca de diseño (mismo bundle para opencode y Pi: elegí el agente que quieras)
+5. Instala `.opencode/`, `.pi/` y `.agents/` con las skills `create-specs` y `create-specs-from-code`, sus comandos (`/create-specs` rutea entre ambos según el estado del repo) y la biblioteca de diseño (mismo bundle para OpenCode, Pi/Gentle Shell y Agent Skills: elegí el agente que quieras)
 6. Limpia los lock files (cada proyecto instala los suyos)
 7. Si lo elegís (o pasás `--git`), inicializa un repositorio git en la raíz
 8. Te muestra los próximos pasos (install y dev de cada carpeta)
 
-En modo fullstack (y single con layout de capa) crea además `.gitignore` y `README.md` en la raíz: el `.gitignore` excluye solo el estado local de AI (`.atl/` y `odd`). `.opencode/` y `.pi/` NO se ignoran — los bundles de skills se versionan con el proyecto.
+En modo fullstack (y single con layout de capa) crea además `.gitignore` y `README.md` en la raíz: el `.gitignore` excluye solo el estado local de AI (`.atl/` y `odd`). `.opencode/`, `.pi/` y `.agents/` NO se ignoran — los bundles de skills se versionan con el proyecto.
 
 ## Desarrollo
 

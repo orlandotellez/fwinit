@@ -347,11 +347,11 @@ async function runSkillsFlow(
 program
   .command("skills")
   .description(
-    "Instalar o eliminar las skills del repo en ubicaciones globales (OpenCode, Pi, Agent Skills)"
+    "Instalar o eliminar las skills del repo en ubicaciones globales (OpenCode, Pi, Gentle Shell, Agent Skills)"
   )
   .option(
     "-g, --global <targets>",
-    "Destinos separados por coma: opencode, pi, agents (o 'all'). Saltea la pregunta"
+    "Destinos separados por coma: opencode, pi, gentle-shell, agents (o 'all'). Saltea la pregunta"
   )
   .option(
     "-o, --only <skills>",
