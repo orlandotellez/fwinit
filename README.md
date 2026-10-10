@@ -87,12 +87,14 @@ mi-proyecto/
 ├── backend/          # API (template elegido — trae su DB: Prisma o EF)
 ├── frontend/         # App (template frontend elegido)
 ├── .gitignore        # .atl/ · odd  (.opencode/, .pi/ y .agents/ SÍ se versionan)
-├── .opencode/        # Skills de opencode (create-specs, create-specs-from-code, create-prompt + biblioteca de diseño)
-├── .pi/              # Mismo bundle para Pi (skills + prompt templates)
+├── .opencode/        # Skills de OpenCode (create-specs, create-specs-from-code, create-prompt + biblioteca de diseño)
+├── .pi/              # Mismo bundle para Pi y Gentle Shell (skills + prompt templates)
 ├── .agents/          # Mismo bundle para Freebuff y agentes Agent Skills
 ├── README.md         # Cómo correr backend y frontend
 └── specs/            # La creás con /create-specs
 ```
+
+Gentle Shell corre sobre Pi con un home aislado (`~/.gentle-shell/agent`), así que dentro del proyecto lee el mismo `.pi/` (skills y prompt templates) y `.agents/`. No necesita carpeta propia: el bundle de `.pi/` ya lo cubre.
 
 La base de datos no se configura aparte: viene incluida en el template backend (Prisma en los templates JS/TS, EF Core en ASP.NET).
 
@@ -144,7 +146,7 @@ Todo proyecto generado incluye `.opencode/skills/create-specs`, `.opencode/skill
 - `skills/design/` — biblioteca de diseño con 5 estilos listos para usar en el proyecto: `dark-luxury`, `minimal-dashboard`, `minimal-light`, `neo-brutalist` y `glassmorphism` (cada uno con su `SKILL.md` y `DESIGN.md`).
 - `/design` y `/design-<estilo>` — comandos para aplicar un sistema de diseño: cargan la skill del estilo elegido y leen automáticamente el design system del proyecto en `specs/frontend/02-design.md`.
 - La db se documenta en `specs/db/` (schemas por entidad, enums y use-cases) aunque la implementación viva en el template backend.
-- Los templates y los proyectos traen `.gitignore` que excluye solo el estado local de AI (`.atl/` y `odd`). `.opencode/` y `.pi/` se versionan: las skills, los commands y el design system viajan con el repo para que todo el equipo los tenga.
+- Los templates y los proyectos traen `.gitignore` que excluye solo el estado local de AI (`.atl/` y `odd`). `.opencode/`, `.pi/` y `.agents/` se versionan: las skills, los commands y el design system viajan con el repo para que todo el equipo los tenga.
 
 ### Biblioteca de skills de diseño
 
