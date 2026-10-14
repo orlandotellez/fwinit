@@ -165,6 +165,18 @@ describe("substituteTemplate(FLUTTER)", () => {
     );
   });
 
+  test("keeps Dart import blocks sorted after the rename", async () => {
+    const home = await read("lib/features/home/presentation/home_page.dart");
+    const goRouterIndex = home.indexOf(
+      "import 'package:go_router/go_router.dart';"
+    );
+    const miAppIndex = home.indexOf("import 'package:mi_app/");
+
+    expect(goRouterIndex).toBeGreaterThanOrEqual(0);
+    expect(miAppIndex).toBeGreaterThanOrEqual(0);
+    expect(goRouterIndex).toBeLessThan(miAppIndex);
+  });
+
   test("updates the Android namespace and applicationId", async () => {
     const gradle = await read("android/app/build.gradle.kts");
     expect(gradle).toContain('namespace = "ar.miempresa.mi_app"');

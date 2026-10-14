@@ -8,6 +8,7 @@ import {
   normalizeOrg,
   toDartPackageName,
 } from "./flutter-naming.js";
+import { sortDartDirectiveRuns } from "./dart-directives.js";
 
 const GITHUB_REPO = "orlandotellez/fwinit";
 const GITHUB_BRANCH = "main";
@@ -422,6 +423,14 @@ async function substituteFlutter(
     } else {
       replaced = replaceToken(content, "fwiflu", dartName);
       replaced = replaceToken(replaced, "mx.apto", org);
+    }
+
+    // Renaming the package can move a `package:` import past another one
+    // (e.g. `mi_app` sorts after `go_router`), which the template's
+    // `directives_ordering` lint rejects. Re-sort every `.dart` run; this is a
+    // no-op on the pristine template because the author already sorted it.
+    if (extname(filePath).toLowerCase() === ".dart") {
+      replaced = sortDartDirectiveRuns(replaced);
     }
 
     if (replaced !== content) {
