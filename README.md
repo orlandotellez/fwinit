@@ -6,6 +6,7 @@
 ![Express.js](https://img.shields.io/badge/express.js-%23404d59.svg?style=for-the-badge&logo=express&logoColor=%2361DAFB)
 ![React Native](https://img.shields.io/badge/React%20Native-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
 ![Expo](https://img.shields.io/badge/Expo-1C1E24?style=for-the-badge&logo=expo&logoColor=white)
+![Flutter](https://img.shields.io/badge/Flutter-02569B?style=for-the-badge&logo=flutter&logoColor=white)
 ![.NET 10](https://img.shields.io/badge/.NET_10-512BD4?style=for-the-badge&logo=dotnet&logoColor=white)
 ![ASP.NET Core](https://img.shields.io/badge/ASP.NET_Core-512BD4?style=for-the-badge&logo=dotnet&logoColor=white)
 
@@ -119,7 +120,7 @@ fwinit express mi-api --no-backend
 fwinit express mi-api --backend
 ```
 
-Igual para frontend: `fwinit astro mi-landing`, `fwinit tauri mi-dashboard` (o `react-native`) pregunta por `frontend/`.
+Igual para frontend: `fwinit astro mi-landing`, `fwinit tauri mi-dashboard`, `fwinit flutter mi-app` (o `react-native`) pregunta por `frontend/`.
 
 ## Templates disponibles
 
@@ -132,8 +133,11 @@ Igual para frontend: `fwinit astro mi-landing`, `fwinit tauri mi-dashboard` (o `
 | `astro` | frontend | Landing estática con Astro 7 y TypeScript | node |
 | `tauri` | frontend | Dashboard de escritorio con React, Vite y Tauri 2 | node |
 | `react-native` | frontend | App móvil con React Native, Expo y TypeScript | node |
+| `flutter` | frontend | App multiplataforma con Flutter, Clean Architecture y Riverpod | flutter |
 
-La capa es metadata de cada template (`layer` en `templates/<TEMPLATE>/template.json`): para sumar un frontend nuevo (Astro, Next.js...), alcanza con agregar la carpeta del template y su `layer`. Los templates se clasifican por capa en la metadata, no por estructura de carpetas.
+La capa y el runtime son metadata de cada template (`layer` y `runtime` en `templates/<TEMPLATE>/template.json`), pero **el template se registra en `cli/src/templates.ts`**: el `template.json` documenta y aporta los comandos de `postInit`, no resuelve el alias. Para sumar un template nuevo alcanzan la carpeta, su `template.json` y su entrada en `TEMPLATES`.
+
+El único template que pide una identidad propia es Flutter: `fwinit flutter mi-app` pregunta la **organización reverse-domain** (ej. `ar.miempresa`) para armar el bundle id `ar.miempresa.mi_app` de Android, iOS, macOS y Linux. Se saltea con `-o, --org ar.miempresa`; en modo scripting/CI el default es `com.example`. Los demás templates no llevan bundle id nativo, así que no preguntan nada.
 
 ## Skills de opencode
 
@@ -228,7 +232,8 @@ fwinit/
 │   ├── NODEJS-VANILLA/  # API Node.js puro + Prisma + TypeScript (backend)
 │   ├── ASTRO/           # Landing estática Astro 7 (frontend)
 │   ├── TAURI/           # Dashboard de escritorio Tauri 2 (frontend)
-│   └── REACT-NATIVE/    # App React Native + Expo (frontend)
+│   ├── REACT-NATIVE/    # App React Native + Expo (frontend)
+│   └── FLUTTER/         # App Flutter + Riverpod + Clean Architecture (frontend)
 └── README.md
 ```
 

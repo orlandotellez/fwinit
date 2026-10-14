@@ -31,7 +31,13 @@ import {
   selectGlobalTargetsToRemove,
   selectSkillsAction,
   askGlobalSkillsToo,
+  askFlutterOrg,
 } from "./prompts.js";
+import {
+  FLUTTER_ORG_DEFAULT,
+  checkOrg,
+  normalizeOrg,
+} from "./flutter-naming.js";
 import {
   resolveGlobalTargets,
   installGlobalSkills,
@@ -171,7 +177,8 @@ async function createFullStackProject(
   projectPath: string,
   backendTpl: Template,
   frontendTpl: Template,
-  pm: PackageManager
+  pm: PackageManager,
+  org: string | undefined
 ): Promise<void> {
   const { tempDir, repoRoot } = await downloadAndExtractRepo();
   const projectName = basename(projectPath);
@@ -187,8 +194,12 @@ async function createFullStackProject(
     join(repoRoot, "templates", frontendTpl.folder),
     frontendPath
   );
-  await substituteTemplate(backendPath, projectName, backendTpl.folder);
-  await substituteTemplate(frontendPath, projectName, frontendTpl.folder);
+  await substituteTemplate(backendPath, projectName, backendTpl.folder, {
+    org,
+  });
+  await substituteTemplate(frontendPath, projectName, frontendTpl.folder, {
+    org,
+  });
   await installAgentSkills(repoRoot, projectPath);
 
   // Template nativo de bun + npm/pnpm → portar a runtime node
@@ -374,6 +385,10 @@ program
   .argument("[template]", "Template a usar (o 'fullstack' para backend + frontend)")
   .argument("[project-name]", "Nombre del proyecto")
   .option("-p, --pm <package-manager>", "Package manager a usar: npm, pnpm o bun")
+  .option(
+    "-o, --org <domain>",
+    "Organización reverse-domain para el bundle id de Flutter (ej: ar.miempresa)"
+  )
   .option("--backend", "Empaquetar el código en backend/ (saltea la pregunta)")
   .option("--no-backend", "Dejar el código en la raíz del proyecto (saltea la pregunta)")
   .option("-b, --backend-template <tpl>", "Backend a usar en fullstack (saltea la pregunta)")
@@ -383,14 +398,21 @@ program
   .action(
     async (templateArg?: string, projectNameArg?: string) => {
       try {
-        const { pm: pmArg, backend, backendTemplate, frontendTemplate, git } =
-          program.opts<{
-            pm?: string;
-            backend?: boolean;
-            backendTemplate?: string;
-            frontendTemplate?: string;
-            git?: boolean;
-          }>();
+        const {
+          pm: pmArg,
+          org: orgArg,
+          backend,
+          backendTemplate,
+          frontendTemplate,
+          git,
+        } = program.opts<{
+          pm?: string;
+          org?: string;
+          backend?: boolean;
+          backendTemplate?: string;
+          frontendTemplate?: string;
+          git?: boolean;
+        }>();
 
         // Validar el flag --pm si se proporcionó
         if (pmArg && !PACKAGE_MANAGERS.includes(pmArg as PackageManager)) {
@@ -494,6 +516,33 @@ program
           projectName = await askProjectName();
         }
 
+        // Runtimes seleccionados: definen si aparece Flutter y si hace falta
+        // pedir un package manager (Flutter usa el toolchain de Dart).
+        const runtimes = template
+          ? [template.runtime]
+          : [backendTpl!.runtime, frontendTpl!.runtime];
+
+        // Organización reverse-domain del bundle id: solo aplica cuando la
+        // selección incluye Flutter (el resto de templates la ignora). Se
+        // resuelve acá, con el nombre ya conocido y antes de layout/pm/git.
+        // Fallbacks sin --org: preguntar en modo interactivo, y com.example
+        // en modo scripting/CI (no se puede promptear).
+        let org: string | undefined;
+        if (runtimes.includes("flutter")) {
+          if (orgArg) {
+            const check = checkOrg(orgArg);
+            if (check !== true) {
+              console.error(chalk.red(`\n\u2716 ${check}\n`));
+              process.exit(1);
+            }
+            org = normalizeOrg(orgArg);
+          } else if (git === undefined) {
+            org = await askFlutterOrg();
+          } else {
+            org = FLUTTER_ORG_DEFAULT;
+          }
+        }
+
         // Modo single: preguntar si empaquetar el template en backend/
         // (o frontend/) — default: sí. --backend/--no-backend saltean
         // la pregunta (modo scripting). En fullstack el layout es fijo:
@@ -507,11 +556,10 @@ program
               : backend;
 
         // Preguntar el package manager si hay algún template JS/TS
-        // (ASP.NET usa dotnet, no aplica a ese lado)
-        const runtimes = template
-          ? [template.runtime]
-          : [backendTpl!.runtime, frontendTpl!.runtime];
-        const needsPm = runtimes.some((r) => r !== "dotnet");
+        // (ASP.NET usa dotnet y Flutter usa Dart: ninguno aplica)
+        const needsPm = runtimes.some(
+          (r) => r !== "dotnet" && r !== "flutter"
+        );
         if (!pm && needsPm) {
           pm = await selectPackageManager();
         }
@@ -544,7 +592,8 @@ program
             projectPath,
             backendTpl!,
             frontendTpl!,
-            pm ?? "npm"
+            pm ?? "npm",
+            org
           );
           spinner.succeed("Template descargado");
         } else {
@@ -560,7 +609,9 @@ program
           spinner.text = "Creando proyecto...";
 
           await copyTemplate(templatePath, codePath);
-          await substituteTemplate(codePath, projectName, template!.folder);
+          await substituteTemplate(codePath, projectName, template!.folder, {
+            org,
+          });
           await installAgentSkills(repoRoot, projectPath);
 
           // Con layout de capa, .opencode/, .pi/, .agents/ y specs/ viven fuera de
