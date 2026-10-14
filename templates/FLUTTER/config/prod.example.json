@@ -1,0 +1,6 @@
+{
+  "FLAVOR": "prod",
+  "API_BASE_URL": "https://api.example.com",
+  "API_TIMEOUT_MS": 20000,
+  "ENABLE_LOGGING": false
+}

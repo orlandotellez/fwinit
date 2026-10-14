@@ -1,0 +1,6 @@
+{
+  "FLAVOR": "dev",
+  "API_BASE_URL": "https://jsonplaceholder.typicode.com",
+  "API_TIMEOUT_MS": 15000,
+  "ENABLE_LOGGING": true
+}

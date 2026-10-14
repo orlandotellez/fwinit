@@ -1,0 +1,97 @@
+{
+  "@@locale": "en",
+  "appTitle": "fwiflu",
+  "@appTitle": {
+    "description": "The application title"
+  },
+  "appTagline": "Clean Architecture, Riverpod and one design system for light and dark.",
+  "homeTitle": "Home",
+  "homeWelcome": "Start from a real design system.",
+  "homeSubtitle": "Every colour, size and motion token is defined once, then spent everywhere.",
+  "homeCounterSubtitle": "One screen, one synchronous Notifier.",
+  "homeComponentsSubtitle": "Every shared widget, with its states.",
+  "homeDesignSubtitle": "Tokens, colour, type, spacing and motion.",
+  "homeExamplesSection": "Examples",
+  "counterTitle": "Counter",
+  "counterReset": "Reset",
+  "counterIncrement": "Increment",
+  "counterDecrement": "Decrement",
+  "counterValue": "You have pushed the button {count, plural, =0{no times} =1{once} other{{count} times}}",
+  "@counterValue": {
+    "description": "Counter value with pluralization",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "postsTitle": "Posts",
+  "postsSubtitle": "Read from a remote API through the repository layer.",
+  "postDetailTitle": "Post detail",
+  "postAuthor": "Author #{userId}",
+  "@postAuthor": {
+    "description": "Author label on the post detail screen",
+    "placeholders": {
+      "userId": {
+        "type": "int"
+      }
+    }
+  },
+  "retry": "Retry",
+  "cancel": "Cancel",
+  "comingSoon": "Coming soon.",
+  "emptyPosts": "No posts to show yet.",
+  "routeNotFound": "Page not found: {location}",
+  "@routeNotFound": {
+    "description": "Shown when a route cannot be resolved",
+    "placeholders": {
+      "location": {
+        "type": "String"
+      }
+    }
+  },
+  "tabHome": "Home",
+  "tabPosts": "Posts",
+  "tabProfile": "Profile",
+  "loginTitle": "Welcome back",
+  "loginSubtitle": "There is no backend yet. Sign in to see the navigation flow.",
+  "emailLabel": "Email",
+  "emailInvalid": "Enter a valid email address.",
+  "passwordLabel": "Password",
+  "passwordTooShort": "Password is too short.",
+  "showPassword": "Show password",
+  "hidePassword": "Hide password",
+  "loginButton": "Sign in",
+  "logout": "Log out",
+  "logoutConfirmTitle": "Log out?",
+  "logoutConfirmMessage": "You will need to sign in again.",
+  "guestName": "Demo User",
+  "guestEmail": "demo@example.com",
+  "profileAccountSection": "Account",
+  "profileAppearanceSection": "Appearance",
+  "themeModeLabel": "Theme",
+  "themeModeSubtitle": "Follows your device by default.",
+  "themeSystem": "System",
+  "themeLight": "Light",
+  "themeDark": "Dark",
+  "profileNotifications": "Notifications",
+  "profileAbout": "About",
+  "profileAboutBody": "Clean Architecture, Riverpod and one design system for light and dark.",
+  "componentsTitle": "Components",
+  "componentsFoundation": "Foundation",
+  "componentsColors": "Colour",
+  "componentsTypographySection": "Typography",
+  "componentsSpacing": "Spacing and radii",
+  "componentsMotion": "Motion",
+  "componentsStates": "States",
+  "componentsButtons": "Buttons",
+  "componentsInputs": "Inputs",
+  "componentsFeedback": "Feedback",
+  "componentsData": "Data display",
+  "componentsCardExample": "Cards group related content.",
+  "errorNetwork": "No internet connection. Please try again.",
+  "errorServer": "Something went wrong on our end. Please try again later.",
+  "errorData": "We received unexpected data. Please try again.",
+  "errorCache": "Could not read local data.",
+  "errorUnknown": "An unexpected error occurred."
+}

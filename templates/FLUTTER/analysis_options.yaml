@@ -1,0 +1,53 @@
+# Analysis configuration for the fwiflu.
+#
+# Starts from the recommended `flutter_lints` set and tightens it with rules
+# that catch real bugs and enforce a consistent style. Generated files are
+# excluded so codegen never fails the analyzer.
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  language:
+    strict-casts: true
+    strict-inference: true
+    strict-raw-types: true
+  errors:
+    # Treat missing awaits as an error — they are almost always bugs.
+    unawaited_futures: error
+    invalid_annotation_target: ignore
+  exclude:
+    - "**/*.g.dart"
+    - "**/*.freezed.dart"
+    - "lib/l10n/gen/**"
+    - "build/**"
+    - android/**
+    - ios/**
+    - web/**
+    - windows/**
+    - macos/**
+    - linux/**
+
+linter:
+  rules:
+    # Correctness
+    - always_declare_return_types
+    - avoid_dynamic_calls
+    - avoid_slow_async_io
+    - cancel_subscriptions
+    - close_sinks
+    - no_adjacent_strings_in_list
+    - test_types_in_equals
+    - throw_in_finally
+    - unnecessary_statements
+
+    # Style & readability
+    - always_use_package_imports
+    - avoid_redundant_argument_values
+    - directives_ordering
+    - prefer_const_constructors
+    - prefer_const_constructors_in_immutables
+    - prefer_const_declarations
+    - prefer_final_locals
+    - prefer_single_quotes
+    - require_trailing_commas
+    - sort_child_properties_last
+    - use_super_parameters
