@@ -25,6 +25,10 @@ fwinit
 fwinit fastify mi-api
 fwinit aspnet mi-app
 fwinit react-native mi-mobile
+fwinit flutter mi-app
+
+# Flutter: saltear la pregunta de organización (bundle id)
+fwinit flutter mi-app -o ar.miempresa
 
 # Crear un proyecto completo: backend + frontend (+ db incluida)
 fwinit fullstack mi-proyecto
@@ -75,7 +79,7 @@ fwinit --help
 fwinit fullstack mi-proyecto
 ```
 
-Pregunta qué backend querés (ASP.NET, Express, Fastify, Node.js Vanilla) y qué frontend (React Native). Genera:
+Pregunta qué backend querés (ASP.NET, Express, Fastify, Node.js Vanilla) y qué frontend (React Native, Flutter, Astro, Tauri). Genera:
 
 ```
 mi-proyecto/
@@ -104,13 +108,14 @@ fwinit express mi-api --no-backend
 fwinit express mi-api --backend
 ```
 
-Igual para frontend: `fwinit react-native mi-app` pregunta por `frontend/`.
+Igual para frontend: `fwinit react-native mi-app` o `fwinit flutter mi-app` pregunta por `frontend/`.
 
 ## Flags
 
 | Flag | Descripción |
 |------|-------------|
 | `-p, --pm <manager>` | Package manager: `npm`, `pnpm` o `bun` (saltea la pregunta) |
+| `-o, --org <domain>` | Organización reverse-domain del bundle id. Solo aplica a Flutter (saltea la pregunta; default `com.example`) |
 | `--backend` | Empaquetar el código en `backend/` (solo modo single, saltea la pregunta) |
 | `--no-backend` | Dejar el código en la raíz del proyecto (saltea la pregunta) |
 | `-b, --backend-template <tpl>` | Backend a usar en fullstack (saltea la pregunta) |
@@ -129,8 +134,11 @@ Igual para frontend: `fwinit react-native mi-app` pregunta por `frontend/`.
 | `astro` | frontend | Landing estática con Astro 7 y TypeScript | node |
 | `tauri` | frontend | Dashboard de escritorio con React, Vite y Tauri 2 | node |
 | `react-native` | frontend | App móvil con React Native, Expo y TypeScript | node |
+| `flutter` | frontend | App multiplataforma con Flutter, Clean Architecture y Riverpod | flutter |
 
-La capa es metadata de cada template (`layer` en `templates/<TEMPLATE>/template.json`): para sumar un frontend nuevo (Astro, Next.js...), alcanza con agregar la carpeta del template y su `layer`. Los templates se clasifican por capa en la metadata, no por estructura de carpetas.
+La capa y el runtime son metadata de cada template (`layer` y `runtime` en `templates/<TEMPLATE>/template.json`), pero **el template se registra en `cli/src/templates.ts`**: el `template.json` documenta y aporta los comandos de `postInit`, no resuelve el alias. Para sumar un template nuevo alcanzan la carpeta, su `template.json` y su entrada en `TEMPLATES`.
+
+Flutter es el único template que pregunta una identidad propia: la organización reverse-domain (default `com.example`) para armar los bundle ids nativos. `-o, --org` la saltea; en modo scripting/CI se usa el default.
 
 El runtime `bun` de un template se porta automáticamente a `node` (npm/pnpm) si elegís npm o pnpm: scripts con `tsx`, tests con `vitest` y sin `bun-types`.
 
@@ -138,10 +146,10 @@ El runtime `bun` de un template se porta automáticamente a `node` (npm/pnpm) si
 
 1. Descarga el ZIP del repositorio de templates desde GitHub (una sola vez, también en fullstack)
 2. Extrae y copia el template (o los dos, `backend/` + `frontend/`) al proyecto
-3. Sustituye el nombre del proyecto (package.json, app.json de Expo, proyectos ASP.NET con "Example")
+3. Sustituye el nombre del proyecto (package.json, app.json de Expo, proyectos ASP.NET con "Example", y en Flutter el paquete Dart, los imports, los bundle ids nativos y los nombres de binario)
 4. Si corresponde, porta el template de runtime bun a node (npm/pnpm)
 5. Instala `.opencode/`, `.pi/` y `.agents/` con las skills `create-specs` y `create-specs-from-code`, sus comandos (`/create-specs` rutea entre ambos según el estado del repo) y la biblioteca de diseño (mismo bundle para OpenCode, Pi/Gentle Shell y Agent Skills: elegí el agente que quieras)
-6. Limpia los lock files (cada proyecto instala los suyos)
+6. Limpia los lock files (cada proyecto instala los suyos; incluye `pubspec.lock` en Flutter)
 7. Si lo elegís (o pasás `--git`), inicializa un repositorio git en la raíz
 8. Te muestra los próximos pasos (install y dev de cada carpeta)
 
