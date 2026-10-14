@@ -1,4 +1,4 @@
-export type TemplateRuntime = "node" | "bun" | "dotnet";
+export type TemplateRuntime = "node" | "bun" | "dotnet" | "flutter";
 
 export type TemplateLayer = "backend" | "frontend";
 
@@ -66,6 +66,14 @@ export const TEMPLATES: Template[] = [
     description: "App móvil con React Native, Expo y TypeScript",
     folder: "REACT-NATIVE",
     runtime: "node",
+    layer: "frontend",
+  },
+  {
+    name: "Flutter",
+    alias: ["flutter", "dart", "fwiflu"],
+    description: "App multiplataforma con Flutter, Clean Architecture y Riverpod",
+    folder: "FLUTTER",
+    runtime: "flutter",
     layer: "frontend",
   },
 ];

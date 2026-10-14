@@ -1,0 +1,13 @@
+{
+  "name": "flutter",
+  "description": "App multiplataforma con Flutter, Clean Architecture y Riverpod",
+  "version": "1.0.0",
+  "runtime": "flutter",
+  "layer": "frontend",
+  "postInit": {
+    "install": "flutter pub get",
+    "dev": "flutter run",
+    "build": "flutter build apk"
+  },
+  "tags": ["flutter", "dart", "riverpod", "clean-architecture", "mobile", "cross-platform"]
+}

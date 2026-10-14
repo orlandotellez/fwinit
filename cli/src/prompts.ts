@@ -6,6 +6,11 @@ import {
 } from "./templates.js";
 import type { PackageManager } from "./utils.js";
 import type { GlobalTarget } from "./global-skills.js";
+import {
+  FLUTTER_ORG_DEFAULT,
+  checkOrg,
+  normalizeOrg,
+} from "./flutter-naming.js";
 
 export type ProjectScope = "fullstack" | "backend" | "frontend" | "skills";
 
@@ -165,6 +170,26 @@ export async function selectSkillsAction(): Promise<SkillsAction> {
     },
   ]);
   return action;
+}
+
+// Organización reverse-domain para el bundle id. Es el ÚNICO template que
+// pregunta esto: Flutter/Dart deriva el bundle id y el package path de una
+// identidad reverse-domain real (ej. ar.miempresa), mientras que el resto de
+// los templates siguen convenciones de npm/dotnet que no llevan identidad de
+// dominio propia. Normaliza antes de devolver: el caller siempre recibe un
+// valor en minúsculas y sin espacios.
+export async function askFlutterOrg(): Promise<string> {
+  const { org } = await inquirer.prompt([
+    {
+      type: "input",
+      name: "org",
+      message:
+        "Organización para el bundle id (reverse-domain, ej. com.example):",
+      default: FLUTTER_ORG_DEFAULT,
+      validate: checkOrg,
+    },
+  ]);
+  return normalizeOrg(org);
 }
 
 // Post-creación: instalar el bundle también en los destinos globales.
