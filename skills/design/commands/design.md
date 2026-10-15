@@ -10,5 +10,6 @@ The user wants to apply a design system to this project. Present the available d
 - `/design-glassmorphism` — frosted glass panels, backdrop blur, translucent layers, aurora gradient backgrounds
 - `/design-minimal-dashboard` — dark, data-dense admin panels, POS systems and internal tools (neutral near-black chrome, color only for meaning)
 - `/design-docs-starship` — documentation sites, catalogs and technical landing pages (near-black blue surfaces, one electric accent, hairline borders, dual light/dark theme)
+- `/design-ui-ux-pro-max` — search-driven catalog (79 styles, 192 palettes, 74 font pairings, 119 UX guidelines, 22 stacks): pick a style by name or generate a full design system for a product type
 
 Once the style is chosen, load the corresponding skill and read `specs/frontend/02-design.md` as this project's design system source of truth, exactly like the specific `/design-<style>` command would. Do not invent beyond the skill + the design system file. $ARGUMENTS

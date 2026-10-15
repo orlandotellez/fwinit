@@ -86,7 +86,7 @@ mi-proyecto/
 ├── backend/          # API (template elegido — trae su DB: Prisma o EF)
 ├── frontend/         # App (template frontend elegido)
 ├── .gitignore        # .atl/ · odd  (.opencode/, .pi/ y .agents/ SÍ se versionan)
-├── .opencode/        # Skills de OpenCode (create-specs, create-specs-from-code, create-prompt + biblioteca de diseño)
+├── .opencode/        # Skills de OpenCode (create-specs, create-specs-from-code, create-prompt, biblioteca de diseño y catálogo ui-ux-pro-max)
 ├── .pi/              # Mismo bundle para Pi y Gentle Shell (skills + prompt templates)
 ├── .agents/          # Mismo bundle para Freebuff y agentes Agent Skills
 ├── README.md         # Cómo correr backend y frontend
@@ -148,7 +148,7 @@ El runtime `bun` de un template se porta automáticamente a `node` (npm/pnpm) si
 2. Extrae y copia el template (o los dos, `backend/` + `frontend/`) al proyecto
 3. Sustituye el nombre del proyecto (package.json, app.json de Expo, proyectos ASP.NET con "Example", y en Flutter el paquete Dart, los imports, los bundle ids nativos y los nombres de binario)
 4. Si corresponde, porta el template de runtime bun a node (npm/pnpm)
-5. Instala `.opencode/`, `.pi/` y `.agents/` con las skills `create-specs` y `create-specs-from-code`, sus comandos (`/create-specs` rutea entre ambos según el estado del repo) y la biblioteca de diseño (mismo bundle para OpenCode, Pi/Gentle Shell y Agent Skills: elegí el agente que quieras)
+5. Instala `.opencode/`, `.pi/` y `.agents/` con las skills `create-specs` y `create-specs-from-code`, sus comandos (`/create-specs` rutea entre ambos según el estado del repo), la biblioteca de diseño y el catálogo `ui-ux-pro-max` (mismo bundle para OpenCode, Pi/Gentle Shell y Agent Skills: elegí el agente que quieras)
 6. Limpia los lock files (cada proyecto instala los suyos; incluye `pubspec.lock` en Flutter)
 7. Si lo elegís (o pasás `--git`), inicializa un repositorio git en la raíz
 8. Te muestra los próximos pasos (install y dev de cada carpeta)

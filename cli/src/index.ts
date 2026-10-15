@@ -283,7 +283,8 @@ async function runSkillsFlow(
   console.log(chalk.bold("\nSkills disponibles:\n"));
   console.log(chalk.dim("  create-specs — specs para proyecto nuevo (/create-specs)"));
   console.log(chalk.dim("  create-specs-from-code — specs desde código existente (/create-specs-from-code)"));
-  console.log(chalk.dim("  design/ — dark-luxury, glassmorphism, minimal-dashboard, minimal-light, neo-brutalist (/design-<estilo>)\n"));
+  console.log(chalk.dim("  create-prompt — detalla una idea en specs/prompt.md (/create-prompt)"));
+  console.log(chalk.dim("  design/ — dark-luxury, glassmorphism, minimal-dashboard, minimal-light, neo-brutalist, docs-starship + catálogo ui-ux-pro-max (/design-<estilo>; el catálogo requiere Python 3)\n"));
 
   // --only: subconjunto del bundle. Nombres desconocidos se avisan y
   // se ignoran (no abortan): el resto viaja igual.
@@ -366,7 +367,7 @@ program
   )
   .option(
     "-o, --only <skills>",
-    "Solo estas skills, separadas por coma: create-specs, create-specs-from-code, design"
+    "Solo estas skills, separadas por coma: create-specs, create-specs-from-code, create-prompt, design"
   )
   .option(
     "-r, --remove",

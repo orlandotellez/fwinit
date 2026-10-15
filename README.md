@@ -147,8 +147,9 @@ Todo proyecto generado incluye `.opencode/skills/create-specs`, `.opencode/skill
 - `/create-specs <descripción>` genera la carpeta `specs/` con módulos `backend/`, `db/` y `frontend/`, cada uno con sus `tasks` listas para implementar.
 - `/create-specs-from-code` hace lo mismo pero sobre un proyecto que **ya existe**: lee el código real y documenta lo que hay. Cada entidad, endpoint, pantalla y tabla queda con su path, y `tasks/` contiene la deuda y los huecos que encuentra (tests faltantes, validación ausente, endpoints sin auth). No inventa nada.
 - `/create-specs` **rutea solo**: si el proyecto ya tiene código con historia de git, pregunta cuál de las dos querés. Si es un scaffold recién generado, va directo a modo proyecto nuevo.
-- `skills/design/` — biblioteca de diseño con 6 estilos listos para usar en el proyecto: `dark-luxury`, `docs-starship`, `minimal-dashboard`, `minimal-light`, `neo-brutalist` y `glassmorphism` (cada uno con su `SKILL.md` y `DESIGN.md`).
-- `/design` y `/design-<estilo>` — comandos para aplicar un sistema de diseño: cargan la skill del estilo elegido y leen automáticamente el design system del proyecto en `specs/frontend/02-design.md`.
+- `skills/design/` — biblioteca de diseño: 6 estilos curados listos para usar — `dark-luxury`, `docs-starship`, `minimal-dashboard`, `minimal-light`, `neo-brutalist` y `glassmorphism` (cada uno con su `SKILL.md` y `DESIGN.md`) — más el catálogo search-driven `ui-ux-pro-max/`.
+- `/design` y `/design-<estilo>` — comandos para aplicar un sistema de diseño: cargan la skill elegida y leen automáticamente el design system del proyecto en `specs/frontend/02-design.md`.
+- `skills/design/ui-ux-pro-max/` — **catálogo de diseño search-driven** (79 estilos, 192 paletas, 74 pares tipográficos, 119 guidelines de UX, 25 tipos de gráfico y 22 stacks). Se activa sola por descripción — o con `/design-ui-ux-pro-max` — y consulta su base local offline; genera un design system completo (`MASTER.md`) o responde consultas puntuales de UX/accesibilidad. Requiere Python 3 (solo stdlib, sin pip ni red).
 - La db se documenta en `specs/db/` (schemas por entidad, enums y use-cases) aunque la implementación viva en el template backend.
 - Los templates y los proyectos traen `.gitignore` que excluye solo el estado local de AI (`.atl/` y `odd`). `.opencode/`, `.pi/` y `.agents/` se versionan: las skills, los commands y el design system viajan con el repo para que todo el equipo los tenga.
 
@@ -164,7 +165,8 @@ skills/design/
 ├── neo-brutalist/     # Brutalista: sombras duras, bordes gruesos negros, colores vivos
 ├── glassmorphism/     # Cristal: paneles translúcidos con blur, fondos aurora
 ├── docs-starship/     # Docs: sitios de documentación, catálogos y landings técnicas (negro azulado, un acento eléctrico, doble tema)
-└── commands/          # /design y /design-<estilo> (cargar skill + leer specs/frontend/02-design.md)
+├── ui-ux-pro-max/     # Catálogo search-driven + motor Python (no es un estilo fijo: se consulta)
+└── commands/          # /design, /design-<estilo> y /design-ui-ux-pro-max (cargar skill + leer specs/frontend/02-design.md)
 ```
 
 Cada una es una carpeta con `SKILL.md` (frontmatter + reglas y triggers de activación, inglés + español) y `DESIGN.md` (paleta, tipografía y especificación completa). Están registradas globalmente en `~/.config/opencode/opencode.json` vía `skills.paths`, así que al pedir un estilo ("hacelo dark luxury", "estilo brutalista", "efecto vidrio"...) la skill correspondiente se carga sola, en cualquier proyecto.
@@ -173,12 +175,30 @@ Cada una es una carpeta con `SKILL.md` (frontmatter + reglas y triggers de activ
 
 Para sumar un estilo nuevo: creá la carpeta `skills/design/<estilo>/` con su `SKILL.md` (mismo nombre de carpeta en el frontmatter `name`, `description` con triggers distintivos en inglés y español), su `DESIGN.md` y un command `skills/design/commands/design-<estilo>.md`, reiniciá opencode y listo.
 
+### Catálogo de diseño search-driven (`ui-ux-pro-max`)
+
+Además de los 6 estilos curados de `skills/design/`, y **dentro de esa misma carpeta**, el repo vendoriza el catálogo **ui-ux-pro-max**: una base de datos consultable con 79 estilos, 192 paletas de producto, 74 pares tipográficos, 119 guidelines de UX, 105 iconos, 25 tipos de gráfico y guías de 22 stacks.
+
+```
+skills/design/ui-ux-pro-max/
+├── SKILL.md      # contrato de uso, prioridades y workflow de consulta
+├── scripts/      # motor de búsqueda (Python 3, solo stdlib, offline)
+├── data/         # el catálogo: CSVs de estilos, colores, fuentes, UX, stacks
+├── references/   # quick-reference.md (119 guidelines) y pro-rules.md (checklist de entrega)
+└── NOTICE.md     # procedencia y licencia del upstream (MIT)
+```
+
+Viaja dentro de la biblioteca de diseño, así que se activa como el resto de la familia: con `/design-ui-ux-pro-max` o por su `description`. Sirve para dos cosas — **generar un design system** para una página o proyecto (`--design-system`, con diales opcionales de varianza, movimiento y densidad) y **responder consultas puntuales** (`--domain ux`, `--domain color`, `--stack nextjs`...). Cuando el proyecto ya eligió uno de los 6 estilos curados, esa skill tiene prioridad; el catálogo es para lo que no cubren.
+
+Es la única skill del bundle con un runtime propio: **Python 3, solo librería estándar, sin red**. Si no hay `python3` en la máquina, el `SKILL.md` le indica al agente degradar a su tabla de defaults y decirlo explícitamente en vez de inventar resultados. El upstream es [nextlevelbuilder/ui-ux-pro-max-skill](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill) (MIT); ver `NOTICE.md` para la revisión vendorizada.
+
 ### Comandos `/design`
 
 Para aplicar un sistema de diseño a un estilo concreto:
 
 - `/design` — pregunta qué estilo querés aplicar y lo carga.
 - `/design-dark-luxury`, `/design-minimal-dashboard`, `/design-minimal-light`, `/design-neo-brutalist`, `/design-glassmorphism`, `/design-docs-starship` — cargan directamente la skill del estilo. `minimal-dashboard` es el único que **no** es un estilo de página: es UI funcional densa para paneles admin, POS y back-office, y su propia skill descarta landings y páginas de marketing (usá `dark-luxury` para eso).
+- `/design-ui-ux-pro-max` — carga el **catálogo search-driven** en vez de un estilo fijo: busca el estilo por nombre o por tipo de producto, genera el design system completo, o responde una consulta puntual de UX/accesibilidad. Requiere Python 3.
 
 Todos leen automáticamente el design system del proyecto (`specs/frontend/02-design.md`) y lo usan como fuente de verdad (accent, paleta, tipografía, componentes); si el archivo no existe, usan los defaults de la skill y avisan. Cualquier texto después del comando se pasa como contexto extra (ej. `/design-dark-luxury rehacé el header`).
 

@@ -276,7 +276,7 @@ export async function writeRootFiles(info: RootProjectInfo): Promise<void> {
     "",
     `- \`backend/\` — ${info.backend.description}`,
     `- \`frontend/\` — ${info.frontend.description}`,
-    "- `.opencode/`, `.pi/` y `.agents/` — skills de agentes: `/create-prompt` para detallar tu idea, `/create-specs` para generar las specs, `/create-specs-from-code` para documentar un proyecto que ya existe, + biblioteca de diseño (dark-luxury, minimal-dashboard, minimal-light, neo-brutalist, glassmorphism). Mismo bundle en las 3 ubicaciones: OpenCode lee `.opencode/`; Pi y Gentle Shell leen `.pi/` (skills + prompt templates); los agentes Agent Skills leen `.agents/`",
+    "- `.opencode/`, `.pi/` y `.agents/` — skills de agentes: `/create-prompt` para detallar tu idea, `/create-specs` para generar las specs, `/create-specs-from-code` para documentar un proyecto que ya existe, + biblioteca de diseño con `/design` (estilos dark-luxury, docs-starship, minimal-dashboard, minimal-light, neo-brutalist, glassmorphism) y el catálogo search-driven `/design-ui-ux-pro-max` (requiere Python 3). Mismo bundle en las 3 ubicaciones: OpenCode lee `.opencode/`; Pi y Gentle Shell leen `.pi/` (skills + prompt templates); los agentes Agent Skills leen `.agents/`",
     "- `specs/` — especificaciones del proyecto",
     "",
     "## Backend",

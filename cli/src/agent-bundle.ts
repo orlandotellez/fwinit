@@ -12,8 +12,17 @@
 //   instala archivo por archivo, y sus extras (examples/, references/...)
 //   viajan dentro de la carpeta de la skill.
 // - "library": no tiene SKILL.md propio, es un contenedor de skills
-//   (skills/design/ tiene dark-luxury/SKILL.md, etc.). Se copia entera, y sus
-//   commands viven en <dir>/commands/*.md.
+//   (skills/design/ tiene dark-luxury/SKILL.md, ui-ux-pro-max/SKILL.md, etc.).
+//   Se copia entera, y sus commands viven en <dir>/commands/*.md. En una
+//   library el nombre del comando es el del ARCHIVO, no el de la skill: por eso
+//   `ui-ux-pro-max` se activa con /design-ui-ux-pro-max, igual que la familia
+//   /design-<estilo> a la que pertenece.
+//
+// El criterio no es el tamaño sino el contrato del SKILL.md: una entrada es
+// "library" cuando su carpeta ALOJA skills (subcarpetas con SKILL.md propio), y
+// "skill" cuando ES una skill. `ui-ux-pro-max` tiene SKILL.md propio, pero vive
+// dentro de la biblioteca de diseño y se instala con ella, así que no se
+// registra por separado.
 //
 // `required` NO aborta la instalación. El bundle de skills se descarga del
 // repo remoto, así que el CLI instalado y el bundle pueden version-skewear
@@ -65,6 +74,13 @@ export const AGENT_BUNDLE: AgentBundleEntry[] = [
   {
     // Biblioteca de estilos: skills/design/ con una subskill por estilo y sus
     // commands (/design, /design-<estilo>) que leen specs/frontend/02-design.md.
+    // Adentro vive también el catálogo search-driven ui-ux-pro-max (Python
+    // stdlib, offline): no es un estilo fijo sino una base consultable que
+    // genera un design system, pero comparte familia, carpeta y comando
+    // (/design-ui-ux-pro-max). Como la biblioteca se copia entera, el catálogo
+    // viaja con su data/ y sus scripts/ — si sólo viajara su SKILL.md, cada
+    // búsqueda devolvería 0 resultados y el agente caería a defaults genéricos
+    // sin avisar.
     kind: "library",
     dir: "design",
     required: false,
@@ -159,13 +175,13 @@ export async function planAgentBundle(
     }
     for (const extra of entry.extras ?? []) {
       const from = join(src, extra);
-      if (await exists(from)) {
-        installs.push({
-          from,
-          to: `skills/${entry.dir}/${extra}`,
-          recursive: true,
-        });
-      }
+      if (!(await exists(from))) continue;
+      // Los extras son carpetas (examples/): viajan completas dentro de la skill.
+      installs.push({
+        from,
+        to: `skills/${entry.dir}/${extra}`,
+        recursive: true,
+      });
     }
   }
 

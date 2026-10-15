@@ -17,6 +17,10 @@ dist/
 build/
 .cache/
 
+# Python (skills/design/ui-ux-pro-max engine)
+__pycache__/
+*.pyc
+
 # Lock files
 *.lock
 bun.lock
