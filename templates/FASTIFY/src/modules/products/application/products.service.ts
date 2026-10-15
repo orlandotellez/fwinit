@@ -1,13 +1,9 @@
-import { Prisma } from "@prisma/client"
 import { ConflictError, NotFoundError } from "@/core/errors/AppError"
+import { isUniqueViolation } from "@/core/errors/db-errors"
 import type { CreateProductData, UpdateProductData } from "../domain/products.entities"
 import type { IProductListResponse, IProductResponse } from "../domain/products.types"
 import type { IProductRepository } from "../domain/products.interface"
 import { mapProductToResponse } from "./common/products.mappers"
-
-function isUniqueConstraintError(error: unknown): error is Prisma.PrismaClientKnownRequestError {
-  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002"
-}
 
 export const createProductService = (repository: IProductRepository) => ({
   async list(params?: { search?: string; active?: boolean; page?: number; limit?: number }): Promise<IProductListResponse> {
@@ -33,7 +29,7 @@ export const createProductService = (repository: IProductRepository) => ({
       const product = await repository.create(data)
       return mapProductToResponse(product)
     } catch (error) {
-      if (isUniqueConstraintError(error)) {
+      if (isUniqueViolation(error)) {
         throw new ConflictError("Barcode already exists")
       }
       throw error
@@ -49,7 +45,7 @@ export const createProductService = (repository: IProductRepository) => ({
       const product = await repository.update(id, data)
       return mapProductToResponse(product)
     } catch (error) {
-      if (isUniqueConstraintError(error)) {
+      if (isUniqueViolation(error)) {
         throw new ConflictError("Barcode already exists")
       }
       throw error

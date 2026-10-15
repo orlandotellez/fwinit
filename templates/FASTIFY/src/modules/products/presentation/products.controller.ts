@@ -1,6 +1,6 @@
 import type { FastifyReply, FastifyRequest } from "fastify"
 import { createProductService } from "../application/products.service"
-import { ProductRepository } from "../infrastructure/products.prisma.repository"
+import { ProductRepository } from "../infrastructure/products.drizzle.repository"
 import { CreateProductDtoSchema, ProductQuerySchema, UpdateProductDtoSchema } from "./products.dto"
 
 const productService = createProductService(ProductRepository)

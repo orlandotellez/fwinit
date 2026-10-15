@@ -1,6 +1,6 @@
 import type { FastifyReply, FastifyRequest } from "fastify"
 import { createInventoryService } from "../application/inventory.service"
-import { InventoryRepository } from "../infrastructure/inventory.prisma.repository"
+import { InventoryRepository } from "../infrastructure/inventory.drizzle.repository"
 import { CreateMovementDtoSchema, MovementQuerySchema } from "./inventory.dto"
 
 const inventoryService = createInventoryService(InventoryRepository)

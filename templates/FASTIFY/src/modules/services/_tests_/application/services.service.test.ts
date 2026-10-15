@@ -1,6 +1,5 @@
 import { test } from "bun:test"
 import assert from "node:assert/strict"
-import { Prisma } from "@prisma/client"
 import { NotFoundError } from "@/core/errors/AppError"
 import { createServiceService } from "../../application/services.service"
 import type { CreateServiceData, IServiceEntity, UpdateServiceData } from "../../domain/services.entities"
@@ -10,7 +9,7 @@ function makeService(overrides: Partial<IServiceEntity> = {}): IServiceEntity {
     id: "s1",
     name: "Corte de cabello",
     description: null,
-    base_price: new Prisma.Decimal("10.00"),
+    base_price: 10,
     is_active: true,
     created_at: new Date(),
     updated_at: new Date(),
@@ -28,7 +27,7 @@ const makeFakeServiceRepository = (overrides: Record<string, unknown> = {}) => (
   ...overrides,
 })
 
-test("list maps Decimal base_price to number", async () => {
+test("list exposes base_price as a number", async () => {
   const service = createServiceService(makeFakeServiceRepository())
   const result = await service.list()
 

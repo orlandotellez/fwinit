@@ -1,5 +1,3 @@
-import type { Decimal } from "@prisma/client/runtime/library"
-
 export type MovementType = "entrada" | "salida" | "ajuste"
 
 export interface IInventoryMovementEntity {
@@ -18,7 +16,7 @@ export interface IInventoryMovementEntity {
   }
   type: MovementType
   quantity: number
-  unit_cost: Decimal | null
+  unit_cost: number | null
   note: string | null
   created_at: Date
 }

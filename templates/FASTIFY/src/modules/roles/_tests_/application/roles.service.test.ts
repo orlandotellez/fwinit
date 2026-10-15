@@ -1,7 +1,7 @@
 import { test } from "bun:test"
 import assert from "node:assert/strict"
 import { ConflictError, NotFoundError } from "@/core/errors/AppError"
-import { makeP2002 } from "@/tests/fakes"
+import { makeUniqueViolation } from "@/tests/fakes"
 import { createRoleService } from "../../application/roles.service"
 import type { IRoleEntity } from "../../domain/roles.entities"
 
@@ -67,7 +67,7 @@ test("update throws NotFoundError when role does not exist", async () => {
   const service = createRoleService(
     makeFakeRoleRepository({
       update: async () => {
-        throw makeP2002(["name"])
+        throw makeUniqueViolation("role_name_key")
       },
     }),
   )

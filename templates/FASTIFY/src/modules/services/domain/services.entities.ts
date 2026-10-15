@@ -1,10 +1,8 @@
-import type { Decimal } from "@prisma/client/runtime/library"
-
 export interface IServiceEntity {
   id: string
   name: string
   description: string | null
-  base_price: Decimal
+  base_price: number
   is_active: boolean
   created_at: Date
   updated_at: Date

@@ -1,6 +1,6 @@
 import type { FastifyReply, FastifyRequest } from "fastify"
 import { createRoleService } from "../application/roles.service"
-import { RoleRepository } from "../infrastructure/roles.prisma.repository"
+import { RoleRepository } from "../infrastructure/roles.drizzle.repository"
 import { CreateRoleDtoSchema, RoleQuerySchema, UpdateRoleDtoSchema } from "./roles.dto"
 
 const roleService = createRoleService(RoleRepository)

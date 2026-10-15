@@ -1,8 +1,7 @@
 import { test } from "bun:test"
 import assert from "node:assert/strict"
-import { Prisma } from "@prisma/client"
 import { ConflictError, NotFoundError } from "@/core/errors/AppError"
-import { makeP2002 } from "@/tests/fakes"
+import { makeUniqueViolation } from "@/tests/fakes"
 import { createProductService } from "../../application/products.service"
 import type { CreateProductData, IProductEntity, UpdateProductData } from "../../domain/products.entities"
 
@@ -11,8 +10,8 @@ function makeProduct(overrides: Partial<IProductEntity> = {}): IProductEntity {
     id: "p1",
     barcode: "7790000000011",
     name: "Coca-Cola 500ml",
-    price: new Prisma.Decimal("1.50"),
-    cost: new Prisma.Decimal("1.10"),
+    price: 1.5,
+    cost: 1.1,
     stock: 50,
     low_stock_threshold: 5,
     active: true,
@@ -32,7 +31,7 @@ const makeFakeProductRepository = (overrides: Record<string, unknown> = {}) => (
   ...overrides,
 })
 
-test("list maps Decimal prices to numbers", async () => {
+test("list exposes prices as numbers", async () => {
   const service = createProductService(makeFakeProductRepository())
   const result = await service.list()
 
@@ -57,7 +56,7 @@ test("create maps the created product to response", async () => {
 test("create propagates ConflictError when the barcode already exists", async () => {
   const repository = makeFakeProductRepository({
     create: async () => {
-      throw makeP2002(["barcode"])
+      throw makeUniqueViolation("product_barcode_key")
     },
   })
   const service = createProductService(repository)

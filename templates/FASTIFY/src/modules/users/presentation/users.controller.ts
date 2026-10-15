@@ -1,7 +1,7 @@
 import type { FastifyReply, FastifyRequest } from "fastify"
 import { BadRequestError } from "@/core/errors/AppError"
 import { createUserService } from "../application/users.service"
-import { UserRepository } from "../infrastructure/users.prisma.repository"
+import { UserRepository } from "../infrastructure/users.drizzle.repository"
 import { CreateUserDtoSchema, ToggleActiveDtoSchema, UpdateUserDtoSchema, UserQuerySchema } from "./users.dto"
 
 const userService = createUserService(UserRepository)

@@ -1,6 +1,6 @@
 import type { FastifyReply, FastifyRequest } from "fastify"
 import { createAuthService } from "../application/auth.service"
-import { AuthRepository } from "../infrastructure/auth.prisma.repository"
+import { AuthRepository } from "../infrastructure/auth.drizzle.repository"
 import { LoginDtoSchema, RefreshTokenDtoSchema } from "./auth.dto"
 import { clearAuthCookies, setAuthCookies } from "../application/common/cookie.utils"
 

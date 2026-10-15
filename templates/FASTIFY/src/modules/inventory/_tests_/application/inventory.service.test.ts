@@ -1,6 +1,5 @@
 import { test } from "bun:test"
 import assert from "node:assert/strict"
-import { Prisma } from "@prisma/client"
 import { ConflictError, NotFoundError } from "@/core/errors/AppError"
 import { createInventoryService } from "../../application/inventory.service"
 import type { IInventoryMovementEntity } from "../../domain/inventory.entities"
