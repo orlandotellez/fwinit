@@ -1,0 +1,153 @@
+/* ── Skip link ───────────────────────────────────────────────────────────── */
+.skip-link {
+  position: fixed;
+  top: var(--space-sm);
+  left: var(--space-sm);
+  z-index: 100;
+  padding: 10px 18px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: var(--text-small);
+  font-weight: 600;
+  text-decoration: none;
+  transform: translateY(calc(-100% - var(--space-lg)));
+  transition: transform var(--duration-fast) var(--ease-out);
+}
+
+.skip-link:focus-visible {
+  transform: translateY(0);
+  color: var(--on-accent);
+}
+
+/* ── Sólo para lectores de pantalla ──────────────────────────────────────── */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ── Tipografía utilitaria ───────────────────────────────────────────────── */
+.mono {
+  font-family: var(--font-mono);
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+.accent {
+  color: var(--accent);
+}
+
+.muted {
+  color: var(--text-muted);
+}
+
+.secondary {
+  color: var(--text-secondary);
+}
+
+.caption {
+  font-size: var(--text-caption);
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+.nowrap {
+  white-space: nowrap;
+}
+
+/* ── Secciones ancladas: el header fijo no tapa el título ────────────────── */
+[id] {
+  scroll-margin-top: calc(var(--header-height) + var(--space-md));
+}
+
+/* ── Reveal aditivo ──────────────────────────────────────────────────────── */
+/* Sin JS (o sin IntersectionObserver) el contenido es visible: la clase `js`
+   la pone el script inline del head, y main.ts descubre cada bloque una vez.
+   Con movimiento reducido el navegador anula la transición y el estado final
+   llega igual, así que no hace falta un caso especial. */
+html.js [data-reveal] {
+  opacity: 0;
+  transform: translateY(12px);
+  transition:
+    opacity var(--duration-reveal) var(--ease-out),
+    transform var(--duration-reveal) var(--ease-out);
+}
+
+html.js [data-reveal][data-revealed] {
+  opacity: 1;
+  transform: none;
+}
+
+/* ── Live region de conteos ──────────────────────────────────────────────── */
+.result-count {
+  color: var(--text-muted);
+  font-size: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Lista de pills (flujo, targets, estilos) ────────────────────────────── */
+.pill-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2xs);
+  padding: 0;
+  list-style: none;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface-elevated);
+  color: var(--text-secondary);
+  font-size: var(--text-caption);
+  font-weight: 500;
+}
+
+.pill--mono {
+  font-family: var(--font-mono);
+  color: var(--text);
+}
+
+.pill__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+}
+
+/* ── Marco lateral ─────────────────────────────────────────────────────────
+   Dos líneas punteadas en los bordes de la columna de contenido, como el marco
+   de la referencia. Es decorativo: `pointer-events: none` y `aria-hidden`, sin
+   altura de documento, así no participa del layout ni del foco. Por debajo del
+   header (z 50) y del panel móvil (z 45). */
+.page-lines {
+  position: fixed;
+  inset-block: 0;
+  left: 50%;
+  width: min(calc(100% - 32px), var(--container));
+  transform: translateX(-50%);
+  border-inline: var(--hairline-strong);
+  pointer-events: none;
+  z-index: 1;
+}
+
+@media (max-width: 640px) {
+  .page-lines {
+    display: none;
+  }
+}
