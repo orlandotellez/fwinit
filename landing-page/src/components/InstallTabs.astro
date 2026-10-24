@@ -1,0 +1,138 @@
+---
+import { Copy } from 'lucide-astro';
+
+interface Props {
+  items: readonly { id: string; label: string; command: string }[];
+  idPrefix: string;
+  label: string;
+  defaultId?: string;
+  hint?: string;
+}
+
+const { items, idPrefix, label, defaultId = items[0].id, hint } = Astro.props;
+---
+
+<div class="install" data-tabs-group data-tabs-key="pm">
+  <div class="install__box">
+    {
+      items.map((item) => (
+        <div
+          class="install__panel"
+          role="tabpanel"
+          id={`${idPrefix}-panel-${item.id}`}
+          aria-labelledby={`${idPrefix}-tab-${item.id}`}
+          data-tabpanel={item.id}
+          data-copy-scope
+          hidden={item.id !== defaultId}
+        >
+          <span class="install__prompt mono" aria-hidden="true">$</span>
+          <pre class="install__cmd" data-code-value={item.command}><code>{item.command}</code></pre>
+          <button
+            type="button"
+            class="code__copy"
+            data-copy
+            aria-label={`Copiar la instalación con ${item.label}`}
+          >
+            <Copy size={14} stroke-width={1.75} aria-hidden="true" focusable="false" />
+            <span data-copy-label>Copiar</span>
+          </button>
+        </div>
+      ))
+    }
+  </div>
+
+  <div class="install__bar">
+    <div class="tabs" role="tablist" aria-label={label}>
+      {
+        items.map((item) => (
+          <button
+            type="button"
+            role="tab"
+            class="tab"
+            id={`${idPrefix}-tab-${item.id}`}
+            aria-controls={`${idPrefix}-panel-${item.id}`}
+            aria-selected={item.id === defaultId ? 'true' : 'false'}
+            tabindex={item.id === defaultId ? 0 : -1}
+            data-tab={item.id}
+          >
+            {item.label}
+          </button>
+        ))
+      }
+    </div>
+    {hint && <span class="install__hint caption mono">{hint}</span>}
+  </div>
+</div>
+
+<style>
+  .install {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .install__box {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--surface-elevated);
+    overflow: hidden;
+  }
+
+  .install__panel {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 16px;
+  }
+
+  .install__panel[hidden] {
+    display: none;
+  }
+
+  .install__prompt {
+    flex: none;
+    color: var(--accent);
+    font-size: var(--text-code);
+    font-weight: 600;
+  }
+
+  .install__cmd {
+    min-width: 0;
+    overflow-x: auto;
+    color: var(--text);
+    font-size: var(--text-code);
+  }
+
+  .install__cmd code {
+    white-space: nowrap;
+  }
+
+  .install__panel :global(.code__copy) {
+    flex: none;
+    margin-inline-start: auto;
+  }
+
+  /* Las tabs viven debajo del comando, como en la referencia: la caja muestra
+     el resultado y las opciones quedan al costado de los pies. */
+  .install__bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2xs);
+    flex-wrap: wrap;
+    padding-inline: 2px;
+  }
+
+  .install__hint {
+    color: var(--text-muted);
+  }
+
+  /* En pantallas angostas el hint "global" sobra: el panel que lo contiene ya
+     dice "Instalación global" en su etiqueta. */
+  @media (max-width: 480px) {
+    .install__hint {
+      display: none;
+    }
+  }
+</style>

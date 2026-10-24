@@ -1,0 +1,119 @@
+---
+import { ArrowRight } from 'lucide-astro';
+
+const flow = [
+  { label: 'fwinit', detail: 'CLI', mono: true },
+  { label: 'templates/<CAPA>', detail: 'del repo', mono: true },
+  { label: 'backend/ + frontend/', detail: 'código', mono: true },
+  { label: '.opencode/ · .pi/ · .agents/', detail: 'skills', mono: true },
+  { label: 'specs/', detail: 'para el agente', mono: true },
+] as const;
+---
+
+<section class="section section--tight" aria-labelledby="flow-title">
+  <div class="container">
+    <h2 class="visually-hidden" id="flow-title">Flujo de creación del proyecto</h2>
+
+    <ol role="list" class="flow">
+      {
+        flow.map((node, index) => (
+          <li class="flow__node">
+            <span class:list={['flow__pill', node.mono && 'flow__pill--mono']}>
+              <span class="flow__label">{node.label}</span>
+              <span class="flow__detail">{node.detail}</span>
+            </span>
+            {index < flow.length - 1 && (
+              <span class="flow__arrow" aria-hidden="true">
+                <ArrowRight size={20} stroke-width={1.75} focusable="false" />
+              </span>
+            )}
+          </li>
+        ))
+      }
+    </ol>
+
+    <p class="flow__note caption">
+      Una sola descarga del repo alcanza para las dos capas: en full stack, backend y frontend se
+      copian del mismo paquete.
+    </p>
+  </div>
+</section>
+
+<style>
+  .flow {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .flow__node {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2xs);
+  }
+
+  .flow__pill {
+    display: inline-flex;
+    flex-direction: column;
+    gap: 0;
+    padding: 8px 16px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-pill);
+    background: var(--surface-elevated);
+  }
+
+  .flow__label {
+    color: var(--text);
+    font-size: var(--text-small);
+    font-weight: 600;
+  }
+
+  .flow__pill--mono .flow__label {
+    font-family: var(--font-mono);
+    font-weight: 500;
+  }
+
+  .flow__detail {
+    color: var(--text-muted);
+    font-size: var(--text-caption);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .flow__arrow {
+    color: var(--text-muted);
+  }
+
+  .flow__note {
+    margin-top: var(--space-sm);
+    text-align: center;
+    color: var(--text-muted);
+  }
+
+  @media (max-width: 700px) {
+    .flow {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .flow__node {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .flow__pill {
+      border-radius: var(--radius-md);
+      text-align: center;
+    }
+
+    .flow__arrow {
+      align-self: center;
+      transform: rotate(90deg);
+    }
+  }
+</style>

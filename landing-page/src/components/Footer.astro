@@ -1,0 +1,203 @@
+---
+import { Github, Terminal } from 'lucide-astro';
+import { site } from '../data/site';
+
+const year = new Date().getFullYear();
+
+const columns = [
+  {
+    title: 'Producto',
+    links: [
+      { label: 'Plantillas', href: '#plantillas' },
+      { label: 'Comandos', href: '#comandos' },
+      { label: 'Skills de agentes', href: '#skills' },
+      { label: 'Cómo funciona', href: '#como-funciona' },
+    ],
+  },
+  {
+    title: 'Recursos',
+    links: [
+      { label: 'README del repo', href: `${site.repoUrl}#readme`, external: true },
+      { label: 'Paquete en npm', href: 'https://www.npmjs.com/package/fwinit', external: true },
+      { label: 'Issues', href: `${site.repoUrl}/issues`, external: true },
+      { label: 'Preguntas frecuentes', href: '#faq' },
+    ],
+  },
+  {
+    title: 'Licencia',
+    links: [
+      { label: 'MIT', href: `${site.repoUrl}/blob/main/LICENSE`, external: true },
+      { label: 'Templates', href: `${site.repoUrl}/tree/main/templates`, external: true },
+      { label: 'Biblioteca de diseño', href: `${site.repoUrl}/tree/main/skills/design`, external: true },
+      { label: 'CLI', href: `${site.repoUrl}/tree/main/cli`, external: true },
+    ],
+  },
+] as const;
+---
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="site-footer__grid">
+      <div class="site-footer__brand">
+        <a class="wordmark" href="#top" aria-label="fwinit — ir al inicio">
+          <span class="wordmark__glyph" aria-hidden="true">
+            <Terminal size={16} stroke-width={1.75} focusable="false" />
+          </span>
+          <span class="wordmark__name">fwinit</span>
+        </a>
+        <p class="site-footer__tagline">{site.tagline}</p>
+        <a
+          class="btn btn--icon"
+          href={site.repoUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Repositorio de fwinit en GitHub"
+        >
+          <Github size={18} stroke-width={1.75} aria-hidden="true" focusable="false" />
+        </a>
+      </div>
+
+      {
+        columns.map((column) => (
+          <nav class="site-footer__col" aria-label={column.title}>
+            <h2 class="site-footer__heading">{column.title}</h2>
+            <ul role="list">
+              {column.links.map((link) => (
+                <li>
+                  <a
+                    href={link.href}
+                    {...('external' in link && link.external
+                      ? { target: '_blank', rel: 'noopener noreferrer' }
+                      : {})}
+                  >
+                    {link.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        ))
+      }
+    </div>
+
+    <div class="site-footer__bottom">
+      <p class="caption">
+        © {year} {site.name}. Proyecto open source bajo licencia {site.license}. Hecho por la
+        comunidad.
+      </p>
+      <p class="caption">
+        <span class="mono">v{site.version}</span> · <span class="mono">templates + cli + skills</span>
+      </p>
+    </div>
+  </div>
+</footer>
+
+<style>
+  .site-footer {
+    background: var(--surface);
+    border-top: var(--hairline);
+    padding-block: var(--space-xl) var(--space-md);
+  }
+
+  .site-footer__grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr;
+    gap: var(--space-lg);
+    padding-bottom: var(--space-lg);
+  }
+
+  .site-footer__brand {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-2xs);
+  }
+
+  .wordmark {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--text);
+    text-decoration: none;
+  }
+
+  .wordmark__glyph {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border: 1px solid var(--accent-border);
+    border-radius: var(--radius-sm);
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+
+  .wordmark__name {
+    font-family: var(--font-mono);
+    font-size: 1.0625rem;
+    font-weight: 600;
+  }
+
+  .site-footer__tagline {
+    max-width: 34ch;
+    color: var(--text-secondary);
+    font-size: var(--text-small);
+  }
+
+  .site-footer__heading {
+    margin-bottom: var(--space-2xs);
+    color: var(--text-muted);
+    font-size: var(--text-caption);
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .site-footer__col ul {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .site-footer__col a {
+    color: var(--text-secondary);
+    font-size: var(--text-small);
+    text-decoration: none;
+  }
+
+  .site-footer__col a:hover {
+    color: var(--text);
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+  }
+
+  .site-footer__bottom {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2xs);
+    padding-top: var(--space-sm);
+    border-top: var(--hairline);
+  }
+
+  @media (max-width: 900px) {
+    .site-footer__grid {
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .site-footer__brand {
+      grid-column: 1 / -1;
+    }
+  }
+
+  @media (max-width: 560px) {
+    .site-footer__grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

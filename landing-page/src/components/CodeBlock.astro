@@ -1,0 +1,49 @@
+---
+import { Copy } from 'lucide-astro';
+
+interface Props {
+  label?: string;
+  code: string;
+  copy?: boolean;
+  dim?: boolean;
+  class?: string;
+}
+
+const { label = 'terminal', code, copy = true, dim = false, class: className } = Astro.props;
+
+const escapeHtml = (value: string): string =>
+  value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
+
+const lines = code.replace(/\n+$/, '').split('\n');
+
+const highlighted = lines
+  .map((line) => {
+    const trimmed = line.trimStart();
+    const escaped = escapeHtml(line);
+
+    if (trimmed.startsWith('#')) return `<span class="syn-comment">${escaped}</span>`;
+
+    if (trimmed.startsWith('$ ')) {
+      const index = escaped.indexOf('$');
+      return `<span class="syn-punctuation">$</span>${escaped.slice(index + 1)}`;
+    }
+
+    return escaped;
+  })
+  .join('\n');
+---
+
+<figure class:list={['code', dim && 'code--plain', className]} data-copy-scope>
+  <figcaption class="code__bar">
+    <span class="code__label">{label}</span>
+    {
+      copy && (
+        <button type="button" class="code__copy" data-copy aria-label={`Copiar el comando ${label}`}>
+          <Copy size={14} stroke-width={1.75} aria-hidden="true" focusable="false" />
+          <span data-copy-label>Copiar</span>
+        </button>
+      )
+    }
+  </figcaption>
+  <pre class="code__pre" data-code-value={code}><code set:html={highlighted} /></pre>
+</figure>

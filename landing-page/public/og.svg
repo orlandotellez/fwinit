@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630" role="img" aria-label="fwinit — scaffolding full stack con skills de agentes">
+  <rect width="1200" height="630" fill="#07090f" />
+  <rect x="0.5" y="0.5" width="1199" height="629" fill="none" stroke="#1e2433" />
+  <rect x="72" y="72" width="40" height="40" rx="10" fill="#16203a" stroke="#3d4a7a" />
+  <path d="M86 84l6 8-6 8" fill="none" stroke="#8aa2ff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+  <text x="128" y="100" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="30" fill="#eef2f8">fwinit</text>
+  <text x="72" y="248" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="72" font-weight="600" fill="#eef2f8">Scaffolding full stack</text>
+  <text x="72" y="336" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="72" font-weight="600" fill="#8aa2ff">con skills incluidas</text>
+  <text x="72" y="424" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="30" fill="#a8b2c4">4 backends · 4 frontends · DB incluida · modo scripting</text>
+  <rect x="72" y="480" width="1056" height="86" rx="12" fill="#121623" stroke="#1e2433" />
+  <text x="100" y="534" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="28" fill="#77839a">$</text>
+  <text x="132" y="534" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="28" fill="#eef2f8">pnpm add -g fwinit &amp;&amp; fwinit fullstack mi-proyecto</text>
+</svg>

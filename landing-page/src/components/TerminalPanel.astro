@@ -1,0 +1,443 @@
+---
+import { Copy, RotateCcw } from 'lucide-astro';
+
+const treeLines = [
+  '├── backend/       Fastify + Drizzle',
+  '├── frontend/      Astro',
+  '├── .opencode/     skills de agentes',
+  '├── .pi/           el mismo bundle',
+  '├── .agents/       Agent Skills',
+  '├── specs/         para /create-specs',
+  '└── README.md      cómo correr cada capa',
+];
+
+const escapeHtml = (value: string): string =>
+  value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
+
+const treeHtml = treeLines
+  .map((line) => {
+    const match = line.match(/^(.*?)(\s{2,})(.*)$/);
+    if (!match) return escapeHtml(line);
+    const [, path = line, gap, note] = match;
+    return `<span class="term__path">${escapeHtml(path)}</span>${gap}<span class="term__note">${escapeHtml(note)}</span>`;
+  })
+  .join('\n');
+
+const copyScript =
+  'pnpm add -g fwinit\nfwinit fullstack mi-proyecto -b fastify -f astro -p pnpm';
+
+const demo = [
+  { kind: 'type', text: 'fwinit', prefix: '$' },
+  {
+    kind: 'prompt',
+    text: '¿Qué querés crear?',
+    answer: 'Full stack (backend + frontend)',
+    prefix: '?',
+    menu: true,
+  },
+  { kind: 'prompt', text: '¿Qué backend querés usar?', answer: 'Fastify', prefix: '?' },
+  { kind: 'prompt', text: '¿Qué frontend querés usar?', answer: 'Astro', prefix: '?' },
+  {
+    kind: 'prompt',
+    text: '¿Qué package manager querés usar?',
+    answer: 'pnpm',
+    prefix: '?',
+  },
+  { kind: 'prompt', text: '¿Inicializar un repositorio git?', answer: 'Sí', prefix: '?' },
+  { kind: 'show', text: '✔ Template descargado', variant: 'ok' },
+  { kind: 'show', text: '✔ Proyecto creado en ./mi-proyecto', variant: 'ok' },
+  { kind: 'type', text: 'cd mi-proyecto && ls -a', prefix: '$' },
+  {
+    kind: 'show',
+    text: '.agents  .gitignore  .opencode  .pi  backend  frontend  README.md  specs',
+    variant: 'out',
+  },
+] as const;
+
+const menuChoices = [
+  'Full stack (backend + frontend)',
+  'Solo backend (API)',
+  'Solo frontend (app)',
+  'Skills globales (instalar / eliminar)',
+];
+---
+
+<div class="term" data-tabs-group>
+  <div class="term__bar">
+    <div class="term__tabs" role="tablist" aria-label="Vista del proyecto generado">
+      <button
+        type="button"
+        role="tab"
+        class="term__tab"
+        id="term-tab-session"
+        aria-controls="term-panel-session"
+        aria-selected="true"
+        tabindex="0"
+        data-tab="session"
+      >
+        sesión
+      </button>
+      <button
+        type="button"
+        role="tab"
+        class="term__tab"
+        id="term-tab-tree"
+        aria-controls="term-panel-tree"
+        aria-selected="false"
+        tabindex="-1"
+        data-tab="tree"
+      >
+        árbol
+      </button>
+    </div>
+
+    <div class="term__actions">
+      <button
+        type="button"
+        class="term__action"
+        data-demo-replay
+        aria-label="Repetir la demo de la CLI"
+        hidden
+      >
+        <RotateCcw size={14} stroke-width={1.75} aria-hidden="true" focusable="false" />
+        <span>Repetir</span>
+      </button>
+
+      <button
+        type="button"
+        class="term__action"
+        data-copy
+        data-copy-value={copyScript}
+        aria-label="Copiar los comandos de la sesión"
+      >
+        <Copy size={14} stroke-width={1.75} aria-hidden="true" focusable="false" />
+        <span data-copy-label>Copiar</span>
+      </button>
+    </div>
+  </div>
+
+  <div
+    class="term__panel"
+    role="tabpanel"
+    id="term-panel-session"
+    aria-labelledby="term-tab-session"
+    data-tabpanel="session"
+  >
+    <div class="term__head">
+      <h2 class="term__title mono">fwinit fullstack mi-proyecto</h2>
+      <p class="term__sub">sesión real de la CLI · 8 plantillas · 4 runtimes</p>
+    </div>
+
+    <p class="visually-hidden">
+      Demostración de la CLI: fwinit pregunta qué querés crear, después el backend, el frontend,
+      el package manager y si inicializa git; descarga el template y deja ./mi-proyecto con
+      backend, frontend, .opencode, .pi, .agents y specs.
+    </p>
+
+    <div class="term__log" data-demo aria-hidden="true">
+      {
+        demo.map((line) => (
+          <span
+            class:list={[
+              'demo-line',
+              'variant' in line && line.variant === 'ok' && 'demo-line--ok',
+              'variant' in line && line.variant === 'out' && 'demo-line--out',
+            ]}
+            data-demo-line
+            data-demo-kind={line.kind}
+            data-demo-menu={'menu' in line && line.menu ? 'term-demo-menu' : undefined}
+          >
+            <span class="demo-line__gutter" aria-hidden="true">
+              {'prefix' in line ? line.prefix : ''}
+            </span>
+            <span class="demo-line__content">
+              <span data-demo-text>{line.text}</span>
+              {'answer' in line && (
+                <span class="demo-line__answer" data-demo-answer>{`  ${line.answer}`}</span>
+              )}
+            </span>
+          </span>
+        ))
+      }
+    </div>
+
+    <template id="term-demo-menu" data-demo-menu-template>
+      <div class="demo-menu">
+        {
+          menuChoices.map((choice, index) => (
+            <span class="demo-menu__item" data-active={index === 0 ? 'true' : undefined}>
+              <span class="demo-menu__cursor" aria-hidden="true">
+                {index === 0 ? '❯' : ' '}
+              </span>
+              {choice}
+            </span>
+          ))
+        }
+      </div>
+    </template>
+  </div>
+
+  <div
+    class="term__panel"
+    role="tabpanel"
+    id="term-panel-tree"
+    aria-labelledby="term-tab-tree"
+    data-tabpanel="tree"
+    hidden
+  >
+    <div class="term__head">
+      <h2 class="term__title mono">mi-proyecto/</h2>
+      <p class="term__sub">backend + frontend + bundle de skills, en la raíz</p>
+    </div>
+    <pre class="term__tree"><code set:html={treeHtml} /></pre>
+  </div>
+
+  <p class="term__foot">
+    Una sola descarga del repo · el bundle de skills se versiona con el proyecto
+  </p>
+</div>
+
+<style>
+  .term {
+    --demo-gutter: 2.4ch;
+    --demo-gap: 0.7ch;
+    display: flex;
+    flex-direction: column;
+    background: var(--surface-elevated);
+    border: 1px solid var(--border);
+    overflow: hidden;
+  }
+
+  /* Barra tipo ficha técnica: celdas separadas por hairlines, la activa con
+     una regla de 2px en acento. Sin radios en ningún lado. */
+  .term__bar {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+
+  .term__tabs {
+    display: flex;
+  }
+
+  .term__tab {
+    padding: 11px 18px;
+    border: 0;
+    border-inline-end: 1px solid var(--border);
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    background: transparent;
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+    font-size: var(--text-caption);
+    font-weight: 500;
+    transition:
+      background-color var(--duration-fast) ease,
+      color var(--duration-fast) ease,
+      border-color var(--duration-fast) ease;
+  }
+
+  .term__tab:hover {
+    background: var(--surface-elevated);
+    color: var(--text);
+  }
+
+  .term__tab[aria-selected='true'] {
+    background: var(--surface-elevated);
+    border-bottom-color: var(--accent);
+    color: var(--text);
+  }
+
+  .term__actions {
+    display: flex;
+    align-items: stretch;
+    margin-inline-start: auto;
+  }
+
+  .term__action {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 14px;
+    border: 0;
+    border-inline-start: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+    font-size: var(--text-caption);
+    transition:
+      background-color var(--duration-fast) ease,
+      color var(--duration-fast) ease;
+  }
+
+  .term__action:hover {
+    background: var(--surface-elevated);
+    color: var(--accent);
+  }
+
+  .term__action[data-copied] {
+    color: var(--success);
+  }
+
+  .term__action[hidden] {
+    display: none;
+  }
+
+  .term__panel {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 18px;
+  }
+
+  .term__panel[hidden] {
+    display: none;
+  }
+
+  .term__head {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .term__title {
+    font-size: var(--text-h4);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  .term__sub {
+    color: var(--text-muted);
+    font-size: var(--text-caption);
+    line-height: 1.4;
+  }
+
+  /* Transcript con gutter fijo: el prompt ($ / ?) ocupa una columna y todo el
+     texto arranca en la misma x, incluso cuando una línea envuelve. */
+  .term__log {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    font-family: var(--font-mono);
+    font-size: var(--text-code);
+    line-height: 1.65;
+    color: var(--text-secondary);
+  }
+
+  .demo-line {
+    display: grid;
+    grid-template-columns: var(--demo-gutter) minmax(0, 1fr);
+    column-gap: var(--demo-gap);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .demo-line__gutter {
+    color: var(--accent);
+    font-weight: 600;
+  }
+
+  .demo-line__content {
+    min-width: 0;
+  }
+
+  .demo-line__answer {
+    color: var(--text);
+  }
+
+  .demo-line--ok .demo-line__content {
+    color: var(--success);
+  }
+
+  .demo-line--out .demo-line__content {
+    color: var(--text);
+  }
+
+  .demo-line[data-demo-typing] [data-demo-text]::after {
+    content: '▌';
+    margin-inline-start: 1px;
+    color: var(--accent);
+    animation: demo-caret 1s steps(1) infinite;
+  }
+
+  @keyframes demo-caret {
+    50% {
+      opacity: 0;
+    }
+  }
+
+  .demo-menu {
+    position: absolute;
+    inset-inline: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding-inline-start: calc(var(--demo-gutter) + var(--demo-gap));
+    padding-block: 2px 4px;
+    background: var(--surface-elevated);
+    color: var(--text-muted);
+  }
+
+  .demo-menu__item {
+    display: flex;
+    gap: 8px;
+    white-space: pre-wrap;
+  }
+
+  .demo-menu__item[data-active='true'] {
+    color: var(--text);
+  }
+
+  .demo-menu__cursor {
+    width: 1ch;
+    color: var(--accent);
+  }
+
+  .term__tree {
+    margin: 0;
+    overflow-x: auto;
+    font-size: var(--text-code);
+    line-height: 1.8;
+    color: var(--text-secondary);
+    white-space: pre;
+  }
+
+  .term__path {
+    color: var(--text-secondary);
+  }
+
+  .term__note {
+    color: var(--text-muted);
+  }
+
+  .term__foot {
+    margin-top: auto;
+    padding: 10px 18px;
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-muted);
+    font-size: var(--text-caption);
+    line-height: 1.5;
+  }
+
+  @media (max-width: 480px) {
+    .term__tab {
+      padding: 10px 12px;
+    }
+
+    .term__action {
+      padding: 0 10px;
+    }
+
+    .term__action span {
+      display: none;
+    }
+
+    .term__panel {
+      padding: 14px;
+    }
+  }
+</style>

@@ -1,0 +1,182 @@
+---
+import { ArrowRight, ArrowUpRight } from 'lucide-astro';
+import InstallTabs from '../components/InstallTabs.astro';
+import TerminalPanel from '../components/TerminalPanel.astro';
+import { packageManagers, site } from '../data/site';
+---
+
+<section class="hero" id="instalar" aria-labelledby="hero-title">
+  <div class="container hero__grid">
+    <div class="hero__copy">
+      <h1 class="hero__title" id="hero-title">
+        fwinit es un <span class="accent">scaffolding full stack</span>. Todo adentro.
+      </h1>
+
+      <p class="hero__lede">
+        Cuatro backends y cuatro frontends con su base de datos ya conectada. El bundle de skills
+        viaja a <code>.opencode/</code>, <code>.pi/</code> y <code>.agents/</code> para que tu
+        agente arranque con contexto, no con preguntas.
+      </p>
+
+      <div class="hero__install">
+        <p class="hero__install-label">
+          Instalá fwinit <span class="mono hero__install-version">v{site.version}</span>
+        </p>
+        <InstallTabs
+          items={packageManagers}
+          idPrefix="hero-install"
+          label="Elegí tu package manager para instalar fwinit"
+          hint="instalación global"
+        />
+        <p class="hero__install-meta caption">
+          <span class="mono">Node.js 22 o superior</span>
+          <a href={`${site.repoUrl}#instalación-de-la-cli`} target="_blank" rel="noopener noreferrer">
+            Ver la guía de instalación
+            <ArrowUpRight size={14} stroke-width={1.75} aria-hidden="true" focusable="false" />
+          </a>
+        </p>
+      </div>
+
+      <a class="hero__next" href="#comandos">
+        Después seguí con los comandos
+        <ArrowRight size={18} stroke-width={1.75} aria-hidden="true" focusable="false" />
+      </a>
+    </div>
+
+    <div class="hero__panel">
+      <TerminalPanel />
+    </div>
+  </div>
+</section>
+
+<style>
+  .hero {
+    padding-block: calc(var(--header-height) + var(--space-2xl)) var(--space-3xl);
+    border-bottom: var(--hairline);
+  }
+
+  .hero__grid {
+    display: grid;
+    grid-template-columns: 1.02fr 0.98fr;
+    align-items: center;
+    gap: var(--space-xl);
+  }
+
+  .hero__copy {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    min-width: 0;
+  }
+
+  /* Titular tipo manifiesto: tres líneas, una frase en acento y el resto en
+     --text. La jerarquía la hace el tamaño, no el color. */
+  .hero__title {
+    font-size: clamp(2.3rem, 4.6vw, var(--text-display));
+    line-height: 1.06;
+    letter-spacing: -0.035em;
+    max-width: 20ch;
+  }
+
+  .hero__lede {
+    margin-top: var(--space-md);
+    max-width: 52ch;
+    color: var(--text-secondary);
+    font-size: var(--text-body);
+  }
+
+  .hero__install {
+    width: 100%;
+    margin-top: var(--space-lg);
+  }
+
+  .hero__install-label {
+    margin-bottom: var(--space-2xs);
+    color: var(--text);
+    font-size: var(--text-small);
+    font-weight: 600;
+  }
+
+  .hero__install-version {
+    color: var(--text-muted);
+    font-weight: 500;
+  }
+
+  .hero__install-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2xs);
+    margin-top: 10px;
+    color: var(--text-muted);
+  }
+
+  .hero__install-meta a {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: var(--text-caption);
+    text-decoration: none;
+  }
+
+  .hero__install-meta a:hover {
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+  }
+
+  /* El "quickstart" de la referencia: un link con peso, subrayado. */
+  .hero__next {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: var(--space-lg);
+    color: var(--text);
+    font-size: var(--text-small);
+    font-weight: 600;
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 0.25em;
+  }
+
+  .hero__next:hover {
+    color: var(--accent);
+  }
+
+  .hero__next :global(svg) {
+    transition: transform var(--duration-fast) var(--ease-out);
+  }
+
+  .hero__next:hover :global(svg) {
+    transform: translateX(4px);
+  }
+
+  .hero__panel {
+    min-width: 0;
+  }
+
+  @media (max-width: 1024px) {
+    .hero__grid {
+      grid-template-columns: minmax(0, 1fr);
+      gap: var(--space-lg);
+    }
+
+    .hero__title {
+      max-width: 22ch;
+    }
+
+    .hero__install {
+      max-width: none;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .hero {
+      padding-block: calc(var(--header-height) + var(--space-md)) var(--space-2xl);
+    }
+
+    .hero__install {
+      margin-top: var(--space-md);
+    }
+  }
+</style>

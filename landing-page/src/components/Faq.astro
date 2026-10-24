@@ -1,0 +1,70 @@
+---
+import { Plus } from 'lucide-astro';
+
+interface Props {
+  items: readonly { q: string; a: string }[];
+  exclusive?: boolean;
+  idPrefix?: string;
+}
+
+const { items, exclusive = true, idPrefix = 'faq' } = Astro.props;
+
+function chunks(answer: string) {
+  return answer
+    .split(/(`[^`]+`)/g)
+    .filter((part) => part.length > 0)
+    .map((part) =>
+      part.startsWith('`') && part.endsWith('`')
+        ? { code: part.slice(1, -1) }
+        : { text: part },
+    );
+}
+---
+
+<div class="accordion" data-accordion data-exclusive={exclusive ? 'true' : undefined}>
+  {
+    items.map((item, index) => (
+      <div class="accordion__item">
+        <h3 class="accordion__heading">
+          <button
+            type="button"
+            class="accordion__trigger"
+            id={`${idPrefix}-trigger-${index}`}
+            aria-expanded="false"
+            aria-controls={`${idPrefix}-panel-${index}`}
+            data-accordion-trigger
+          >
+            <span>{item.q}</span>
+            <span class="accordion__icon">
+              <Plus size={20} stroke-width={1.75} aria-hidden="true" focusable="false" />
+            </span>
+          </button>
+        </h3>
+        <div
+          class="accordion__panel prose"
+          id={`${idPrefix}-panel-${index}`}
+          role="region"
+          aria-labelledby={`${idPrefix}-trigger-${index}`}
+          hidden
+        >
+          <p>
+            {chunks(item.a).map((chunk) =>
+              'code' in chunk ? <code>{chunk.code}</code> : chunk.text,
+            )}
+          </p>
+        </div>
+      </div>
+    ))
+  }
+</div>
+
+<style>
+  .accordion__heading {
+    margin: 0;
+    font-size: inherit;
+  }
+
+  .accordion__panel p {
+    color: var(--text-secondary);
+  }
+</style>

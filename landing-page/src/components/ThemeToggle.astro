@@ -1,0 +1,55 @@
+---
+import { Moon, Sun } from 'lucide-astro';
+---
+
+<button
+  type="button"
+  class="btn btn--icon theme-toggle"
+  data-theme-toggle
+  aria-pressed="false"
+  aria-label="Cambiar a modo claro"
+>
+  <span class="theme-toggle__icon" data-theme-icon="dark">
+    <Moon size={18} stroke-width={1.75} aria-hidden="true" focusable="false" />
+  </span>
+  <span class="theme-toggle__icon" data-theme-icon="light">
+    <Sun size={18} stroke-width={1.75} aria-hidden="true" focusable="false" />
+  </span>
+</button>
+
+<style>
+  .theme-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .theme-toggle__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Oscuro (default): se ofrece el sol. Claro: se ofrece la luna. */
+  .theme-toggle__icon[data-theme-icon='light'] {
+    display: none;
+  }
+
+  :global([data-theme='light']) .theme-toggle__icon[data-theme-icon='light'] {
+    display: inline-flex;
+  }
+
+  :global([data-theme='light']) .theme-toggle__icon[data-theme-icon='dark'] {
+    display: none;
+  }
+
+  @media (prefers-color-scheme: light) {
+    :global(:root:not([data-theme])) .theme-toggle__icon[data-theme-icon='light'] {
+      display: inline-flex;
+    }
+
+    :global(:root:not([data-theme])) .theme-toggle__icon[data-theme-icon='dark'] {
+      display: none;
+    }
+  }
+</style>

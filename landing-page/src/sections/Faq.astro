@@ -1,0 +1,88 @@
+---
+import Faq from '../components/Faq.astro';
+import SectionHead from '../components/SectionHead.astro';
+import { site } from '../data/site';
+
+const items = [
+  {
+    q: '¿Necesito pnpm o puedo usar npm y bun?',
+    a: 'Cualquiera de los tres: `npm`, `pnpm` o `bun`, tanto para instalar el CLI como para el proyecto. Los templates nativos de Bun (Express y Fastify) se portan a runtime Node cuando elegís npm o pnpm: los scripts cambian a `tsx` y los tipos de Bun salen del proyecto.',
+  },
+  {
+    q: '¿De dónde salen los templates?',
+    a: 'Del repositorio: el CLI descarga el ZIP del branch `main` de GitHub, extrae el template pedido y lo copia en tu disco. No hay servidor propio ni registro, y por eso un template nuevo del repo está disponible sin actualizar el CLI.',
+  },
+  {
+    q: '¿La base de datos viene incluida?',
+    a: 'Sí, en el template de backend: Prisma con PostgreSQL en Express y Node.js Vanilla, Drizzle ORM con PostgreSQL en Fastify, y EF Core con Npgsql en ASP.NET. Los templates de frontend (Astro, Tauri, React Native, Flutter) no llevan base de datos.',
+  },
+  {
+    q: '¿Qué es el layout de capa?',
+    a: 'Al crear un solo template, el CLI pregunta si querés el código dentro de `backend/` o `frontend/`. Si aceptás, las skills (`.opencode/`, `.pi/`, `.agents/`) y `specs/` quedan en la raíz del proyecto; si lo rechazás, todo el código vive en la raíz. En full stack el layout es fijo: `backend/` + `frontend/`.',
+  },
+  {
+    q: '¿Cómo salteo todas las preguntas en CI?',
+    a: 'Con flags: `-b` y `-f` eligen los templates del full stack, `-p` el package manager, `--git` o `--no-git` la inicialización del repo y `--backend` o `--no-backend` el layout. En modo scripting, Flutter usa `com.example` como organización si no pasás `-o`.',
+  },
+  {
+    q: '¿Qué instala el bundle de skills?',
+    a: 'En cada proyecto: las skills `create-specs`, `create-specs-from-code` y `create-prompt`, más la biblioteca de diseño con sus comandos `/design-<estilo>`. Se copian en `.opencode/`, `.pi/` y `.agents/`, y se versionan con el repo. Con `fwinit skills --global ...` se instalan además en OpenCode, Pi, Gentle Shell o Agent Skills a nivel usuario.',
+  },
+  {
+    q: '¿Cómo sumo un template propio?',
+    a: 'Alcanza con la carpeta en `templates/<TEMPLATE>/` con su `template.json` (nombre, `layer`, runtime y `postInit`), y la entrada correspondiente en `cli/src/templates.ts`. El `template.json` documenta y aporta los comandos de post-init; el alias lo resuelve el registro del CLI.',
+  },
+] as const;
+---
+
+<section class="section" id="faq" aria-labelledby="faq-title">
+  <div class="container faq__layout">
+    <div class="faq__intro">
+      <SectionHead
+        eyebrow="FAQ"
+        title="Lo que suele preguntarse antes del primer proyecto"
+        lede="Respuestas cortas, todas verificables en el código del repo."
+        align="start"
+        id="faq-title"
+      />
+      <p class="caption faq__hint">
+        Si falta algo, abrí un issue en <a href={`${site.repoUrl}/issues`} target="_blank" rel="noopener noreferrer">el repositorio</a>.
+      </p>
+    </div>
+
+    <Faq items={items} idPrefix="faq" />
+  </div>
+</section>
+
+<style>
+  .faq__layout {
+    display: grid;
+    grid-template-columns: 0.9fr 1.1fr;
+    gap: var(--space-xl);
+    align-items: start;
+  }
+
+  .faq__intro {
+    position: sticky;
+    top: calc(var(--header-height) + var(--space-lg));
+  }
+
+  .faq__intro :global(.section-head) {
+    margin-bottom: var(--space-sm);
+  }
+
+  .faq__hint {
+    color: var(--text-muted);
+  }
+
+  @media (max-width: 900px) {
+    .faq__layout {
+      grid-template-columns: minmax(0, 1fr);
+      gap: var(--space-md);
+    }
+
+    .faq__intro {
+      position: static;
+    }
+  }
+</style>

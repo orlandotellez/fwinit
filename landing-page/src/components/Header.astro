@@ -1,0 +1,373 @@
+---
+import { Github, Star, Terminal } from 'lucide-astro';
+import ThemeToggle from '../components/ThemeToggle.astro';
+import { nav, site } from '../data/site';
+import { formatCount, getStars } from '../lib/github';
+
+const stars = await getStars(site.repo);
+const starsLabel = stars === null ? null : formatCount(stars);
+---
+
+<header class="site-header" data-header>
+  <div class="container site-header__inner">
+    <a class="wordmark" href="#top" aria-label="fwinit — ir al inicio">
+      <span class="wordmark__glyph" aria-hidden="true">
+        <Terminal size={16} stroke-width={1.75} focusable="false" />
+      </span>
+      <span class="wordmark__name">fwinit</span>
+      <span class="badge badge--version">v{site.version}</span>
+    </a>
+
+    <nav class="site-nav" aria-label="Principal">
+      {
+        nav.map((item) => (
+          <a href={item.href} class="site-nav__link" data-nav-link>
+            {item.label}
+          </a>
+        ))
+      }
+    </nav>
+
+    <div class="site-header__actions">
+      <a
+        class="github-link"
+        href={site.repoUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label={`Repositorio de fwinit en GitHub${stars ? `, ${stars} estrellas` : ''}`}
+      >
+        <Github size={18} stroke-width={1.75} aria-hidden="true" focusable="false" />
+        {
+          starsLabel && (
+            <span class="github-link__stars tabular">
+              <Star size={12} stroke-width={2} aria-hidden="true" focusable="false" />
+              {starsLabel}
+            </span>
+          )
+        }
+      </a>
+
+      <ThemeToggle />
+
+      <a class="btn btn--primary btn--sm header-cta" href="#instalar">Instalar</a>
+
+      <button
+        type="button"
+        class="btn btn--icon nav-toggle"
+        data-nav-toggle
+        aria-expanded="false"
+        aria-controls="mobile-nav"
+        aria-label="Abrir menú"
+      >
+        <span class="nav-toggle__bars" aria-hidden="true">
+          <span></span>
+          <span></span>
+          <span></span>
+        </span>
+      </button>
+    </div>
+  </div>
+</header>
+
+<div class="mobile-nav" id="mobile-nav" data-nav-panel hidden>
+  <nav class="mobile-nav__nav" aria-label="Navegación móvil">
+    <ul role="list" class="mobile-nav__list">
+      {
+        nav.map((item) => (
+          <li>
+            <a class="mobile-nav__link" href={item.href} data-nav-link data-nav-mobile>
+              {item.label}
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+  </nav>
+
+  <div class="mobile-nav__foot">
+    <a class="btn btn--primary" href="#instalar" data-nav-mobile>Instalar fwinit</a>
+    <a
+      class="btn btn--ghost"
+      href={site.repoUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      <Github size={18} stroke-width={1.75} aria-hidden="true" focusable="false" />
+      Repositorio
+    </a>
+  </div>
+</div>
+
+<style>
+  .site-header {
+    position: fixed;
+    inset-inline: 0;
+    top: 0;
+    z-index: 50;
+    height: var(--header-height);
+    display: flex;
+    align-items: center;
+    background: var(--base);
+    /* El borde vive siempre, no aparece al scrollear: es la línea que separa
+       el chrome del contenido en cualquier posición del scroll. Usa el tono
+       reforzado para que se lea también sobre el fondo limpio del tope. */
+    border-bottom: var(--hairline-strong);
+    transition: background-color var(--duration-base) ease;
+  }
+
+  /* Estado al scrollear: lo pone main.ts con data-scrolled. Sólo cambia el
+     fondo y el blur (mejora progresiva); la línea no cambia porque ya está. */
+  .site-header[data-scrolled] {
+    background: color-mix(in srgb, var(--base) 82%, transparent);
+    backdrop-filter: blur(12px) saturate(140%);
+  }
+
+  /* Tres zonas: marca · navegación centrada · acciones. */
+  .site-header__inner {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: var(--space-sm);
+    width: 100%;
+  }
+
+  .wordmark {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--text);
+    text-decoration: none;
+    flex: none;
+  }
+
+  .wordmark:hover {
+    color: var(--text);
+  }
+
+  .wordmark__glyph {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border: 1px solid var(--accent-border);
+    border-radius: var(--radius-sm);
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+
+  .wordmark__name {
+    font-family: var(--font-mono);
+    font-size: 1.0625rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  .site-nav {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-xs);
+  }
+
+  .site-nav__link {
+    position: relative;
+    padding: 6px 2px;
+    color: var(--text-secondary);
+    font-size: var(--text-small);
+    font-weight: 500;
+    text-decoration: none;
+    transition: color var(--duration-fast) ease;
+  }
+
+  .site-nav__link:hover {
+    color: var(--text);
+  }
+
+  /* Activo = subrayado de 2px que entra con scaleX, nunca un cambio de color. */
+  .site-nav__link::after {
+    content: '';
+    position: absolute;
+    inset-inline: 0;
+    bottom: 0;
+    height: 2px;
+    background: var(--accent);
+    transform: scaleX(0);
+    transform-origin: left center;
+    transition: transform var(--duration-base) var(--ease-out);
+  }
+
+  .site-nav__link[data-active] {
+    color: var(--text);
+  }
+
+  .site-nav__link[data-active]::after {
+    transform: scaleX(1);
+  }
+
+  .site-header__actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--space-2xs);
+  }
+
+  .github-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 40px;
+    padding-inline: 10px;
+    border: 1px solid var(--border-input);
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    text-decoration: none;
+    transition:
+      background-color var(--duration-fast) ease,
+      color var(--duration-fast) ease;
+  }
+
+  .github-link:hover {
+    background: var(--surface-elevated);
+    color: var(--text);
+  }
+
+  .github-link__stars {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: var(--text-caption);
+    color: var(--text-muted);
+  }
+
+  .header-cta {
+    padding: 9px 20px;
+  }
+
+  /* ── Hamburguesa → ✕ (transform, no swap de ícono) ───────────────────── */
+  .nav-toggle {
+    display: none;
+  }
+
+  .nav-toggle__bars {
+    display: inline-flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 4px;
+    width: 18px;
+    height: 18px;
+  }
+
+  .nav-toggle__bars span {
+    display: block;
+    height: 2px;
+    border-radius: 0;
+    background: currentColor;
+    transition:
+      transform var(--duration-base) var(--ease-out),
+      opacity var(--duration-fast) ease;
+  }
+
+  .nav-toggle[aria-expanded='true'] .nav-toggle__bars span:nth-child(1) {
+    transform: translateY(6px) rotate(45deg);
+  }
+
+  .nav-toggle[aria-expanded='true'] .nav-toggle__bars span:nth-child(2) {
+    opacity: 0;
+  }
+
+  .nav-toggle[aria-expanded='true'] .nav-toggle__bars span:nth-child(3) {
+    transform: translateY(-6px) rotate(-45deg);
+  }
+
+  /* ── Panel móvil ──────────────────────────────────────────────────────── */
+  .mobile-nav {
+    position: fixed;
+    inset: var(--header-height) 0 0;
+    z-index: 45;
+    display: none;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: var(--space-lg);
+    padding: var(--space-lg) var(--container-pad) var(--space-xl);
+    background: var(--surface-elevated);
+    border-top: 1px solid var(--border);
+    box-shadow: var(--shadow-pop);
+    overflow-y: auto;
+  }
+
+  .mobile-nav[hidden] {
+    display: none;
+  }
+
+  .mobile-nav__list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .mobile-nav__link {
+    display: block;
+    padding: var(--space-xs) 0;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+    font-size: var(--text-h4);
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  .mobile-nav__link:hover,
+  .mobile-nav__link[data-active] {
+    color: var(--accent);
+  }
+
+  .mobile-nav__foot {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2xs);
+  }
+
+  @media (max-width: 1024px) {
+    .site-nav {
+      display: none;
+    }
+
+    .nav-toggle {
+      display: inline-flex;
+    }
+
+    .mobile-nav:not([hidden]) {
+      display: flex;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .github-link__stars {
+      display: none;
+    }
+
+    .header-cta {
+      display: none;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .wordmark .badge {
+      display: none;
+    }
+
+    /* Objetivo táctil de 44px sin agrandar el ícono. */
+    .site-header__actions :global(.btn--icon),
+    .github-link {
+      min-width: 44px;
+      min-height: 44px;
+    }
+
+    .nav-toggle__bars {
+      gap: 5px;
+    }
+  }
+</style>
