@@ -1,0 +1,144 @@
+---
+import { Copy, Terminal } from 'lucide-astro';
+import { layerLabels, type Template } from '../data/templates';
+
+interface Props {
+  template: Template;
+}
+
+const { template } = Astro.props;
+const layerLabel = layerLabels[template.layer];
+---
+
+<article
+  class="card card--interactive tpl"
+  data-tpl-card
+  data-layer={template.layer}
+  data-copy-scope
+  aria-labelledby={`tpl-${template.alias}`}
+>
+  <div class="tpl__head">
+    <h3 class="tpl__name mono" id={`tpl-${template.alias}`}>{template.name}</h3>
+    <span class="badge badge--category">{layerLabel}</span>
+  </div>
+
+  <p class="tpl__desc">{template.description}</p>
+
+  <div class="tag-list" role="list" aria-label={`Etiquetas de ${template.name}`}>
+    <span class="badge badge--version">{template.runtime}</span>
+    {template.tags.map((tag) => <span class="tag" role="listitem">{tag}</span>)}
+  </div>
+
+  <p class="tpl__stack">
+    <span class="tpl__stack-label">Persistencia</span>
+    {template.stack}
+  </p>
+
+  {template.note && <p class="tpl__note">{template.note}</p>}
+
+  <footer class="tpl__foot">
+    <code class="tpl__cmd" data-code-value={template.command}>
+      <Terminal size={14} stroke-width={1.75} aria-hidden="true" focusable="false" />
+      {template.command}
+    </code>
+    <button
+      type="button"
+      class="btn btn--sm btn--ghost"
+      data-copy
+      aria-label={`Copiar el comando para crear ${template.name}`}
+    >
+      <Copy size={14} stroke-width={1.75} aria-hidden="true" focusable="false" />
+      <span data-copy-label>Copiar</span>
+    </button>
+  </footer>
+
+  <p class="tpl__meta caption">templates/{template.folder}</p>
+</article>
+
+<style>
+  .tpl {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2xs);
+    padding: var(--space-md);
+  }
+
+  .tpl__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2xs);
+  }
+
+  .tpl__name {
+    font-size: var(--text-h4);
+    font-weight: 600;
+    line-height: 1.3;
+    letter-spacing: -0.01em;
+  }
+
+  .tpl__desc {
+    color: var(--text-secondary);
+    font-size: var(--text-small);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .tpl__stack {
+    font-size: var(--text-caption);
+    color: var(--text-secondary);
+    line-height: 1.5;
+  }
+
+  .tpl__stack-label {
+    display: inline-block;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-size: var(--text-caption);
+    margin-right: 6px;
+  }
+
+  .tpl__note {
+    font-size: var(--text-caption);
+    color: var(--text-muted);
+    line-height: 1.45;
+  }
+
+  .tpl__foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2xs);
+    margin-top: auto;
+    padding-top: var(--space-2xs);
+    border-top: var(--hairline);
+  }
+
+  .tpl__cmd {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    padding: 0;
+    background: none;
+    color: var(--text-secondary);
+    font-size: var(--text-caption);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .tpl__foot :global(.btn) {
+    color: var(--text-secondary);
+  }
+
+  .tpl__meta {
+    font-family: var(--font-mono);
+    font-size: var(--text-caption);
+    color: var(--text-muted);
+  }
+</style>
