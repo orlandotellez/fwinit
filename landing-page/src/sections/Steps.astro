@@ -1,0 +1,126 @@
+---
+import { ArrowRight } from 'lucide-astro';
+
+const steps = [
+  {
+    number: '01',
+    title: 'Elegís alcance y capa',
+    text: 'El menú pregunta qué querés crear: full stack, sólo backend o sólo frontend. Después, el template de la capa y el nombre del proyecto.',
+  },
+  {
+    number: '02',
+    title: 'El CLI arma el proyecto',
+    text: 'Baja el template del repo, lo copia en backend/ o frontend/ según el layout, y suma el bundle de skills a .opencode/, .pi/ y .agents/.',
+  },
+  {
+    number: '03',
+    title: 'Ya hay con qué trabajar',
+    text: 'Backend con su base de datos, frontend con su design system y specs/ para el agente. El README raíz explica cómo correr cada parte.',
+  },
+] as const;
+---
+
+<section class="section section--alt" id="como-funciona" aria-labelledby="steps-title">
+  <div class="container">
+    <header class="section-head">
+      <p class="eyebrow">Cómo funciona</p>
+      <h2 class="section-head__title" id="steps-title">Tres pasos, sin configuración manual</h2>
+      <p class="section-head__lede">
+        No hay servicio intermedio ni registro: el CLI lee los templates del repositorio y escribe
+        el proyecto en tu disco.
+      </p>
+    </header>
+
+    <ol role="list" class="steps" data-reveal>
+      {
+        steps.map((step, index) => (
+          <li class="steps__item">
+            <div class="steps__head">
+              <span class="steps__number mono" aria-hidden="true">{step.number}</span>
+              <h3 class="steps__title">{step.title}</h3>
+            </div>
+            <p class="steps__text">{step.text}</p>
+            {index < steps.length - 1 && (
+              <span class="steps__arrow" aria-hidden="true">
+                <ArrowRight size={20} stroke-width={1.75} focusable="false" />
+              </span>
+            )}
+          </li>
+        ))
+      }
+    </ol>
+  </div>
+</section>
+
+<style>
+  .steps {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-lg);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .steps__item {
+    position: relative;
+    padding-top: var(--space-sm);
+    border-top: var(--hairline-strong);
+  }
+
+  .steps__head {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2xs);
+  }
+
+  .steps__number {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border: 1px solid var(--accent-border);
+    border-radius: var(--radius-pill);
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-size: var(--text-caption);
+    font-weight: 600;
+    flex: none;
+  }
+
+  .steps__title {
+    font-size: var(--text-h4);
+  }
+
+  .steps__text {
+    margin-top: var(--space-2xs);
+    color: var(--text-secondary);
+    font-size: var(--text-small);
+    max-width: 42ch;
+  }
+
+  .steps__arrow {
+    position: absolute;
+    top: calc(var(--space-sm) + 8px);
+    right: calc(var(--space-lg) * -0.5 - 10px);
+    color: var(--text-muted);
+    transition: transform var(--duration-fast) var(--ease-out);
+  }
+
+  .steps__item:hover .steps__arrow {
+    transform: translateX(4px);
+    color: var(--accent);
+  }
+
+  @media (max-width: 900px) {
+    .steps {
+      grid-template-columns: minmax(0, 1fr);
+      gap: var(--space-md);
+    }
+
+    .steps__arrow {
+      display: none;
+    }
+  }
+</style>

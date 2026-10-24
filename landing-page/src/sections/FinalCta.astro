@@ -1,0 +1,94 @@
+---
+import { ArrowRight, Github } from 'lucide-astro';
+import InstallTabs from '../components/InstallTabs.astro';
+import { packageManagers, site } from '../data/site';
+---
+
+<section class="cta" id="empezar" aria-labelledby="cta-title">
+  <div class="container cta__inner">
+    <p class="eyebrow">Empezá ahora</p>
+    <h2 class="cta__title" id="cta-title">Un comando y el proyecto ya está armado</h2>
+    <p class="cta__lede">
+      Instalación global, un template y a trabajar. Si preferís no responder preguntas, los flags
+      hacen lo mismo en una línea.
+    </p>
+
+    <div class="cta__install">
+      <InstallTabs
+        items={packageManagers}
+        idPrefix="cta-install"
+        label="Elegí tu package manager para instalar fwinit"
+        hint="instalación global"
+      />
+    </div>
+
+    <div class="cta__actions">
+      <a class="btn btn--primary" href="#comandos">
+        Ver todos los comandos
+        <ArrowRight class="arrow" size={18} stroke-width={1.75} aria-hidden="true" focusable="false" />
+      </a>
+      <a class="btn btn--ghost" href={site.repoUrl} target="_blank" rel="noopener noreferrer">
+        <Github size={18} stroke-width={1.75} aria-hidden="true" focusable="false" />
+        Repositorio en GitHub
+      </a>
+    </div>
+
+    <p class="cta__note caption">
+      Node.js 22 o superior para el CLI · {site.license} · sin registro ni telemetría
+    </p>
+  </div>
+</section>
+
+<style>
+  .cta {
+    padding-block: var(--space-4xl);
+    background: var(--accent-soft);
+    border-block: 1px solid var(--accent-border);
+  }
+
+  .cta__inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: var(--space-sm);
+    max-width: 720px;
+  }
+
+  .cta__title {
+    font-size: clamp(1.75rem, 3.4vw, var(--text-h2));
+  }
+
+  .cta__lede {
+    max-width: 56ch;
+    color: var(--text-secondary);
+  }
+
+  .cta__install {
+    width: 100%;
+    max-width: 520px;
+    text-align: left;
+  }
+
+  .cta__install :global(.install) {
+    background: var(--surface-elevated);
+  }
+
+  .cta__actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--space-2xs);
+    margin-top: var(--space-2xs);
+  }
+
+  .cta__note {
+    color: var(--text-muted);
+  }
+
+  @media (max-width: 480px) {
+    .cta {
+      padding-block: var(--space-2xl);
+    }
+  }
+</style>
