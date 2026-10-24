@@ -1,0 +1,26 @@
+---
+interface Props {
+  eyebrow?: string;
+  title: string;
+  lede?: string;
+  align?: 'center' | 'start';
+  id?: string;
+  class?: string;
+}
+
+const { eyebrow, title, lede, align = 'center', id, class: className } = Astro.props;
+---
+
+<header class:list={['section-head', align === 'start' && 'section-head--start', className]} data-reveal>
+  {eyebrow && <p class="eyebrow">{eyebrow}</p>}
+  <h2 class="section-head__title" id={id}>{title}</h2>
+  {lede && <p class="section-head__lede">{lede}</p>}
+  <slot name="actions" />
+</header>
+
+<style>
+  /* Un solo lugar decide el ritmo de los títulos de sección. */
+  .section-head :global(.eyebrow) {
+    margin-bottom: 0;
+  }
+</style>
