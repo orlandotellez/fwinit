@@ -1,0 +1,93 @@
+---
+import TechIcon from '../components/TechIcon.astro';
+import { stackChips } from '../data/site';
+import type { TechIconName } from '../data/tech-icons';
+---
+
+<section class="stack-strip" aria-labelledby="stack-title">
+  <div class="container stack-strip__inner">
+    <h2 class="stack-strip__caption" id="stack-title">
+      Ya incluido en las plantillas
+    </h2>
+    <ul role="list" class="stack-strip__list">
+      {
+        stackChips.map((chip) => (
+          <li class="stack-strip__item">
+            <TechIcon name={chip.icon as TechIconName} size={18} />
+            <span>{chip.label}</span>
+          </li>
+        ))
+      }
+    </ul>
+  </div>
+</section>
+
+<style>
+  .stack-strip {
+    padding-block: var(--space-lg);
+    border-bottom: var(--hairline);
+  }
+
+  .stack-strip__inner {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+  }
+
+  /* Título al costado y marcas en una sola fila: la franja de "logos" de la
+     referencia, con marcas reales en vez de clientes inventados. */
+  .stack-strip__caption {
+    color: var(--text-muted);
+    font-size: var(--text-caption);
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .stack-strip__list {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px var(--space-md);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .stack-strip__item {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+    font-size: var(--text-caption);
+    transition: color var(--duration-fast) ease;
+  }
+
+  .stack-strip__item :global(.tech-icon) {
+    color: var(--text-muted);
+    transition: color var(--duration-fast) ease;
+  }
+
+  .stack-strip__item:hover,
+  .stack-strip__item:hover :global(.tech-icon) {
+    color: var(--text);
+  }
+
+  @media (min-width: 1024px) {
+    .stack-strip__list {
+      justify-content: space-between;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .stack-strip__list {
+      gap: var(--space-2xs) var(--space-xs);
+    }
+
+    .stack-strip__item :global(.tech-icon) {
+      width: 16px;
+      height: 16px;
+    }
+  }
+</style>
