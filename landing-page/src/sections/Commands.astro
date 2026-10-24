@@ -1,0 +1,221 @@
+---
+import { ArrowRight } from 'lucide-astro';
+import CodeBlock from '../components/CodeBlock.astro';
+import { site } from '../data/site';
+
+const flags = [
+  {
+    flag: '-p, --pm <npm|pnpm|bun>',
+    text: 'Package manager del proyecto. Con npm o pnpm, los templates nativos de Bun se portan a runtime Node (tsx y scripts equivalentes).',
+  },
+  {
+    flag: '-b, --backend-template <tpl>',
+    text: 'Backend del full stack, sin preguntar. Acepta cualquier alias de la lista.',
+  },
+  {
+    flag: '-f, --frontend-template <tpl>',
+    text: 'Frontend del full stack, sin preguntar.',
+  },
+  {
+    flag: '--backend / --no-backend',
+    text: 'Empaquetar el código en backend/ (o frontend/) con las skills y specs en la raíz, o dejarlo todo en la raíz del proyecto.',
+  },
+  {
+    flag: '--git / --no-git',
+    text: 'Inicializar el repositorio git en la raíz. Con cualquiera de los dos, el CLI no pregunta por las skills globales.',
+  },
+  {
+    flag: '-o, --org <dominio>',
+    text: 'Organización reverse-domain para el bundle id de Flutter (ej. ar.miempresa). Sólo aparece si la selección incluye Flutter.',
+  },
+  {
+    flag: '-g, --global <destinos>',
+    text: 'Destinos de las skills globales: opencode, pi, gentle-shell, agents, o all. Saltea el menú de checkboxes.',
+  },
+  {
+    flag: '-o, --only <skills>',
+    text: 'En fwinit skills, instalar un subconjunto: create-specs, create-specs-from-code, create-prompt, design.',
+  },
+  {
+    flag: '-r, --remove',
+    text: 'Eliminar las skills en vez de instalarlas, con los mismos destinos y el mismo filtro.',
+  },
+] as const;
+---
+
+<section class="section section--alt" id="comandos" aria-labelledby="commands-title">
+  <div class="container">
+    <div class="head-row commands__head">
+      <div>
+        <p class="eyebrow">CLI</p>
+        <h2 id="commands-title">Los comandos que hacen el trabajo</h2>
+        <p class="section-head__lede">
+          Sin argumentos abre el menú; con argumentos no pregunta nada. Todo lo que sigue es el
+          comportamiento real de la CLI.
+        </p>
+      </div>
+      <a
+        class="head-row__link"
+        href={`${site.repoUrl}#uso`}
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        Uso completo en el README
+        <ArrowRight size={16} stroke-width={1.75} aria-hidden="true" focusable="false" />
+      </a>
+    </div>
+
+    <div class="commands__grid" data-reveal>
+      <CodeBlock
+        class="commands__main"
+        label="fwinit"
+        code={`$ fwinit
+? ¿Qué querés crear?
+> Full stack (backend + frontend)
+  Solo backend (API)
+  Solo frontend (app)
+  Skills globales (instalar / eliminar)
+
+# full stack: backend + frontend + DB + skills
+# single: una capa, con o sin carpeta de capa`}
+      />
+
+      <div class="commands__stack">
+        <CodeBlock
+          label="un template"
+          code={`fwinit fastify mi-api
+fwinit react-native mi-app
+fwinit flutter mi-app -o ar.miempresa`}
+        />
+        <CodeBlock
+          label="full stack"
+          code={`fwinit fullstack mi-proyecto
+
+# sin preguntas (CI / scripts)
+fwinit fullstack mi-proyecto -b fastify -f astro -p pnpm`}
+        />
+        <CodeBlock
+          label="list"
+          code={`# plantillas agrupadas por capa
+fwinit list`}
+        />
+        <CodeBlock
+          label="skills"
+          code={`fwinit skills
+fwinit skills --global opencode,pi
+fwinit skills --global all --only create-specs,design
+fwinit skills --global all --remove`}
+        />
+      </div>
+    </div>
+
+    <div class="card commands__flags">
+      <h3 class="commands__flags-title">Flags</h3>
+      <p class="caption commands__flags-note">
+        Cada flag saltea una pregunta. El mismo <code>-o</code> significa <code>--org</code> al
+        crear un proyecto y <code>--only</code> en <code>fwinit skills</code>.
+      </p>
+      <dl class="flags">
+        {
+          flags.map((item) => (
+            <div class="flags__row">
+              <dt>
+                <code>{item.flag}</code>
+              </dt>
+              <dd>{item.text}</dd>
+            </div>
+          ))
+        }
+      </dl>
+    </div>
+  </div>
+</section>
+
+<style>
+  .commands__head {
+    align-items: flex-end;
+    margin-bottom: var(--space-lg);
+  }
+
+  .commands__head .eyebrow {
+    margin-bottom: var(--space-2xs);
+  }
+
+  .commands__head h2 {
+    max-width: 24ch;
+  }
+
+  .commands__head .section-head__lede {
+    margin-top: var(--space-2xs);
+    max-width: 56ch;
+  }
+
+  .commands__grid {
+    display: grid;
+    grid-template-columns: 1.05fr 0.95fr;
+    gap: var(--space-sm);
+    align-items: start;
+  }
+
+  .commands__stack {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+  }
+
+  .commands__flags {
+    margin-top: var(--space-md);
+  }
+
+  .commands__flags-title {
+    font-size: var(--text-h4);
+  }
+
+  .commands__flags-note {
+    margin-top: 4px;
+    color: var(--text-muted);
+  }
+
+  .flags {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0 var(--space-lg);
+    margin-top: var(--space-sm);
+  }
+
+  .flags__row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px;
+    padding-block: var(--space-2xs);
+    border-top: var(--hairline);
+  }
+
+  .flags__row dt {
+    min-width: 0;
+  }
+
+  .flags__row dt :global(code) {
+    background: none;
+    color: var(--accent);
+    padding: 0;
+    font-size: var(--text-code);
+    white-space: normal;
+  }
+
+  .flags__row dd {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: var(--text-small);
+  }
+
+  @media (max-width: 900px) {
+    .commands__grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .flags {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+</style>
