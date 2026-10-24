@@ -1,0 +1,151 @@
+---
+import { ArrowRight, Database, Layers } from 'lucide-astro';
+
+const cards = [
+  {
+    icon: Layers,
+    title: 'Plantillas por capa',
+    text: 'Cuatro backends y cuatro frontends con la misma forma: módulos, configuración, tests y README. El CLI las resuelve por alias desde template.json.',
+    meta: 'fwinit list',
+  },
+  {
+    icon: Database,
+    title: 'Base de datos incluida',
+    text: 'Prisma en Express y Node.js, Drizzle con PostgreSQL en Fastify, EF Core con Npgsql en ASP.NET. La DB viene con el backend, no es un paso aparte.',
+    meta: 'prisma · drizzle · ef core',
+  },
+] as const;
+---
+
+<section class="section value" aria-labelledby="value-title">
+  <div class="container value__layout">
+    <div class="value__intro">
+      <p class="eyebrow">Qué resuelve</p>
+      <h2 class="value__title" id="value-title">Andamiaje decidido, no configurado a mano</h2>
+      <p class="value__lede">
+        Las decisiones repetibles de un proyecto nuevo ya están tomadas y documentadas. Lo que
+        queda es tu producto.
+      </p>
+      <a class="head-row__link value__link" href="#comandos">
+        Ver los comandos
+        <ArrowRight size={16} stroke-width={1.75} aria-hidden="true" focusable="false" />
+      </a>
+    </div>
+
+    {
+      cards.map((card) => {
+        const Icon = card.icon;
+        return (
+          <article class="card card--interactive value__card" data-reveal>
+            <span class="value__icon">
+              <Icon size={22} stroke-width={1.75} aria-hidden="true" focusable="false" />
+            </span>
+            <h3 class="value__card-title">{card.title}</h3>
+            <p class="value__card-text">{card.text}</p>
+            <code class="value__meta">{card.meta}</code>
+          </article>
+        );
+      })
+    }
+  </div>
+</section>
+
+<style>
+  .value {
+    padding-block: var(--space-3xl);
+  }
+
+  .value__layout {
+    display: grid;
+    grid-template-columns: 1.05fr 1fr 1fr;
+    align-items: stretch;
+    gap: var(--space-md);
+  }
+
+  .value__intro {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-2xs);
+    align-self: center;
+    padding-inline-end: var(--space-md);
+  }
+
+  .value__title {
+    font-size: clamp(1.6rem, 2.6vw, var(--text-h2));
+    max-width: 18ch;
+  }
+
+  .value__lede {
+    max-width: 42ch;
+    color: var(--text-secondary);
+    font-size: var(--text-small);
+  }
+
+  .value__link {
+    margin-top: var(--space-2xs);
+  }
+
+  /* Tarjeta centrada: ícono en círculo, título y texto al medio, como en la
+     referencia. La superficie es la misma de siempre (elevated + hairline). */
+  .value__card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-2xs);
+    padding: var(--space-lg) var(--space-md);
+    text-align: center;
+  }
+
+  .value__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 52px;
+    height: 52px;
+    margin-bottom: var(--space-2xs);
+    border: 1px solid var(--accent-border);
+    border-radius: var(--radius-pill);
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+
+  .value__card-title {
+    font-size: var(--text-h4);
+  }
+
+  .value__card-text {
+    color: var(--text-secondary);
+    font-size: var(--text-small);
+  }
+
+  .value__meta {
+    margin-top: auto;
+    padding-top: var(--space-2xs);
+    background: none;
+    color: var(--text-muted);
+    font-size: var(--text-caption);
+  }
+
+  @media (max-width: 1024px) {
+    .value__layout {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    }
+
+    .value__intro {
+      grid-column: 1 / -1;
+      padding-inline-end: 0;
+      margin-bottom: var(--space-sm);
+    }
+
+    .value__title {
+      max-width: 22ch;
+    }
+  }
+
+  @media (max-width: 700px) {
+    .value__layout {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+</style>
