@@ -1,0 +1,46 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { site } from '../data/site';
+
+import AgentSkills from '../sections/AgentSkills.astro';
+import Commands from '../sections/Commands.astro';
+import Faq from '../sections/Faq.astro';
+import FinalCta from '../sections/FinalCta.astro';
+import Flow from '../sections/Flow.astro';
+import Hero from '../sections/Hero.astro';
+import StackStrip from '../sections/StackStrip.astro';
+import Stats from '../sections/Stats.astro';
+import Steps from '../sections/Steps.astro';
+import Templates from '../sections/Templates.astro';
+import ValueProps from '../sections/ValueProps.astro';
+
+const structuredData = {
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  name: 'fwinit',
+  applicationCategory: 'DeveloperApplication',
+  operatingSystem: 'macOS, Linux, Windows',
+  description: site.description,
+  softwareVersion: site.version,
+  license: `https://opensource.org/licenses/${site.license}`,
+  codeRepository: site.repoUrl,
+  isAccessibleForFree: true,
+  offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+};
+---
+
+<Layout>
+  <script type="application/ld+json" set:html={JSON.stringify(structuredData)} />
+
+  <Hero />
+  <StackStrip />
+  <ValueProps />
+  <Stats />
+  <Templates />
+  <Commands />
+  <AgentSkills />
+  <Steps />
+  <Flow />
+  <Faq />
+  <FinalCta />
+</Layout>
