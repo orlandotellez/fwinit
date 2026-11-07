@@ -1,4 +1,5 @@
 import inquirer from "inquirer";
+import chalk from "chalk";
 import {
   getTemplatesByLayer,
   type Template,
@@ -18,11 +19,17 @@ import {
   shortenHomePath,
 } from "./menu.js";
 
-export type ProjectScope = "fullstack" | "backend" | "frontend" | "skills";
+export type ProjectScope =
+  | "fullstack"
+  | "backend"
+  | "frontend"
+  | "skills"
+  | "studio";
 
 // Menú principal: qué tipo de proyecto crear. En fullstack el CLI
-// combina un template de backend con uno de frontend. La última opción
-// delega en el flujo de skills globales (instalar/eliminar).
+// combina un template de backend con uno de frontend. Las dos últimas
+// opciones no crean nada: delegan en el flujo de skills globales
+// (instalar/eliminar) y en el studio local del proyecto actual.
 //
 // La descripción de cada opción dice la consecuencia, no el nombre: el
 // label ya nombra la opción, la descripción aclara qué se crea.
@@ -52,6 +59,13 @@ export async function selectScope(): Promise<ProjectScope> {
             "instalar o eliminar el bundle global"
           ),
           value: "skills",
+        },
+        {
+          ...describeChoice(
+            "Abrir studio",
+            "skills instaladas y specs en el navegador"
+          ),
+          value: "studio",
         },
       ],
     },
@@ -237,6 +251,38 @@ export async function selectSkillsAction(): Promise<SkillsAction> {
             "borra las skills globales instaladas"
           ),
           value: "remove",
+        },
+      ],
+    },
+  ]);
+  return action;
+}
+
+// Control del studio abierto desde el menú: el servidor ya está escuchando y
+// la URL va en el mensaje, así el prompt no repite el contexto. Cerrar es una
+// acción explícita (no un Ctrl+C a ciegas) porque de eso depende liberar el
+// puerto.
+export type StudioMenuAction = "reopen" | "close";
+export async function selectStudioAction(
+  url: string
+): Promise<StudioMenuAction> {
+  const { action } = await inquirer.prompt([
+    {
+      type: "list",
+      name: "action",
+      message: `Studio en ${chalk.dim(url)}`,
+      theme: selectionTheme,
+      choices: [
+        {
+          ...describeChoice(
+            "Abrir de nuevo en el navegador",
+            "vuelve a lanzar el navegador"
+          ),
+          value: "reopen",
+        },
+        {
+          ...describeChoice("Cerrar el studio", "libera el puerto y sale"),
+          value: "close",
         },
       ],
     },

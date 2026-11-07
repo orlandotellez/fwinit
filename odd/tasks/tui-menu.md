@@ -30,6 +30,11 @@ S6. `fwinit` with no arguments and no TTY prints help and exits instead of waiti
 S7. The list and checkbox prompts accept `j` and `k` as down and up, in addition to the arrow keys.
 > "quiero usar j y k para ir arriba y abajo aparte de las teclas de arriba y abajo"
 
+S8. The main menu offers "Abrir studio": it starts the same server as `fwinit studio`, opens the
+browser, prints the same summary with the URL in the interface, and offers an explicit way to close
+the studio. Closing releases the port and exits.
+> "quiero que me salga una opcion que diga \"Abrir studio\" y que me abra el navegador, es como si pongo \"fwinit studio\" pero en esa interfaz y que ahi mismo salga la url y todo eso, que me deje cerrar studio tambien"
+
 ## Tasks
 
 | ID | Spec | Route | Commit |
@@ -40,6 +45,7 @@ S7. The list and checkbox prompts accept `j` and `k` as down and up, in addition
 | T4 | S1,S2,S6 | worker: wiring in `cli/src/index.ts` (`--no-banner`, `--no-color`, non-TTY help) + README | pending |
 | T5 | all | parent: 209 tests, typecheck, build, PTY smoke (banner, j/k, arrows, literal input, no-TTY, NO_COLOR, `--no-banner`, `--no-color`) | pending |
 | T6 | S7 | worker + parent: `theme.keybindings: ["vim"]` on list/checkbox only; test pins our input, not inquirer internals | pending |
+| T7 | S8 | worker + parent: `Abrir studio` in `selectScope`, shared `summary.ts`, control prompt (reopen / close), Ctrl+C closes the server; 214 tests + PTY (open, URL, close, Ctrl+C, port released) | pending |
 
 ## Design decisions
 
@@ -84,6 +90,13 @@ L3 (correction): the plan said "ten prompts"; the file has eleven. The inventory
 `selectScope`, `selectTemplateFromLayer`, `askProjectName`, `selectPackageManager`, `askLayerLayout`,
 `askGitInit`, `askFlutterOrg`, `askGlobalSkillsToo`, `selectSkillsAction`, `selectGlobalTargets`,
 `selectGlobalTargetsToRemove`.
+
+L6 (menu studio): the summary moved to `studio/summary.ts` so `fwinit studio` and the menu cannot
+drift, proven by a byte-identical diff of the command output. Closing awaits `studio.close()`, which
+releases keep-alive sockets, so the port is free immediately; Ctrl+C is caught as inquirer's
+`ExitPromptError` by `error.name` (no import of the undeclared `@inquirer/core`). The redundant
+second Ctrl+C hint was removed from the menu flow on integration: the shared summary already says it,
+and `fwinit studio` output had to stay byte-identical.
 
 L5 (implementation notes): `j`/`k` come from inquirer's own `theme.keybindings: ["vim"]` on the
 selection prompts only, so `brandTheme` (input/confirm) keeps them literal characters; the knob is

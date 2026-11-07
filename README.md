@@ -116,10 +116,13 @@ sincronizados por `localStorage`.
   Solo backend (API)
   Solo frontend (app)
   Skills globales (instalar / eliminar)
+  Abrir studio (skills instaladas y specs en el navegador)
 ```
 
 - **Full stack**: te pregunta primero el backend y después el frontend, y arma el monorepo completo.
 - **Solo backend / Solo frontend**: te pregunta el template de la capa, el nombre, el layout y el package manager.
+- **Skills globales**: instala o elimina el bundle de skills en los destinos globales.
+- **Abrir studio**: abre el mismo studio de `fwinit studio` en el navegador, muestra la URL y te deja volver a abrirlo o cerrarlo desde el menú (`Cerrar el studio` libera el puerto y sale; `Ctrl+C` hace lo mismo).
 
 ### Proyecto full stack
 

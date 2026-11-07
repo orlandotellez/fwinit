@@ -21,6 +21,9 @@ import {
 } from "./downloader.js";
 import { planAgentBundle } from "./agent-bundle.js";
 import { startStudio } from "./studio/server.js";
+import { openBrowser } from "./studio/open-browser.js";
+import { printStudioSummary } from "./studio/summary.js";
+import type { StudioServer } from "./studio/types.js";
 import { buildSpecsTree } from "./studio/specs.js";
 import { discoverSkills } from "./studio/skills.js";
 import { printBanner } from "./banner.js";
@@ -37,6 +40,8 @@ import {
   selectSkillsAction,
   askGlobalSkillsToo,
   askFlutterOrg,
+  selectStudioAction,
+  type StudioMenuAction,
 } from "./prompts.js";
 import {
   FLUTTER_ORG_DEFAULT,
@@ -474,12 +479,13 @@ program
         open: opts.open !== false,
       });
 
-      console.log(chalk.bold("\n  fwinit studio\n"));
-      console.log(`  ${chalk.dim("Proyecto")}  ${projectRoot}`);
-      console.log(`  ${chalk.dim("Skills")}    ${skillsLine}`);
-      console.log(`  ${chalk.dim("Specs")}     ${specsLine}`);
-      console.log(`  ${chalk.dim("URL")}       ${chalk.cyan(studio.address.url)}`);
-      console.log(`\n  ${chalk.dim("Ctrl+C para cerrar")}\n`);
+      printStudioSummary({
+        version: getCliVersion(),
+        projectRoot,
+        skillsLine,
+        specsLine,
+        url: studio.address.url,
+      });
 
       const shutdown = (): void => {
         void studio.close().finally(() => process.exit(0));
@@ -493,6 +499,102 @@ program
       process.exit(1);
     }
   });
+
+// Ctrl+C dentro de un prompt no llega como SIGINT al proceso: el readline de
+// inquirer lo intercepta y rechaza la promesa con un ExitPromptError, que sin
+// manejar imprime un stack trace. Se detecta por nombre en vez de importar
+// @inquirer/core, un transitivo que ninguna dependencia declarada garantiza.
+function isExitPromptError(error: unknown): boolean {
+  return error instanceof Error && error.name === "ExitPromptError";
+}
+
+// "Abrir studio" del menú principal: el mismo servidor que `fwinit studio`
+// (mismo resumen y misma UI), en un puerto libre, con un prompt para volver a
+// abrir el navegador o cerrarlo. El puerto nunca queda tomado: cerrar desde el
+// menú, Ctrl+C en el prompt y SIGINT/SIGTERM pasan todos por studio.close().
+async function runStudioFromMenu(): Promise<void> {
+  const projectRoot = process.cwd();
+  const home = process.env.HOME;
+
+  let studio: StudioServer;
+  try {
+    studio = await startStudio({
+      port: 0,
+      projectRoot,
+      version: getCliVersion(),
+      open: true,
+    });
+  } catch (error) {
+    console.error(
+      chalk.red(
+        `\n\u2716 Error: no se pudo abrir el studio: ${(error as Error).message}\n`
+      )
+    );
+    process.exit(1);
+    return;
+  }
+
+  // Una sola salida: la señal y el cierre del prompt no pueden correr dos
+  // veces ni dejar el puerto colgado.
+  let closing = false;
+  const shutdown = (code: number): void => {
+    if (closing) return;
+    closing = true;
+    void studio.close().finally(() => process.exit(code));
+  };
+  process.once("SIGINT", () => shutdown(0));
+  process.once("SIGTERM", () => shutdown(0));
+
+  // Los números del resumen son cortesía: si el disco no se deja leer, el
+  // studio igual arranca y la UI muestra el error que corresponda.
+  let skillsLine = "no disponible";
+  let specsLine = "no disponible";
+  try {
+    const report = await discoverSkills({ projectRoot, home });
+    skillsLine = `${report.totals.global + report.totals.project} (${report.totals.global} globales · ${report.totals.project} del proyecto)`;
+  } catch {
+    // se mantiene el valor por defecto
+  }
+  try {
+    const specs = await buildSpecsTree(projectRoot);
+    specsLine = specs.found
+      ? `${specs.totals.files} archivos en specs/`
+      : "sin carpeta specs/ (creala con la skill create-specs)";
+  } catch {
+    // se mantiene el valor por defecto
+  }
+
+  const url = studio.address.url;
+  printStudioSummary({
+    version: getCliVersion(),
+    projectRoot,
+    skillsLine,
+    specsLine,
+    url,
+  });
+  // El resumen ya avisa que Ctrl+C cierra: no repetir el mismo aviso acá.
+
+  let action: StudioMenuAction = "close";
+  for (;;) {
+    try {
+      action = await selectStudioAction(url);
+    } catch (error) {
+      if (!isExitPromptError(error)) throw error;
+      // Ctrl+C en el prompt: inquirer ya soltó el readline, así que se apaga
+      // el studio y se sale en 0 en vez de mostrar un stack trace.
+      action = "close";
+    }
+    if (action !== "reopen") break;
+    openBrowser(url);
+  }
+
+  if (!closing) {
+    closing = true;
+    await studio.close();
+    console.log(chalk.green("  \u2714 Studio cerrado."));
+  }
+  process.exit(0);
+}
 
 program
   .argument("[template]", "Template a usar (o 'fullstack' para backend + frontend)")
@@ -589,6 +691,12 @@ program
             // Opción del menú principal: mismo flujo que `fwinit skills`,
             // completamente interactivo (instalar/eliminar → destinos).
             await runSkillsFlow();
+            return;
+          }
+          if (scope === "studio") {
+            // Opción del menú principal: mismo servidor que `fwinit studio`,
+            // en esta misma pantalla, con cierre explícito.
+            await runStudioFromMenu();
             return;
           }
           if (scope === "fullstack") {
