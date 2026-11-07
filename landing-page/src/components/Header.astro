@@ -47,6 +47,29 @@ const starsLabel = stars === null ? null : formatCount(stars);
         }
       </a>
 
+      <a
+        class="npm-link"
+        href={site.npmUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="Paquete de fwinit en npm"
+      >
+        {/* Wordmark de npm en tinta: el cuadrado de la marca no se lee a este
+            tamaño, así que el glifo va acompañado de la etiqueta, igual que el
+            ícono de GitHub va acompañado de sus estrellas. */}
+        <svg
+          width="17"
+          height="17"
+          viewBox="4.6 4.6 14.8 14.8"
+          fill="currentColor"
+          aria-hidden="true"
+          focusable="false"
+        >
+          <path d="M5.13 5.323l13.837.019-.009 13.836h-3.464l.01-10.382h-3.456L12.04 19.17H5.113z" />
+        </svg>
+        <span class="npm-link__label">npm</span>
+      </a>
+
       <ThemeToggle />
 
       <a class="btn btn--primary btn--sm header-cta" href="#instalar">Instalar</a>
@@ -212,7 +235,8 @@ const starsLabel = stars === null ? null : formatCount(stars);
     gap: var(--space-2xs);
   }
 
-  .github-link {
+  .github-link,
+  .npm-link {
     display: inline-flex;
     align-items: center;
     gap: 8px;
@@ -227,9 +251,16 @@ const starsLabel = stars === null ? null : formatCount(stars);
       color var(--duration-fast) ease;
   }
 
-  .github-link:hover {
+  .github-link:hover,
+  .npm-link:hover {
     background: var(--surface-elevated);
     color: var(--text);
+  }
+
+  .npm-link__label {
+    font-family: var(--font-mono);
+    font-size: var(--text-caption);
+    letter-spacing: 0.02em;
   }
 
   .github-link__stars {
@@ -345,7 +376,8 @@ const starsLabel = stars === null ? null : formatCount(stars);
   }
 
   @media (max-width: 640px) {
-    .github-link__stars {
+    .github-link__stars,
+    .npm-link__label {
       display: none;
     }
 
@@ -361,7 +393,8 @@ const starsLabel = stars === null ? null : formatCount(stars);
 
     /* Objetivo táctil de 44px sin agrandar el ícono. */
     .site-header__actions :global(.btn--icon),
-    .github-link {
+    .github-link,
+    .npm-link {
       min-width: 44px;
       min-height: 44px;
     }

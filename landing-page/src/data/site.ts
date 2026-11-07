@@ -9,6 +9,7 @@ export const site = {
   license: 'MIT',
   repo: import.meta.env.PUBLIC_GITHUB_REPO ?? 'orlandotellez/fwinit',
   repoUrl: `https://github.com/${import.meta.env.PUBLIC_GITHUB_REPO ?? 'orlandotellez/fwinit'}`,
+  npmUrl: 'https://www.npmjs.com/package/fwinit',
   installCommand: 'pnpm add -g fwinit',
 } as const;
 
