@@ -66,9 +66,10 @@ fwinit studio
 ### Studio local (`fwinit studio`)
 
 Abre una vista de sólo lectura en el navegador con dos cosas: las skills que ya
-tenés instaladas para **OpenCode, Pi y Gentle Shell** (globales y del proyecto),
-y el árbol de `specs/` del directorio donde corrés el comando, renderizado como
-documentación navegable.
+tenés instaladas para **OpenCode, Pi y Gentle Shell** (globales y del proyecto)
+—con el contenido de cada `SKILL.md` y sus archivos de texto—, y el árbol de
+`specs/` del directorio donde corrés el comando, renderizado como documentación
+navegable.
 
 ```bash
 fwinit studio                 # elige un puerto libre y abre el navegador

@@ -23,6 +23,14 @@ failing: the rest of the studio stays usable.
 
 S6. The server binds loopback only and refuses any file path that escapes the scanned roots.
 
+S7. Each skill can be read from the interface, not only located: its own text files are listed and
+rendered, `SKILL.md` first.
+> "quieor poder leer lo que dice cada skill, quiero leer el contenido de cada una"
+
+S8. The top navigation orders Specs before Skills; the default view stays Skills so the studio never
+opens on an empty specs tree.
+> "primero Specs y luego skills en la navegacion de arriba"
+
 ## Tasks
 
 | ID | Spec | Route | Commit |
@@ -33,6 +41,8 @@ S6. The server binds loopback only and refuses any file path that escapes the sc
 | T4 | S4 | inline: `ui/tokens.ts`, `ui/styles.ts`, `ui/document.ts`, `ui/client.ts` | `feat(studio): tokens de diseño de la landing` + `feat(studio): shell y cliente de navegador` |
 | T5 | S1,S6 | inline: `server.ts`, `open-browser.ts`, `index.ts` wiring, `server.test.ts`, `links.test.ts` | `feat(studio): servidor loopback y comando fwinit studio` |
 | T6 | all | `gentle-ai-verify` + `gentle-ai-worker` fix round: 151 tests, tsc clean, build ok, live loopback probes | `docs(studio): documentación de fwinit studio` |
+| T7 | S7 | worker data layer (`skill-files.ts`, routes) + inline UI (file chips, rendered content) + independent verification round | pending |
+| T8 | S8 | inline: tab order in `ui/document.ts` | pending |
 
 ### Verification evidence
 
@@ -100,3 +110,17 @@ L7 (deferred, not part of this feature): the studio loads Inter and JetBrains Mo
 Fonts because the bundle cannot ship the landing page's self-hosted assets under `files: ["dist"]`.
 Self-hosting them inside the bundle is the follow-up that removes the only outbound request.
 `SpecsRoots.projectRoot` is currently unused by `readSpecFile` and kept for the server's call shape.
+
+L8 (skill content, L7 spec above): reading a skill goes through a second contained root. The skill
+directory is resolved from the target registry, never from the URL, and every file is checked with
+`fs.realpath` against the skill directory's realpath before it is read; only an allowlist of text
+extensions is served, capped at 512 KB, and any NUL byte in the buffer makes it `unsupported`.
+The listing filters by extension only; size and binary guards answer 415 when the file is opened.
+
+L9 (verification round on skill content, `gentle-ai-verify`): two defects found before closing.
+1. The client's content cache used `target/name` as its key, so the same skill installed globally
+   and in the project shared one cache entry and could show the other scope's files. The key now
+   includes the scope, and `links.test.ts` pins it.
+2. The binary guard sniffed only the first 4096 bytes, so a NUL at the end of a file was served as
+   text. The guard now inspects the whole buffer (bounded by the 512 KB cap), pinned by a test that
+   writes its own late-NUL fixture so the shared listing stays stable.

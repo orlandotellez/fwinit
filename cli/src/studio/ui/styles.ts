@@ -19,10 +19,16 @@ export const STUDIO_CSS = `
 
 html {
   -webkit-text-size-adjust: 100%;
+  height: 100%;
 }
 
 body {
-  min-height: 100vh;
+  min-height: 100%;
+  height: 100%;
+  /* Marco de app: el documento no scrollea nunca, scrollean los paneles.
+     Sin esto el rail mide lo que mide su contenido y al bajar queda el fondo
+     desnudo debajo de la barra lateral. */
+  overflow: hidden;
   background-color: var(--base);
   color: var(--text);
   font-family: var(--font-sans);
@@ -292,15 +298,17 @@ button {
 .shell {
   padding-top: var(--header-height);
   padding-bottom: 36px;
-  padding-inline: var(--container-pad);
-  height: 100vh;
-  max-width: var(--container);
   margin-inline: auto;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
 }
 
 .view {
   display: none;
   height: 100%;
+  min-height: 0;
+  overflow: hidden;
   border-inline: var(--hairline);
 }
 
@@ -308,12 +316,25 @@ button {
   display: grid;
 }
 
+/* minmax(0, 1fr) en las filas es lo que deja que el panel scrollee por
+   dentro en lugar de estirar la página. */
 .view--skills {
-  grid-template-columns: 340px minmax(0, 1fr);
+  grid-template-columns: 320px minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
 }
 
 .view--specs {
-  grid-template-columns: 320px minmax(0, 1fr) 232px;
+  grid-template-columns: 300px minmax(0, 1fr) 216px;
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.rail,
+.pane,
+.toc {
+  min-height: 0;
+  /* El grid mide la fila a la altura del marco; sin esto el panel toma la
+     altura de su contenido y desborda el área, que queda recortada. */
+  height: 100%;
 }
 
 .rail {
@@ -323,7 +344,6 @@ button {
   border-right: var(--hairline-strong);
   background: var(--surface);
 }
-
 .rail__head {
   display: grid;
   gap: var(--space-2xs);
@@ -544,6 +564,7 @@ button {
 /* ── Panes ───────────────────────────────────────────────────────────────── */
 .pane {
   min-width: 0;
+  min-height: 0;
   overflow-y: auto;
   padding: var(--space-lg) var(--space-xl) var(--space-2xl);
   scrollbar-width: thin;
@@ -632,9 +653,72 @@ button {
   color: var(--text);
 }
 
+/* ── Contenido de la skill ───────────────────────────────────────────────── */
+.skill-doc {
+  margin-top: var(--space-lg);
+  padding-top: var(--space-sm);
+  border-top: var(--hairline-strong);
+}
+
+.filelist {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3xs);
+  margin-bottom: var(--space-md);
+}
+
+.filelist__item {
+  max-width: 24ch;
+  padding: 0.125rem var(--space-2xs);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--text-caption);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition:
+    color var(--duration-fast) ease,
+    border-color var(--duration-fast) ease,
+    background-color var(--duration-fast) ease;
+}
+
+.filelist__item:hover {
+  color: var(--text);
+  border-color: var(--accent-border);
+}
+
+.filelist__item[aria-current] {
+  background: var(--accent-soft);
+  border-color: var(--accent-border);
+  color: var(--accent);
+}
+
+.doc-plain {
+  overflow-x: auto;
+  padding: var(--space-sm);
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  color: var(--syn-variable);
+  font-family: var(--font-mono);
+  font-size: var(--text-code);
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 /* ── Document ────────────────────────────────────────────────────────────── */
+/* El centrado va en la columna de lectura, no en el panel: con margin auto en
+   el panel, el panel se encoge a su contenido y deja de ocupar su columna. */
+.pane[data-detail='skills'] > * {
+  max-width: 880px;
+  margin-inline: auto;
+}
+
 .doc-head {
-  max-width: var(--text-column);
+  max-width: 880px;
+  margin-inline: auto;
   padding-bottom: var(--space-sm);
   border-bottom: var(--hairline-strong);
   margin-bottom: var(--space-md);
@@ -666,7 +750,8 @@ button {
 }
 
 .doc {
-  max-width: var(--text-column);
+  max-width: 880px;
+  margin-inline: auto;
   color: var(--text-secondary);
   font-size: var(--text-body);
   line-height: var(--leading-body);
@@ -854,6 +939,7 @@ button {
 
 /* ── Table of contents ───────────────────────────────────────────────────── */
 .toc {
+  min-height: 0;
   overflow-y: auto;
   padding: var(--space-lg) var(--space-sm);
   border-left: var(--hairline-strong);
@@ -894,6 +980,13 @@ button {
 .toc__link:hover {
   color: var(--text);
   border-left-color: var(--border-strong);
+}
+
+/* Sección donde está el lector: misma señal que la fila activa del raíl. */
+.toc__link[aria-current] {
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-left-color: var(--accent);
 }
 
 .toc__link[data-level='3'] {
@@ -1030,15 +1123,17 @@ button {
     display: none;
   }
 
+  /* Una columna: el rail se queda con su franja y el panel con el resto, ambos
+     con scroll propio. */
   .view--skills,
   .view--specs {
     grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 38%) minmax(0, 1fr);
   }
 
   .rail {
     border-right: 0;
     border-bottom: var(--hairline-strong);
-    max-height: 42vh;
   }
 
   .pane {

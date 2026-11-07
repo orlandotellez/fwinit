@@ -22,6 +22,10 @@ export const CLIENT_JS = `
     scope: 'global',
     skillKey: null,
     specPath: null,
+    loadedSkillKey: null,
+    skillFiles: null,
+    skillFile: null,
+    skillFileError: null,
     filter: { skills: '', specs: '' },
     skills: null,
     specs: null,
@@ -428,6 +432,10 @@ export const CLIENT_JS = `
       ])
     ]));
 
+    // Primero el contenido (es lo que se viene a leer); los metadatos, después.
+    container.appendChild(el('section', { class: 'skill-doc', dataset: { skillDoc: '' } }));
+    ensureSkillDoc(skill);
+
     container.appendChild(el('div', { class: 'meta' }, [
       metaRow('Directorio', shortPath(skill.dir), true),
       metaRow('Archivo', skill.path.replace(meta.projectRoot || '', '')),
@@ -448,6 +456,153 @@ export const CLIENT_JS = `
           el('span', { class: 'meta__value', text: warning })
         ]);
       })));
+    }
+  }
+
+  /* ── Contenido de la skill ─────────────────────────────────────────────── */
+
+  function skillKeyOf(skill) {
+    // El alcance forma parte de la identidad: la misma skill puede estar
+    // instalada globalmente y en el proyecto, con contenidos distintos.
+    return skill.target + '/' + skill.scope + '/' + skill.name;
+  }
+
+  function skillQuery(skill) {
+    return 'target=' + encodeURIComponent(skill.target) +
+      '&scope=' + encodeURIComponent(skill.scope) +
+      '&name=' + encodeURIComponent(skill.name);
+  }
+
+  /** Carga el contenido una vez por skill: al cambiar de selección se reinicia. */
+  function ensureSkillDoc(skill) {
+    var key = skillKeyOf(skill);
+    if (state.loadedSkillKey === key) {
+      renderSkillDoc(skill);
+      return;
+    }
+    state.loadedSkillKey = key;
+    state.skillFiles = null;
+    state.skillFile = null;
+    state.skillFileError = null;
+    renderSkillDoc(skill);
+    loadSkillFiles(skill);
+  }
+
+  function loadSkillFiles(skill) {
+    var key = skillKeyOf(skill);
+    fetchJson('/api/skills/files?' + skillQuery(skill)).then(function (list) {
+      if (state.loadedSkillKey !== key) return;
+      state.skillFiles = list;
+      var files = list.files || [];
+      var preferred = null;
+      for (var i = 0; i < files.length; i++) {
+        if (files[i].path === 'SKILL.md') { preferred = files[i]; break; }
+      }
+      if (!preferred) preferred = files[0] || null;
+      if (preferred) loadSkillFile(skill, preferred.path);
+      else renderSkillDoc(skill);
+    }, function (error) {
+      if (state.loadedSkillKey !== key) return;
+      state.skillFileError = error;
+      renderSkillDoc(skill);
+    });
+  }
+
+  function loadSkillFile(skill, path) {
+    var key = skillKeyOf(skill);
+    state.skillFileError = null;
+    fetchJson('/api/skills/file?' + skillQuery(skill) + '&path=' + encodeURIComponent(path)).then(function (file) {
+      if (state.loadedSkillKey !== key) return;
+      state.skillFile = file;
+      renderSkillDoc(skill);
+    }, function (error) {
+      if (state.loadedSkillKey !== key) return;
+      state.skillFile = null;
+      state.skillFileError = error;
+      renderSkillDoc(skill);
+    });
+  }
+
+  /** Resuelve un enlace relativo contra el archivo abierto dentro de la skill. */
+  function resolveRelativePath(basePath, target) {
+    var stack = basePath.indexOf('/') === -1 ? [] : basePath.slice(0, basePath.lastIndexOf('/')).split('/');
+    target.split('/').forEach(function (segment) {
+      if (segment === '' || segment === '.') return;
+      if (segment === '..') { stack.pop(); return; }
+      stack.push(segment);
+    });
+    return stack.join('/');
+  }
+
+  function renderSkillDoc(skill) {
+    var host = q('[data-skill-doc]');
+    if (!host) return;
+    host.textContent = '';
+
+    if (state.skillFileError) {
+      host.appendChild(emptyState({
+        title: 'No se pudo leer el contenido',
+        text: state.skillFileError.message || 'Error desconocido.',
+        hint: 'El archivo está fuera de la carpeta de la skill o no es de texto.'
+      }));
+      return;
+    }
+    if (!state.skillFiles) {
+      host.appendChild(el('p', { class: 'loading', text: 'Leyendo el contenido de la skill…' }));
+      return;
+    }
+
+    var files = state.skillFiles.files || [];
+    if (!files.length) {
+      host.appendChild(el('p', { class: 'empty__hint', text: 'Esta skill no tiene archivos de texto para mostrar.' }));
+      return;
+    }
+
+    var current = state.skillFile ? state.skillFile.path : null;
+    host.appendChild(el('div', { class: 'filelist', role: 'tablist', 'aria-label': 'Archivos de la skill' }, files.map(function (file) {
+      return el('button', {
+        type: 'button',
+        class: 'filelist__item',
+        role: 'tab',
+        'aria-current': file.path === current ? 'true' : null,
+        title: shortPath(state.skillFiles.dir) + '/' + file.path + ' · ' + fmtBytes(file.bytes),
+        text: file.path,
+        onclick: function () { loadSkillFile(skill, file.path); }
+      });
+    })));
+
+    if (!state.skillFile) {
+      host.appendChild(el('p', { class: 'loading', text: 'Leyendo…' }));
+      return;
+    }
+
+    if (state.skillFile.html) {
+      var article = el('article', { class: 'doc' });
+      article.innerHTML = sanitize(state.skillFile.html);
+      // El nombre de la skill ya es el título del detalle; el h1 del archivo sobra.
+      var duplicate = q('h1', article);
+      if (duplicate) duplicate.remove();
+      qa('[data-spec-link]', article).forEach(function (link) {
+        link.addEventListener('click', function (event) {
+          event.preventDefault();
+          var target = link.getAttribute('data-spec-link');
+          if (!target) return;
+          loadSkillFile(skill, resolveRelativePath(state.skillFile.path, target));
+        });
+      });
+      host.appendChild(article);
+    } else {
+      host.appendChild(el('pre', { class: 'doc-plain', text: state.skillFile.text }));
+    }
+
+    if (state.skillFile.warnings && state.skillFile.warnings.length) {
+      var warnings = el('div', { class: 'meta' }, state.skillFile.warnings.map(function (warning) {
+        return el('div', { class: 'meta__row' }, [
+          el('span', { class: 'meta__key', text: 'Aviso' }),
+          el('span', { class: 'meta__value', text: warning })
+        ]);
+      }));
+      host.appendChild(warnings);
     }
   }
 
@@ -580,6 +735,36 @@ export const CLIENT_JS = `
       list.appendChild(link);
       state.tocLinks.push(link);
     });
+    // El documento recién se dibuja: esperar el layout antes de marcar la sección.
+    if (window.requestAnimationFrame) window.requestAnimationFrame(syncToc);
+    else syncToc();
+  }
+
+  /**
+   * Marca en el índice la sección donde está el lector: la última que cruzó el
+   * borde superior del panel. Al llegar al fondo gana la última, para que las
+   * secciones cortas finales también queden activas.
+   */
+  function syncToc() {
+    var links = state.tocLinks;
+    var pane = q('[data-detail="specs"]');
+    if (!links.length || !pane) return;
+    var paneTop = pane.getBoundingClientRect().top;
+    var atBottom = pane.scrollTop + pane.clientHeight >= pane.scrollHeight - 2;
+    var active = null;
+    for (var i = 0; i < links.length; i++) {
+      var heading = document.getElementById(links[i].dataset.target);
+      if (!heading) continue;
+      if (heading.getBoundingClientRect().top - paneTop <= 32) active = links[i];
+    }
+    if (atBottom) active = links[links.length - 1];
+    // Arriba de la primera sección (el título no está en el índice) el lector
+    // está por entrar a la primera: marcarla evita un índice "apagado".
+    if (!active) active = links[0];
+    for (var j = 0; j < links.length; j++) {
+      if (links[j] === active) links[j].setAttribute('aria-current', 'location');
+      else links[j].removeAttribute('aria-current');
+    }
   }
 
   function renderSpecDoc() {
@@ -803,17 +988,16 @@ export const CLIENT_JS = `
 
     var pane = q('[data-detail="specs"]');
     if (pane) {
+      var pendingSync = false;
       pane.addEventListener('scroll', function () {
-        if (!state.tocLinks.length) return;
-        var active = null;
-        for (var i = 0; i < state.tocLinks.length; i++) {
-          var heading = document.getElementById(state.tocLinks[i].dataset.target);
-          if (!heading) continue;
-          if (heading.getBoundingClientRect().top - pane.getBoundingClientRect().top <= 24) active = state.tocLinks[i];
-        }
-        state.tocLinks.forEach(function (link) {
-          link.setAttribute('aria-current', link === active ? 'true' : 'false');
-        });
+        if (pendingSync) return;
+        pendingSync = true;
+        var run = function () {
+          pendingSync = false;
+          syncToc();
+        };
+        if (window.requestAnimationFrame) window.requestAnimationFrame(run);
+        else run();
       });
     }
 

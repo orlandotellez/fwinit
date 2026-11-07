@@ -72,11 +72,11 @@ export function renderStudioHtml(options: StudioDocumentOptions): string {
       <span class="brand__page">studio</span>
     </a>
     <nav class="tabs" aria-label="Secciones">
-      <button type="button" class="tab" role="tab" data-view="skills" aria-selected="true">
-        Skills <span class="tab__count" data-count="skills">—</span>
-      </button>
       <button type="button" class="tab" role="tab" data-view="specs" aria-selected="false">
         Specs <span class="tab__count" data-count="specs">—</span>
+      </button>
+      <button type="button" class="tab" role="tab" data-view="skills" aria-selected="true">
+        Skills <span class="tab__count" data-count="skills">—</span>
       </button>
     </nav>
     <div class="topbar__actions">
@@ -89,28 +89,6 @@ export function renderStudioHtml(options: StudioDocumentOptions): string {
 </header>
 
 <main id="main" class="shell">
-  <section class="view view--skills" data-view-panel="skills" data-active="true" aria-label="Skills instaladas">
-    <aside class="rail">
-      <div class="rail__head">
-        <div class="field">
-          ${ICON.search}
-          <input class="field__input" type="search" data-search="skills" placeholder="Filtrar skills" aria-label="Filtrar skills" autocomplete="off" spellcheck="false" />
-          <kbd>/</kbd>
-        </div>
-        <div class="segmented" role="group" aria-label="Alcance">
-          <button type="button" data-scope="global" aria-pressed="true">Globales</button>
-          <button type="button" data-scope="project" aria-pressed="false">Proyecto</button>
-        </div>
-      </div>
-      <div class="rail__body" data-list="skills">
-        <p class="loading">Leyendo las skills instaladas…</p>
-      </div>
-    </aside>
-    <section class="pane" data-detail="skills">
-      <p class="loading">Leyendo las skills instaladas…</p>
-    </section>
-  </section>
-
   <section class="view view--specs" data-view-panel="specs" data-active="false" aria-label="Specs del proyecto">
     <aside class="rail">
       <div class="rail__head">
@@ -131,6 +109,28 @@ export function renderStudioHtml(options: StudioDocumentOptions): string {
       <p class="toc__title">En esta página</p>
       <div class="toc__list" data-toc-list></div>
     </aside>
+  </section>
+
+  <section class="view view--skills" data-view-panel="skills" data-active="true" aria-label="Skills instaladas">
+    <aside class="rail">
+      <div class="rail__head">
+        <div class="field">
+          ${ICON.search}
+          <input class="field__input" type="search" data-search="skills" placeholder="Filtrar skills" aria-label="Filtrar skills" autocomplete="off" spellcheck="false" />
+          <kbd>/</kbd>
+        </div>
+        <div class="segmented" role="group" aria-label="Alcance">
+          <button type="button" data-scope="global" aria-pressed="true">Globales</button>
+          <button type="button" data-scope="project" aria-pressed="false">Proyecto</button>
+        </div>
+      </div>
+      <div class="rail__body" data-list="skills">
+        <p class="loading">Leyendo las skills instaladas…</p>
+      </div>
+    </aside>
+    <section class="pane" data-detail="skills">
+      <p class="loading">Leyendo las skills instaladas…</p>
+    </section>
   </section>
 </main>
 
