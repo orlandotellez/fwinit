@@ -15,6 +15,7 @@ import { networkInterfaces, tmpdir } from "node:os";
 import { join } from "node:path";
 import { readSpecFile } from "./specs.js";
 import { startStudio } from "./server.js";
+import { CLIENT_JS } from "./ui/client.js";
 import type { SpecsRoots, StudioServer } from "./types.js";
 
 const cleaned: string[] = [];
@@ -136,4 +137,17 @@ describe("loopback bind", () => {
     },
     15_000
   );
+});
+
+describe("client contracts", () => {
+  test("the skill content cache key includes the scope", () => {
+    // Misma skill instalada global y en el proyecto: contenidos distintos. Sin
+    // el alcance en la clave, el detalle muestra el contenido del otro alcance.
+    expect(CLIENT_JS).toContain("skill.target + '/' + skill.scope + '/' + skill.name");
+  });
+
+  test("skill content is sanitized and plain text uses textContent", () => {
+    expect(CLIENT_JS).toContain("article.innerHTML = sanitize(state.skillFile.html)");
+    expect(CLIENT_JS).toContain("el('pre', { class: 'doc-plain', text: state.skillFile.text })");
+  });
 });

@@ -1,9 +1,16 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { request as httpRequest } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { SkillsReport, SpecFile, SpecsTree, StudioServer } from "./types.js";
+import type {
+  SkillFileContent,
+  SkillFileList,
+  SkillsReport,
+  SpecFile,
+  SpecsTree,
+  StudioServer,
+} from "./types.js";
 import { startStudio } from "./server.js";
 
 const cleaned: string[] = [];
@@ -52,6 +59,12 @@ async function seedHome(): Promise<string> {
     "---\nname: create-specs\ndescription: Genera la carpeta specs/ del proyecto\nmetadata:\n  author: Orlando\n  version: '1.0'\nlicense: MIT\n---\n\n# create-specs\n\nCuerpo de la skill.\n",
     "utf8"
   );
+  await writeFile(join(skillDir, "command.md"), "# /create-specs\n\nPrompt del comando.\n", "utf8");
+  // Extensión no soportada y un symlink que sale de la skill, para el 415 y el 403.
+  await writeFile(join(skillDir, "diagrama.png"), "no es un png", "utf8");
+  const secret = join(dir, "secreto.md");
+  await writeFile(secret, "# Secreto\n\nNo se sirve.\n", "utf8");
+  await symlink(secret, join(skillDir, "enlace.md"));
   return dir;
 }
 
@@ -172,6 +185,70 @@ describe("studio server", () => {
       `${studio.address.url}/api/specs/file?path=${encodeURIComponent("/etc/passwd")}`
     );
     expect(absolute.status).toBe(400);
+  });
+
+  test("serves one skill's file list and the content of a file", async () => {
+    const listResponse = await fetch(
+      `${studio.address.url}/api/skills/files?target=opencode&scope=global&name=create-specs`
+    );
+    const list = (await listResponse.json()) as SkillFileList;
+
+    expect(listResponse.status).toBe(200);
+    expect(listResponse.headers.get("cache-control")).toBe("no-store");
+    expect(list.skill).toBe("create-specs");
+    expect(list.dir).toBe(join(home, ".config", "opencode", "skills", "create-specs"));
+    expect(list.files.map((file) => file.path)).toEqual(["SKILL.md", "command.md"]);
+
+    const contentResponse = await fetch(
+      `${studio.address.url}/api/skills/file?target=opencode&scope=global&name=create-specs&path=SKILL.md`
+    );
+    const content = (await contentResponse.json()) as SkillFileContent;
+
+    expect(contentResponse.status).toBe(200);
+    expect(contentResponse.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(contentResponse.headers.get("cache-control")).toBe("no-store");
+    expect(content.path).toBe("SKILL.md");
+    expect(content.kind).toBe("markdown");
+    expect(content.text).toContain("name: create-specs");
+    expect(content.html).toContain("<h1");
+    expect(content.html).not.toContain("name: create-specs");
+  });
+
+  test("maps skill file errors to 400, 403, 404 and 415", async () => {
+    const base = `${studio.address.url}/api/skills/file?target=opencode&scope=global&name=create-specs`;
+
+    // Parámetros obligatorios faltantes.
+    expect(
+      (await fetch(`${studio.address.url}/api/skills/files?target=opencode`)).status
+    ).toBe(400);
+    expect(
+      (await fetch(`${studio.address.url}/api/skills/files?name=create-specs`)).status
+    ).toBe(400);
+    expect((await fetch(base)).status).toBe(400);
+
+    // `invalid`: target desconocido.
+    const unknownTarget = await fetch(
+      `${studio.address.url}/api/skills/files?target=emacs&scope=global&name=create-specs`
+    );
+    expect(unknownTarget.status).toBe(400);
+    expect(((await unknownTarget.json()) as { code: string }).code).toBe("invalid");
+
+    // `outside`: traversal y symlink plantado adentro de la skill.
+    const traversal = await fetch(`${base}&path=${encodeURIComponent("../../etc/passwd")}`);
+    expect([400, 403]).toContain(traversal.status);
+    expect((await fetch(`${base}&path=enlace.md`)).status).toBe(403);
+
+    // `missing`: la skill no existe.
+    expect(
+      (
+        await fetch(
+          `${studio.address.url}/api/skills/files?target=opencode&scope=global&name=no-existe`
+        )
+      ).status
+    ).toBe(404);
+
+    // `unsupported`: extensión fuera de la allowlist.
+    expect((await fetch(`${base}&path=diagrama.png`)).status).toBe(415);
   });
 
   test("reports a missing spec file as 404 and a bad extension as 415", async () => {

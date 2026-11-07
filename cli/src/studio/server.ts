@@ -1,9 +1,10 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 import { join, resolve } from "node:path";
+import { listSkillFiles, readSkillFile, SkillFileError } from "./skill-files.js";
 import { buildSpecsTree, readSpecFile, SpecPathError } from "./specs.js";
 import { discoverSkills } from "./skills.js";
-import type { StudioOpenOptions, StudioServer } from "./types.js";
+import type { SkillFileRef, StudioOpenOptions, StudioServer } from "./types.js";
 import { renderStudioHtml } from "./ui/document.js";
 import { openBrowser } from "./open-browser.js";
 
@@ -72,6 +73,9 @@ const SPEC_ERROR_STATUS: Record<string, number> = {
   missing: 404,
   unsupported: 415,
 };
+
+/** `SkillFileError` usa los mismos cuatro códigos, así que mapea igual. */
+const SKILL_ERROR_STATUS = SPEC_ERROR_STATUS;
 
 function sendJson(response: ServerResponse, status: number, body: unknown): void {
   const payload = JSON.stringify(body);
@@ -183,6 +187,50 @@ export async function startStudio(options: StudioOpenOptions = {}): Promise<Stud
 
     if (pathname === "/api/skills") {
       sendJson(response, 200, await discoverSkills({ projectRoot, home }));
+      return;
+    }
+
+    if (pathname === "/api/skills/files" || pathname === "/api/skills/file") {
+      const wantsFile = pathname === "/api/skills/file";
+      const target = url.searchParams.get("target");
+      const scope = url.searchParams.get("scope");
+      const name = url.searchParams.get("name");
+      if (!target || !scope || !name) {
+        sendJson(response, 400, { error: "Faltan los parámetros target, scope y name." });
+        return;
+      }
+      // La validación real de target/scope/name vive en `skill-files.ts`: el
+      // cast sólo evita duplicar acá la lista de valores válidos.
+      const ref: SkillFileRef = {
+        target: target as SkillFileRef["target"],
+        scope: scope as SkillFileRef["scope"],
+        name,
+      };
+      const relativePath = wantsFile ? url.searchParams.get("path") : null;
+      if (wantsFile && !relativePath) {
+        sendJson(response, 400, { error: "Falta el parámetro path." });
+        return;
+      }
+
+      try {
+        const context = { projectRoot, home };
+        sendJson(
+          response,
+          200,
+          wantsFile
+            ? await readSkillFile(context, ref, relativePath as string)
+            : await listSkillFiles(context, ref)
+        );
+      } catch (error) {
+        if (error instanceof SkillFileError) {
+          sendJson(response, SKILL_ERROR_STATUS[error.code] ?? 400, {
+            error: error.message,
+            code: error.code,
+          });
+          return;
+        }
+        throw error;
+      }
       return;
     }
 
