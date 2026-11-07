@@ -11,23 +11,48 @@ import {
   checkOrg,
   normalizeOrg,
 } from "./flutter-naming.js";
+import {
+  brandTheme,
+  describeChoice,
+  selectionTheme,
+  shortenHomePath,
+} from "./menu.js";
 
 export type ProjectScope = "fullstack" | "backend" | "frontend" | "skills";
 
 // Menú principal: qué tipo de proyecto crear. En fullstack el CLI
 // combina un template de backend con uno de frontend. La última opción
 // delega en el flujo de skills globales (instalar/eliminar).
+//
+// La descripción de cada opción dice la consecuencia, no el nombre: el
+// label ya nombra la opción, la descripción aclara qué se crea.
 export async function selectScope(): Promise<ProjectScope> {
   const { scope } = await inquirer.prompt([
     {
       type: "list",
       name: "scope",
       message: "¿Qué querés crear?",
+      theme: selectionTheme,
       choices: [
-        { name: "Full stack (backend + frontend)", value: "fullstack" },
-        { name: "Solo backend (API)", value: "backend" },
-        { name: "Solo frontend (app)", value: "frontend" },
-        { name: "Skills globales (instalar / eliminar)", value: "skills" },
+        {
+          ...describeChoice("Full stack", "backend + frontend"),
+          value: "fullstack",
+        },
+        {
+          ...describeChoice("Solo backend", "solo la API"),
+          value: "backend",
+        },
+        {
+          ...describeChoice("Solo frontend", "solo la app"),
+          value: "frontend",
+        },
+        {
+          ...describeChoice(
+            "Skills globales",
+            "instalar o eliminar el bundle global"
+          ),
+          value: "skills",
+        },
       ],
     },
   ]);
@@ -37,6 +62,8 @@ export async function selectScope(): Promise<ProjectScope> {
 // Lista los templates de una capa (backend/frontend). La capa es
 // metadata (Template.layer), no estructura de carpetas: sumar un
 // template nuevo = un folder + "layer" y aparece solo en su menú.
+// El nombre va como label y la descripción del template va en su propia
+// columna (inquirer), así el menú queda alineado.
 export async function selectTemplateFromLayer(
   layer: TemplateLayer
 ): Promise<Template> {
@@ -48,8 +75,9 @@ export async function selectTemplateFromLayer(
         layer === "backend"
           ? "¿Qué backend querés usar?"
           : "¿Qué frontend querés usar?",
+      theme: selectionTheme,
       choices: getTemplatesByLayer(layer).map((t) => ({
-        name: `${t.name} — ${t.description}`,
+        ...describeChoice(t.name, t.description),
         value: t,
       })),
     },
@@ -66,6 +94,7 @@ export async function askGitInit(): Promise<boolean> {
       name: "initGit",
       message: "¿Inicializar un repositorio git?",
       default: true,
+      theme: brandTheme,
     },
   ]);
   return initGit;
@@ -77,10 +106,20 @@ export async function selectPackageManager(): Promise<PackageManager> {
       type: "list",
       name: "pm",
       message: "¿Qué package manager querés usar?",
+      theme: selectionTheme,
       choices: [
-        { name: "pnpm (recomendado)", value: "pnpm" },
-        { name: "npm", value: "npm" },
-        { name: "bun", value: "bun" },
+        {
+          ...describeChoice("pnpm", "más rápido, lockfile determinista"),
+          value: "pnpm",
+        },
+        {
+          ...describeChoice("npm", "el que viene con Node"),
+          value: "npm",
+        },
+        {
+          ...describeChoice("bun", "instalación veloz y runner integrado"),
+          value: "bun",
+        },
       ],
       default: "pnpm",
     },
@@ -94,6 +133,7 @@ export async function askProjectName(): Promise<string> {
       type: "input",
       name: "name",
       message: "Nombre del proyecto:",
+      theme: brandTheme,
       validate: (input) => {
         if (!input.trim()) return "El nombre no puede estar vacío";
         if (!/^[a-zA-Z0-9_-]+$/.test(input)) {
@@ -119,9 +159,26 @@ export async function askLayerLayout(layer: TemplateLayer): Promise<boolean> {
           ? "¿Empaquetar el código del template en una carpeta backend/?"
           : "¿Empaquetar el código del template en una carpeta frontend/?",
       default: true,
+      theme: brandTheme,
     },
   ]);
   return layout;
+}
+
+// Los destinos llegan como label ya armado por global-skills.ts
+// ("OpenCode global (/home/x/.config/opencode)"): el menú muestra el nombre
+// como label y la ruta corta (~/…) como descripción. Sin paréntesis, el
+// label se muestra tal cual.
+function destinationChoice(choice: { name: string; value: GlobalTarget }): {
+  name: string;
+  description?: string;
+  value: GlobalTarget;
+} {
+  const match = /^(.*?)\s*\((.+)\)\s*$/.exec(choice.name);
+  const base = match
+    ? describeChoice(match[1], shortenHomePath(match[2]))
+    : describeChoice(choice.name);
+  return { ...base, value: choice.value };
 }
 
 // Checkboxes de destinos globales para fwinit skills. Devuelve vacío si el
@@ -134,7 +191,8 @@ export async function selectGlobalTargets(
       type: "checkbox",
       name: "targets",
       message: "¿Dónde querés instalar las skills?",
-      choices,
+      theme: selectionTheme,
+      choices: choices.map(destinationChoice),
     },
   ]);
   return targets;
@@ -149,7 +207,8 @@ export async function selectGlobalTargetsToRemove(
       type: "checkbox",
       name: "targets",
       message: "¿De dónde querés eliminar las skills?",
-      choices,
+      theme: selectionTheme,
+      choices: choices.map(destinationChoice),
     },
   ]);
   return targets;
@@ -163,9 +222,22 @@ export async function selectSkillsAction(): Promise<SkillsAction> {
       type: "list",
       name: "action",
       message: "¿Qué querés hacer con las skills globales?",
+      theme: selectionTheme,
       choices: [
-        { name: "Instalar / actualizar", value: "install" },
-        { name: "Eliminar", value: "remove" },
+        {
+          ...describeChoice(
+            "Instalar / actualizar",
+            "copia el bundle del repo en los destinos elegidos"
+          ),
+          value: "install",
+        },
+        {
+          ...describeChoice(
+            "Eliminar",
+            "borra las skills globales instaladas"
+          ),
+          value: "remove",
+        },
       ],
     },
   ]);
@@ -187,6 +259,7 @@ export async function askFlutterOrg(): Promise<string> {
         "Organización para el bundle id (reverse-domain, ej. com.example):",
       default: FLUTTER_ORG_DEFAULT,
       validate: checkOrg,
+      theme: brandTheme,
     },
   ]);
   return normalizeOrg(org);
@@ -203,6 +276,7 @@ export async function askGlobalSkillsToo(): Promise<boolean> {
       message:
         "¿Instalar las skills también globalmente (OpenCode/Pi/Gentle Shell/Agent Skills)?",
       default: false,
+      theme: brandTheme,
     },
   ]);
   return global;

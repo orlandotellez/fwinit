@@ -63,6 +63,26 @@ fwinit skills --global all --remove
 fwinit studio
 ```
 
+### Menú interactivo (`fwinit`)
+
+`fwinit` sin argumentos abre el menú con la identidad del producto: el wordmark
+ASCII `FWINIT`, una línea de contexto (versión, carpeta actual, cantidad de
+templates y de skills globales) y las mismas preguntas de siempre con el acento
+de la landing. El wordmark degrada solo: en una terminal angosta pasa a la
+versión compacta, y sin color (o sin TTY) queda una única línea
+`fwinit vX.Y.Z — scaffolding full stack`. Con `j` y `k` movés la selección
+arriba y abajo, igual que con las flechas. Si no hay TTY y no se pasó ningún
+template, imprime la ayuda y sale en vez de esperar una entrada que nunca va a
+llegar.
+
+Dos flags controlan la presentación: `--no-banner` no imprime el wordmark, y
+`--no-color` apaga el color de toda la salida (equivale a `NO_COLOR=1`).
+
+```bash
+fwinit --no-banner   # menú sin wordmark
+fwinit --no-color    # menú sin color (también vale NO_COLOR=1)
+```
+
 ### Studio local (`fwinit studio`)
 
 Abre una vista de sólo lectura en el navegador con dos cosas: las skills que ya

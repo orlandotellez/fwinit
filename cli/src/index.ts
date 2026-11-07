@@ -23,6 +23,8 @@ import { planAgentBundle } from "./agent-bundle.js";
 import { startStudio } from "./studio/server.js";
 import { buildSpecsTree } from "./studio/specs.js";
 import { discoverSkills } from "./studio/skills.js";
+import { printBanner } from "./banner.js";
+import { contextLine, separatorRow } from "./menu.js";
 import {
   selectScope,
   selectTemplateFromLayer,
@@ -64,6 +66,40 @@ import {
 const program = new Command();
 
 const PACKAGE_MANAGERS = ["npm", "pnpm", "bun"] as const;
+
+// --no-color tiene que ganarle a la detección automática de chalk antes de que
+// se imprima cualquier cosa: el nivel 0 apaga también los prompts y los
+// spinners. Se aplica en el hook (cubre subcomandos y el comando raíz) y de
+// nuevo al entrar a la acción, así el orden no depende del hook.
+//
+// chalk 5 no mira NO_COLOR por su cuenta (a diferencia de chalk 4), así que la
+// convención se respeta acá: NO_COLOR no vacío equivale a --no-color.
+function applyColorFlag(): void {
+  const noColorEnv = process.env.NO_COLOR !== undefined && process.env.NO_COLOR !== "";
+  if (program.opts().color === false || noColorEnv) {
+    chalk.level = 0;
+  }
+}
+
+// Conteo de skills globales para la línea de contexto. Es cortesía: si el
+// home no se deja leer, la línea simplemente omite ese fragmento.
+async function globalSkillsCount(): Promise<number | undefined> {
+  try {
+    const report = await discoverSkills({
+      projectRoot: process.cwd(),
+      home: process.env.HOME,
+    });
+    return report.totals.global;
+  } catch {
+    return undefined;
+  }
+}
+
+// El hook corre antes de cualquier acción (comando raíz o subcomando), así
+// `fwinit --no-color <cmd>` también sale sin escapes.
+program.hook("preAction", () => {
+  applyColorFlag();
+});
 
 // Lee la versión real del package.json adjunto al binario (dist/ y
 // package.json viven juntos tanto en dev como en la instalación global).
@@ -461,6 +497,11 @@ program
 program
   .argument("[template]", "Template a usar (o 'fullstack' para backend + frontend)")
   .argument("[project-name]", "Nombre del proyecto")
+  .option("--no-banner", "No mostrar el banner ASCII en el menú interactivo")
+  .option(
+    "--no-color",
+    "Desactivar el color de toda la salida (equivale a NO_COLOR)"
+  )
   .option("-p, --pm <package-manager>", "Package manager a usar: npm, pnpm o bun")
   .option(
     "-o, --org <domain>",
@@ -475,6 +516,37 @@ program
   .action(
     async (templateArg?: string, projectNameArg?: string) => {
       try {
+        applyColorFlag();
+
+        // Sin TTY y sin argumentos no hay menú que se pueda responder:
+        // imprimir la ayuda y salir en vez de esperar para siempre una tecla
+        // que nunca va a llegar. Un TTY conserva el flujo interactivo.
+        if (templateArg === undefined && process.stdout.isTTY !== true) {
+          program.outputHelp();
+          process.exit(0);
+        }
+
+        // Banner sólo en el camino interactivo (sin template/fullstack) y en
+        // un TTY: los runs scripteados no ensucian stdout.
+        if (
+          templateArg === undefined &&
+          process.stdout.isTTY === true &&
+          program.opts().banner !== false
+        ) {
+          const version = getCliVersion();
+          printBanner({ version });
+          console.log(
+            contextLine({
+              version,
+              cwd: process.cwd(),
+              templates: TEMPLATES.length,
+              globalSkills: await globalSkillsCount(),
+            })
+          );
+          console.log(separatorRow());
+          console.log();
+        }
+
         const {
           pm: pmArg,
           org: orgArg,
