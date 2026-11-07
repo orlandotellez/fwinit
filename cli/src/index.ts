@@ -20,6 +20,9 @@ import {
   substituteTemplate,
 } from "./downloader.js";
 import { planAgentBundle } from "./agent-bundle.js";
+import { startStudio } from "./studio/server.js";
+import { buildSpecsTree } from "./studio/specs.js";
+import { discoverSkills } from "./studio/skills.js";
 import {
   selectScope,
   selectTemplateFromLayer,
@@ -378,6 +381,79 @@ program
       await runSkillsFlow(opts);
     } catch (error) {
       console.error(chalk.red(`\n✖ Error: ${(error as Error).message}\n`));
+      process.exit(1);
+    }
+  });
+
+// `fwinit studio` abre una vista local en el navegador: las skills que ya están
+// instaladas para cada agente y las specs/ del proyecto actual. Es de sólo
+// lectura, escucha en 127.0.0.1 y no toca el disco que muestra.
+program
+  .command("studio")
+  .description(
+    "Abrir en el navegador las skills instaladas (OpenCode, Pi, Gentle Shell) y las specs/ del proyecto"
+  )
+  .option(
+    "--port <puerto>",
+    "Puerto fijo para el servidor local (por defecto lo elige el sistema)"
+  )
+  .option("--no-open", "No abrir el navegador automáticamente")
+  .action(async (opts: { port?: string; open: boolean }) => {
+    // `--port=""` no es "puerto aleatorio": es un valor ilegible y se rechaza.
+    const rawPort = opts.port?.trim();
+    const port = rawPort === undefined ? 0 : rawPort === "" ? NaN : Number(rawPort);
+    if (!Number.isInteger(port) || port < 0 || port > 65535) {
+      console.error(chalk.red(`\n✖ Error: puerto inválido: ${opts.port}\n`));
+      process.exit(1);
+      return;
+    }
+
+    const projectRoot = process.cwd();
+    const home = process.env.HOME;
+
+    // Los números del resumen son cortesía: si el disco no se deja leer, el
+    // studio igual arranca y la UI muestra el error que corresponda.
+    let skillsLine = "no disponible";
+    let specsLine = "no disponible";
+    try {
+      const report = await discoverSkills({ projectRoot, home });
+      skillsLine = `${report.totals.global + report.totals.project} (${report.totals.global} globales · ${report.totals.project} del proyecto)`;
+    } catch {
+      // se mantiene el valor por defecto
+    }
+    try {
+      const specs = await buildSpecsTree(projectRoot);
+      specsLine = specs.found
+        ? `${specs.totals.files} archivos en specs/`
+        : "sin carpeta specs/ (creala con la skill create-specs)";
+    } catch {
+      // se mantiene el valor por defecto
+    }
+
+    try {
+      const studio = await startStudio({
+        port,
+        projectRoot,
+        version: getCliVersion(),
+        open: opts.open !== false,
+      });
+
+      console.log(chalk.bold("\n  fwinit studio\n"));
+      console.log(`  ${chalk.dim("Proyecto")}  ${projectRoot}`);
+      console.log(`  ${chalk.dim("Skills")}    ${skillsLine}`);
+      console.log(`  ${chalk.dim("Specs")}     ${specsLine}`);
+      console.log(`  ${chalk.dim("URL")}       ${chalk.cyan(studio.address.url)}`);
+      console.log(`\n  ${chalk.dim("Ctrl+C para cerrar")}\n`);
+
+      const shutdown = (): void => {
+        void studio.close().finally(() => process.exit(0));
+      };
+      process.once("SIGINT", shutdown);
+      process.once("SIGTERM", shutdown);
+    } catch (error) {
+      console.error(
+        chalk.red(`\n✖ Error: no se pudo abrir el studio: ${(error as Error).message}\n`)
+      );
       process.exit(1);
     }
   });
