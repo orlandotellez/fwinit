@@ -58,7 +58,32 @@ fwinit skills --global all --only create-specs,design
 # Eliminar skills globales (mismos flags; interactivo pregunta qué eliminar)
 fwinit skills --remove
 fwinit skills --global all --remove
+
+# Ver en el navegador las skills instaladas y las specs/ del proyecto actual
+fwinit studio
 ```
+
+### Studio local (`fwinit studio`)
+
+Abre una vista de sólo lectura en el navegador con dos cosas: las skills que ya
+tenés instaladas para **OpenCode, Pi y Gentle Shell** (globales y del proyecto),
+y el árbol de `specs/` del directorio donde corrés el comando, renderizado como
+documentación navegable.
+
+```bash
+fwinit studio                 # elige un puerto libre y abre el navegador
+fwinit studio --port 4321     # puerto fijo
+fwinit studio --no-open       # sólo imprime la URL (útil por SSH)
+```
+
+El servidor escucha **sólo en 127.0.0.1**, no escribe nada en disco y se cierra
+con `Ctrl+C`. Si el proyecto todavía no tiene `specs/`, la vista de specs lo dice
+y el resto del studio sigue funcionando; para crearlas, usá la skill
+`create-specs` (`/create-specs`).
+
+La interfaz usa los mismos tokens de diseño que la landing page (`--accent`
+#8aa2ff, esquinas rectas, separadores hairline) con tema claro y oscuro
+sincronizados por `localStorage`.
 
 ### Modo interactivo
 
