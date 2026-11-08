@@ -35,6 +35,11 @@ browser, prints the same summary with the URL in the interface, and offers an ex
 the studio. Closing releases the port and exits.
 > "quiero que me salga una opcion que diga \"Abrir studio\" y que me abra el navegador, es como si pongo \"fwinit studio\" pero en esa interfaz y que ahi mismo salga la url y todo eso, que me deje cerrar studio tambien"
 
+S9. Every step of the interactive creation flow can be undone: `Esc` goes back one step, keeps the
+answers already given (offering them as the default when you return), and at the first step cancels
+the run and exits 0.
+> "hay algo que no se puede hacer, no se puede retroceder, me gustaria retroceder con esc"
+
 ## Tasks
 
 | ID | Spec | Route | Commit |
@@ -46,6 +51,7 @@ the studio. Closing releases the port and exits.
 | T5 | all | parent: 209 tests, typecheck, build, PTY smoke (banner, j/k, arrows, literal input, no-TTY, NO_COLOR, `--no-banner`, `--no-color`) | pending |
 | T6 | S7 | worker + parent: `theme.keybindings: ["vim"]` on list/checkbox only; test pins our input, not inquirer internals | pending |
 | T7 | S8 | worker + parent: `Abrir studio` in `selectScope`, shared `summary.ts`, control prompt (reopen / close), Ctrl+C closes the server; 214 tests + PTY (open, URL, close, Ctrl+C, port released) | pending |
+| T8 | S9 | worker + parent: `flow.ts` (plan + runner), `Esc` via AbortSignal on list/confirm/input, previous answers as defaults; 234 tests + PTY (back one step, back to first, cancel, template change mid-run) | pending |
 
 ## Design decisions
 
@@ -90,6 +96,15 @@ L3 (correction): the plan said "ten prompts"; the file has eleven. The inventory
 `selectScope`, `selectTemplateFromLayer`, `askProjectName`, `selectPackageManager`, `askLayerLayout`,
 `askGitInit`, `askFlutterOrg`, `askGlobalSkillsToo`, `selectSkillsAction`, `selectGlobalTargets`,
 `selectGlobalTargetsToRemove`.
+
+L7 (Esc para volver): `Esc` aborts the prompt through `inquirer.createPromptModule({ signal })`, our
+keypress listener fires the `AbortSignal`, and inquirer rejects with `AbortPromptError` (matched by
+name) so its own cleanup runs: no stack trace, cursor restored. That covers list, confirm and
+input, so no `← Volver` fallback was needed. The flow became a plan plus a cursor-based runner in
+`flow.ts`; going back re-asks the previous step with the earlier answer as default, and changing a
+value clears what depended on it. Two deliberate consequences to keep in mind: the single-template
+order is now template → name → package manager → layout (org after layout for Flutter), and
+creation is the commit point, so `Esc` cannot undo a project that was already created.
 
 L6 (menu studio): the summary moved to `studio/summary.ts` so `fwinit studio` and the menu cannot
 drift, proven by a byte-identical diff of the command output. Closing awaits `studio.close()`, which

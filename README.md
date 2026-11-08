@@ -78,6 +78,12 @@ llegar.
 Dos flags controlan la presentación: `--no-banner` no imprime el wordmark, y
 `--no-color` apaga el color de toda la salida (equivale a `NO_COLOR=1`).
 
+Cada paso del flujo de creación es reversible: `Esc` vuelve al paso anterior y
+conserva las respuestas ya dadas (vuelven seleccionadas en las listas y como
+default en los inputs), y en el primer paso cancela la creación y sale en 0. En
+el camino con flags los pasos ya respondidos no se preguntan, así que no hay a
+qué volver.
+
 ```bash
 fwinit --no-banner   # menú sin wordmark
 fwinit --no-color    # menú sin color (también vale NO_COLOR=1)
@@ -120,7 +126,7 @@ sincronizados por `localStorage`.
 ```
 
 - **Full stack**: te pregunta primero el backend y después el frontend, y arma el monorepo completo.
-- **Solo backend / Solo frontend**: te pregunta el template de la capa, el nombre, el layout y el package manager.
+- **Solo backend / Solo frontend**: te pregunta el template de la capa, el nombre, el package manager y el layout.
 - **Skills globales**: instala o elimina el bundle de skills en los destinos globales.
 - **Abrir studio**: abre el mismo studio de `fwinit studio` en el navegador, muestra la URL y te deja volver a abrirlo o cerrarlo desde el menú (`Cerrar el studio` libera el puerto y sale; `Ctrl+C` hace lo mismo).
 

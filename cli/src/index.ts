@@ -41,6 +41,7 @@ import {
   askGlobalSkillsToo,
   askFlutterOrg,
   selectStudioAction,
+  type ProjectScope,
   type StudioMenuAction,
 } from "./prompts.js";
 import {
@@ -48,6 +49,15 @@ import {
   checkOrg,
   normalizeOrg,
 } from "./flutter-naming.js";
+import {
+  planSteps,
+  runFlow,
+  type FlowAnswers,
+  type FlowFlags,
+  type FlowStepContext,
+  type FlowStepId,
+  type StepResult,
+} from "./flow.js";
 import {
   resolveGlobalTargets,
   installGlobalSkills,
@@ -284,6 +294,127 @@ async function createFullStackProject(
           "  Estructura: backend/ (API) · frontend/ (app) · .opencode/, .pi/, .agents/ y specs/ (al mismo nivel)\n"
         )
   );
+}
+
+/**
+ * Selección final del flujo interactivo: lo que ya traían los flags/argumentos
+ * más lo que preguntó el runner. Es el único lugar donde se mezclan las dos
+ * fuentes, así el camino con flags y el interactivo terminan en el mismo objeto.
+ */
+interface Creation {
+  fullStack: boolean;
+  template?: Template;
+  backendTpl?: Template;
+  frontendTpl?: Template;
+  projectName: string;
+  pm?: PackageManager;
+  org?: string;
+  useLayerLayout: boolean;
+  wantsGit: boolean;
+}
+
+// Crea el proyecto con la selección ya resuelta. Vive fuera de la acción porque
+// el flujo la invoca desde el paso de skills globales: la creación es el punto
+// de no retorno y tiene que pasar antes de esa pregunta (y de su "volver", que
+// ya no puede deshacerla).
+async function createFromSelection(sel: Creation): Promise<void> {
+  const projectName = sel.projectName;
+  const layer = sel.template?.layer;
+
+  // Verificar si el directorio ya existe
+  if (projectExists(projectName)) {
+    console.error(
+      chalk.red(`\n\u2716 El directorio "${projectName}" ya existe.`)
+    );
+    process.exit(1);
+  }
+
+  const projectPath = getProjectPath(projectName);
+
+  const spinner = ora(
+    sel.fullStack
+      ? "Descargando templates..."
+      : `Descargando template ${sel.template!.name}...`
+  ).start();
+
+  if (sel.fullStack) {
+    spinner.text = "Creando proyecto...";
+    await createFullStackProject(
+      projectPath,
+      sel.backendTpl!,
+      sel.frontendTpl!,
+      sel.pm ?? "npm",
+      sel.org
+    );
+    spinner.succeed("Template descargado");
+  } else {
+    const { tempDir, templatePath, repoRoot } = await downloadAndExtract(
+      sel.template!.folder
+    );
+
+    // Con layout de capa, el código del template vive en backend/
+    // (o frontend/) y .opencode/ + specs/ quedan en la raíz.
+    const codePath = sel.useLayerLayout
+      ? join(projectPath, layer!)
+      : projectPath;
+
+    spinner.text = "Creando proyecto...";
+
+    await copyTemplate(templatePath, codePath);
+    await substituteTemplate(codePath, projectName, sel.template!.folder, {
+      org: sel.org,
+    });
+    await installAgentSkills(repoRoot, projectPath);
+
+    // Con layout de capa, .opencode/, .pi/, .agents/ y specs/ viven fuera de
+    // la carpeta del template → .gitignore raíz que solo ignora el estado
+    // local de AI (.atl/, odd). Los bundles de skills se versionan con el
+    // proyecto.
+    if (sel.useLayerLayout) {
+      await writeRootGitignore(projectPath);
+    }
+
+    // Template nativo de bun + npm/pnpm → portar a runtime node
+    // (scripts con tsx, tests con vitest, sin bun-types)
+    if (sel.template!.runtime === "bun" && sel.pm && sel.pm !== "bun") {
+      await adaptToNodeRuntime(codePath);
+    }
+
+    await cleanup(tempDir);
+
+    spinner.succeed("Template descargado");
+
+    printSuccess(
+      projectName,
+      sel.template!.name,
+      sel.pm ?? "npm",
+      await readTemplatePostInit(codePath),
+      sel.useLayerLayout ? layer : undefined
+    );
+
+    if (sel.useLayerLayout) {
+      console.log(
+        chalk.dim(
+          `  Estructura: ${layer}/ (código) · .opencode/, .pi/, .agents/ y specs/ (al mismo nivel)\n`
+        )
+      );
+    }
+  }
+
+  // Inicializar el repositorio git en la raíz del proyecto
+  // (cubre backend/ + .opencode/ + specs/ según el layout)
+  if (sel.wantsGit) {
+    const ok = await gitInit(projectPath);
+    if (ok) {
+      console.log(chalk.dim("  Git: repositorio inicializado\n"));
+    } else {
+      console.log(
+        chalk.yellow(
+          "  \u26a0 No se pudo inicializar git (¿está instalado?)\n"
+        )
+      );
+    }
+  }
 }
 
 program
@@ -675,42 +806,21 @@ program
           process.exit(1);
         }
 
-        let projectName = projectNameArg;
-        let pm: PackageManager | undefined = pmArg as PackageManager | undefined;
-
-        // Resolver el alcance: fullstack (backend + frontend) vs single
-        // (un solo template). El argumento "fullstack" fuerza el modo
-        // combinado; sin argumento, el menú interactivo pregunta.
-        let isFullStack = false;
-        let template: Template | undefined;
+        // ---- Flujo interactivo (S9) ----
+        // El alcance y los templates que ya vinieron por argumento no se
+        // preguntan: el plan de pasos solo lista lo que falta. Los flags -b/-f
+        // del modo fullstack se validan al resolver la selección, con el mismo
+        // mensaje y la misma salida que antes.
         const rawArg = templateArg?.toLowerCase();
-
-        if (rawArg === undefined) {
-          const scope = await selectScope();
-          if (scope === "skills") {
-            // Opción del menú principal: mismo flujo que `fwinit skills`,
-            // completamente interactivo (instalar/eliminar → destinos).
-            await runSkillsFlow();
-            return;
-          }
-          if (scope === "studio") {
-            // Opción del menú principal: mismo servidor que `fwinit studio`,
-            // en esta misma pantalla, con cierre explícito.
-            await runStudioFromMenu();
-            return;
-          }
-          if (scope === "fullstack") {
-            isFullStack = true;
-          } else {
-            template = await selectTemplateFromLayer(scope);
-          }
-        } else if (rawArg === "fullstack") {
-          isFullStack = true;
-        } else {
-          template = findTemplate(rawArg);
+        let forcedScope: ProjectScope | undefined;
+        let forcedTemplate: Template | undefined;
+        if (rawArg === "fullstack") {
+          forcedScope = "fullstack";
+        } else if (rawArg !== undefined) {
+          forcedTemplate = findTemplate(rawArg);
           // El argumento del template no se encontró: error directo
           // (no caer en el modo interactivo)
-          if (!template) {
+          if (!forcedTemplate) {
             console.error(
               chalk.red(
                 `\n\u2716 Template "${templateArg}" no encontrado.\n`
@@ -727,23 +837,61 @@ program
               );
             }
             process.exit(1);
+            return;
           }
+          forcedScope = forcedTemplate.layer;
         }
 
-        // Fullstack: elegir los dos templates. Los flags -b/-f saltean
-        // las preguntas (modo scripting); el flag boolean --backend
-        // del modo single no aplica acá (el layout es backend/ + frontend/).
-        let backendTpl: Template | undefined;
-        let frontendTpl: Template | undefined;
-        if (isFullStack) {
-          backendTpl = backendTemplate
-            ? findTemplate(backendTemplate)
+        const flagBackendTpl = backendTemplate
+          ? findTemplate(backendTemplate)
+          : undefined;
+        const flagFrontendTpl = frontendTemplate
+          ? findTemplate(frontendTemplate)
+          : undefined;
+
+        // Flags que ya respondieron un paso: su pregunta no se hace.
+        const cliFlags: FlowFlags = {
+          pm: pmArg as PackageManager | undefined,
+          git,
+          layerLayout: backend,
+          backendTemplate,
+          frontendTemplate,
+          org: orgArg,
+        };
+
+        const plannedSteps = (answers: FlowAnswers): FlowStepId[] =>
+          planSteps({
+            scope: answers.scope ?? forcedScope,
+            isFullStack: (answers.scope ?? forcedScope) === "fullstack",
+            template: answers.template ?? forcedTemplate,
+            projectName: answers.projectName ?? projectNameArg,
+            flags: {
+              ...cliFlags,
+              // El template ya respondido entra al plan: los pasos que dependen
+              // de él (flutter-org, package-manager) no se deciden antes.
+              backendTemplate:
+                cliFlags.backendTemplate ?? answers.backendTemplate?.name,
+              frontendTemplate:
+                cliFlags.frontendTemplate ?? answers.frontendTemplate?.name,
+            },
+          });
+
+        // Mezcla de flags + respuestas del flujo: lo que crea el proyecto es
+        // siempre esto, venga de un flag o de un prompt.
+        const selection = (answers: Readonly<FlowAnswers>): Creation => {
+          const scope = answers.scope ?? forcedScope;
+          const fullStack = scope === "fullstack";
+          const template = fullStack
+            ? undefined
+            : answers.template ?? forcedTemplate;
+          const backendTpl = fullStack
+            ? answers.backendTemplate ?? flagBackendTpl
             : undefined;
-          frontendTpl = frontendTemplate
-            ? findTemplate(frontendTemplate)
+          const frontendTpl = fullStack
+            ? answers.frontendTemplate ?? flagFrontendTpl
             : undefined;
 
-          if (backendTemplate && !backendTpl) {
+          if (fullStack && backendTemplate && !backendTpl) {
             console.error(
               chalk.red(
                 `\n\u2716 Backend "${backendTemplate}" no encontrado.\n`
@@ -751,7 +899,7 @@ program
             );
             process.exit(1);
           }
-          if (frontendTemplate && !frontendTpl) {
+          if (fullStack && frontendTemplate && !frontendTpl) {
             console.error(
               chalk.red(
                 `\n\u2716 Frontend "${frontendTemplate}" no encontrado.\n`
@@ -760,191 +908,175 @@ program
             process.exit(1);
           }
 
-          if (!backendTpl) {
-            backendTpl = await selectTemplateFromLayer("backend");
-          }
-          if (!frontendTpl) {
-            frontendTpl = await selectTemplateFromLayer("frontend");
-          }
-        }
+          // Runtimes seleccionados: definen si aparece Flutter (y su org) y si
+          // hace falta pedir un package manager (ASP.NET usa dotnet y Flutter
+          // usa Dart: ninguno aplica).
+          const runtimes = fullStack
+            ? [backendTpl?.runtime, frontendTpl?.runtime]
+            : [template?.runtime];
 
-        // Preguntar el nombre si no se proporcionó
-        if (!projectName) {
-          projectName = await askProjectName();
-        }
-
-        // Runtimes seleccionados: definen si aparece Flutter y si hace falta
-        // pedir un package manager (Flutter usa el toolchain de Dart).
-        const runtimes = template
-          ? [template.runtime]
-          : [backendTpl!.runtime, frontendTpl!.runtime];
-
-        // Organización reverse-domain del bundle id: solo aplica cuando la
-        // selección incluye Flutter (el resto de templates la ignora). Se
-        // resuelve acá, con el nombre ya conocido y antes de layout/pm/git.
-        // Fallbacks sin --org: preguntar en modo interactivo, y com.example
-        // en modo scripting/CI (no se puede promptear).
-        let org: string | undefined;
-        if (runtimes.includes("flutter")) {
-          if (orgArg) {
-            const check = checkOrg(orgArg);
-            if (check !== true) {
-              console.error(chalk.red(`\n\u2716 ${check}\n`));
-              process.exit(1);
+          // Organización reverse-domain del bundle id: solo aplica cuando la
+          // selección incluye Flutter. El flag manda; en modo scripting/CI el
+          // fallback es com.example porque no se puede promptear.
+          let org: string | undefined;
+          if (runtimes.includes("flutter")) {
+            if (orgArg) {
+              const check = checkOrg(orgArg);
+              if (check !== true) {
+                console.error(chalk.red(`\n\u2716 ${check}\n`));
+                process.exit(1);
+              }
+              org = normalizeOrg(orgArg);
+            } else {
+              org = answers.org ?? FLUTTER_ORG_DEFAULT;
             }
-            org = normalizeOrg(orgArg);
-          } else if (git === undefined) {
-            org = await askFlutterOrg();
-          } else {
-            org = FLUTTER_ORG_DEFAULT;
           }
-        }
 
-        // Modo single: preguntar si empaquetar el template en backend/
-        // (o frontend/) — default: sí. --backend/--no-backend saltean
-        // la pregunta (modo scripting). En fullstack el layout es fijo:
-        // backend/ + frontend/.
-        const layer = template?.layer;
-        const useLayerLayout =
-          !template
-            ? false
-            : backend === undefined
-              ? await askLayerLayout(layer!)
-              : backend;
-
-        // Preguntar el package manager si hay algún template JS/TS
-        // (ASP.NET usa dotnet y Flutter usa Dart: ninguno aplica)
-        const needsPm = runtimes.some(
-          (r) => r !== "dotnet" && r !== "flutter"
-        );
-        if (!pm && needsPm) {
-          pm = await selectPackageManager();
-        }
-
-        // Preguntar si inicializar un repositorio git (default: sí).
-        // El flag --git/--no-git saltea la pregunta (modo scripting).
-        const wantsGit = git === undefined ? await askGitInit() : git;
-
-        // Verificar si el directorio ya existe
-        if (projectExists(projectName)) {
-          console.error(
-            chalk.red(
-              `\n\u2716 El directorio "${projectName}" ya existe.`
-            )
-          );
-          process.exit(1);
-        }
-
-        const projectPath = getProjectPath(projectName);
-
-        const spinner = ora(
-          isFullStack
-            ? "Descargando templates..."
-            : `Descargando template ${template!.name}...`
-        ).start();
-
-        if (isFullStack) {
-          spinner.text = "Creando proyecto...";
-          await createFullStackProject(
-            projectPath,
-            backendTpl!,
-            frontendTpl!,
-            pm ?? "npm",
-            org
-          );
-          spinner.succeed("Template descargado");
-        } else {
-          const { tempDir, templatePath, repoRoot } =
-            await downloadAndExtract(template!.folder);
-
-          // Con layout de capa, el código del template vive en backend/
-          // (o frontend/) y .opencode/ + specs/ quedan en la raíz.
-          const codePath = useLayerLayout
-            ? join(projectPath, layer!)
-            : projectPath;
-
-          spinner.text = "Creando proyecto...";
-
-          await copyTemplate(templatePath, codePath);
-          await substituteTemplate(codePath, projectName, template!.folder, {
+          return {
+            fullStack,
+            template,
+            backendTpl,
+            frontendTpl,
+            // El paso del nombre garantiza un valor (o vino como argumento).
+            projectName: answers.projectName ?? projectNameArg ?? "",
+            pm: answers.packageManager ?? (pmArg as PackageManager | undefined),
             org,
-          });
-          await installAgentSkills(repoRoot, projectPath);
+            // En fullstack el layout es fijo: backend/ + frontend/.
+            useLayerLayout: fullStack
+              ? false
+              : answers.layerLayout ?? backend ?? false,
+            wantsGit: answers.git ?? git ?? true,
+          };
+        };
 
-          // Con layout de capa, .opencode/, .pi/, .agents/ y specs/ viven fuera de
-          // la carpeta del template → .gitignore raíz que solo ignora el
-          // estado local de AI (.atl/, odd). Los bundles de skills se
-          // versionan con el proyecto.
-          if (useLayerLayout) {
-            await writeRootGitignore(projectPath);
+        // La creación corre una sola vez: puede dispararse desde el paso de
+        // skills globales (que va después del resumen de creación) y vuelve a
+        // pedirse al terminar el flujo.
+        let committed = false;
+        const commit = async (
+          answers: Readonly<FlowAnswers>
+        ): Promise<void> => {
+          if (committed) return;
+          committed = true;
+          await createFromSelection(selection(answers));
+        };
+
+        // Cada paso del plan es un prompt; el índice y el "volver con Esc" los
+        // maneja el runner.
+        const askStep = async (
+          step: FlowStepId,
+          previous: unknown,
+          context: FlowStepContext
+        ): Promise<StepResult<unknown>> => {
+          switch (step) {
+            case "scope":
+              return selectScope({
+                defaultValue: previous as ProjectScope | undefined,
+                canGoBack: context.canGoBack,
+              });
+            case "backend-template":
+            case "frontend-template":
+              return selectTemplateFromLayer(
+                step === "backend-template" ? "backend" : "frontend",
+                {
+                  defaultValue: previous as Template | undefined,
+                  canGoBack: context.canGoBack,
+                }
+              );
+            case "project-name":
+              return askProjectName({
+                defaultValue:
+                  typeof previous === "string" ? previous : undefined,
+                canGoBack: context.canGoBack,
+              });
+            case "package-manager":
+              return selectPackageManager({
+                defaultValue: previous as PackageManager | undefined,
+                canGoBack: context.canGoBack,
+              });
+            case "layer-layout":
+              return askLayerLayout(
+                context.answers.template?.layer ??
+                  (context.answers.scope === "frontend"
+                    ? "frontend"
+                    : "backend"),
+                {
+                  defaultValue: previous as boolean | undefined,
+                  canGoBack: context.canGoBack,
+                }
+              );
+            case "flutter-org":
+              return askFlutterOrg({
+                defaultValue:
+                  typeof previous === "string" ? previous : undefined,
+                canGoBack: context.canGoBack,
+              });
+            case "git":
+              return askGitInit({
+                defaultValue: previous as boolean | undefined,
+                canGoBack: context.canGoBack,
+              });
+            case "global-skills":
+              // La creación es el punto de no retorno: se hace acá para que la
+              // pregunta post-creación siga saliendo después del resumen.
+              await commit(context.answers);
+              return askGlobalSkillsToo({
+                defaultValue: previous as boolean | undefined,
+                canGoBack: context.canGoBack,
+              });
           }
+        };
 
-          // Template nativo de bun + npm/pnpm → portar a runtime node
-          // (scripts con tsx, tests con vitest, sin bun-types)
-          if (template!.runtime === "bun" && pm && pm !== "bun") {
-            await adaptToNodeRuntime(codePath);
-          }
+        const outcome = await runFlow({
+          plan: plannedSteps,
+          ask: askStep,
+          answers: { scope: forcedScope },
+        });
 
-          await cleanup(tempDir);
-
-          spinner.succeed("Template descargado");
-
-          printSuccess(
-            projectName,
-            template!.name,
-            pm ?? "npm",
-            await readTemplatePostInit(codePath),
-            useLayerLayout ? layer : undefined
-          );
-
-          if (useLayerLayout) {
-            console.log(
-              chalk.dim(
-                `  Estructura: ${layer}/ (código) · .opencode/, .pi/, .agents/ y specs/ (al mismo nivel)\n`
-              )
-            );
-          }
+        // Volver en el primer paso no tiene nada que deshacer: se sale en 0.
+        if (outcome.kind === "cancelled") {
+          console.log(chalk.dim("\n  Cancelado.\n"));
+          process.exit(0);
+          return;
         }
 
-        // Inicializar el repositorio git en la raíz del proyecto
-        // (cubre backend/ + .opencode/ + specs/ según el layout)
-        if (wantsGit) {
-          const ok = await gitInit(projectPath);
-          if (ok) {
-            console.log(
-              chalk.dim("  Git: repositorio inicializado\n")
-            );
-          } else {
-            console.log(
-              chalk.yellow(
-                "  \u26a0 No se pudo inicializar git (¿está instalado?)\n"
-              )
-            );
-          }
+        const answers = outcome.answers;
+        const scope = answers.scope ?? forcedScope;
+
+        if (scope === "skills") {
+          // Opción del menú principal: mismo flujo que `fwinit skills`,
+          // completamente interactivo (instalar/eliminar → destinos).
+          await runSkillsFlow();
+          return;
         }
+        if (scope === "studio") {
+          // Opción del menú principal: mismo servidor que `fwinit studio`,
+          // en esta misma pantalla, con cierre explícito.
+          await runStudioFromMenu();
+          return;
+        }
+
+        await commit(answers);
 
         // Skills globales (solo modo interactivo): después de crear el
         // proyecto, ofrecer instalar el bundle también en los destinos
-        // globales. Con flags (--git/--no-git) no se pregunta: scripting.
-        if (git === undefined) {
-          const wantsGlobalSkills = await askGlobalSkillsToo();
-          if (wantsGlobalSkills) {
-            const all = resolveGlobalTargets();
-            if (all.length === 0) {
-              console.log(
-                chalk.yellow(
-                  "  \u26a0 No se pudo resolver el HOME — skills globales omitidas\n"
-                )
+        // globales. Con flags (--git/--no-git) el paso ni siquiera existe.
+        if (answers.globalSkills === true) {
+          const all = resolveGlobalTargets();
+          if (all.length === 0) {
+            console.log(
+              chalk.yellow(
+                "  \u26a0 No se pudo resolver el HOME — skills globales omitidas\n"
+              )
+            );
+          } else {
+            const selected = await selectGlobalTargets(
+              all.map((t) => ({ name: t.label, value: t.id }))
+            );
+            if (selected.length > 0) {
+              await installGlobalSkillsWithSpinner(
+                all.filter((t) => selected.includes(t.id))
               );
-            } else {
-              const selected = await selectGlobalTargets(
-                all.map((t) => ({ name: t.label, value: t.id }))
-              );
-              if (selected.length > 0) {
-                await installGlobalSkillsWithSpinner(
-                  all.filter((t) => selected.includes(t.id))
-                );
-              }
             }
           }
         }

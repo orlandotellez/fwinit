@@ -7,6 +7,7 @@ import {
 } from "./templates.js";
 import type { PackageManager } from "./utils.js";
 import type { GlobalTarget } from "./global-skills.js";
+import type { StepResult } from "./flow.js";
 import {
   FLUTTER_ORG_DEFAULT,
   checkOrg,
@@ -26,6 +27,77 @@ export type ProjectScope =
   | "skills"
   | "studio";
 
+// ---------------------------------------------------------------------------
+// Volver con Esc (S9)
+//
+// Cada paso del flujo interactivo es reversible: Esc no es una respuesta para
+// inquirer, así que la tecla es nuestra. Escuchamos `keypress` en stdin y
+// abortamos el AbortSignal que `createPromptModule` acepta (opción documentada
+// de inquirer 12, no un interno): el prompt se rechaza con AbortPromptError y
+// corre la misma limpieza que una respuesta normal (cursor restaurado, raw
+// mode apagado), sin stack trace. No se importa `@inquirer/core` en src/: es un
+// transitivo que ninguna dependencia declarada garantiza, así que el error se
+// reconoce por nombre (igual que ExitPromptError en index.ts).
+// ---------------------------------------------------------------------------
+
+/** Opciones que comparten los prompts del flujo de creación. */
+export interface PromptOptions<T> {
+  /**
+   * Respuesta dada antes: vuelve seleccionada (list) o como default
+   * (input/confirm) cuando el runner re-entra al paso.
+   */
+  defaultValue?: T;
+  /** False en el primer paso, donde Esc cancela en vez de volver. */
+  canGoBack?: boolean;
+}
+
+/** Pista dim que cierra el mensaje de cada prompt del flujo. */
+export function backHint(canGoBack: boolean | undefined): string {
+  return chalk.dim(
+    canGoBack === true ? "Esc para volver" : "Esc para cancelar"
+  );
+}
+
+function withHint(message: string, canGoBack: boolean | undefined): string {
+  return `${message} ${backHint(canGoBack)}`;
+}
+
+/** inquirer 12 rechaza un prompt abortado con este error (se mira el nombre). */
+function isAbortPromptError(error: unknown): boolean {
+  return error instanceof Error && error.name === "AbortPromptError";
+}
+
+type RawPromptModule = (
+  questions: unknown
+) => Promise<Record<string, unknown>>;
+
+/**
+ * Corre un prompt y traduce Esc a `{ kind: "back" }`. Funciona igual para
+ * list, confirm e input: los tres comparten el `createPrompt` de inquirer, así
+ * que ninguno necesita un fallback de último choice.
+ */
+async function promptWithBack<T>(
+  config: Record<string, unknown> & { name: string }
+): Promise<StepResult<T>> {
+  const controller = new AbortController();
+  const promptModule = inquirer.createPromptModule({
+    signal: controller.signal,
+  }) as unknown as RawPromptModule;
+  const onKeypress = (_input: string, key: { name?: string }): void => {
+    if (key?.name === "escape") controller.abort();
+  };
+  process.stdin.on("keypress", onKeypress);
+  try {
+    const answers = await promptModule([config]);
+    return { kind: "value", value: answers[config.name] as T };
+  } catch (error) {
+    if (isAbortPromptError(error)) return { kind: "back" };
+    throw error;
+  } finally {
+    process.stdin.removeListener("keypress", onKeypress);
+  }
+}
+
 // Menú principal: qué tipo de proyecto crear. En fullstack el CLI
 // combina un template de backend con uno de frontend. Las dos últimas
 // opciones no crean nada: delegan en el flujo de skills globales
@@ -33,14 +105,16 @@ export type ProjectScope =
 //
 // La descripción de cada opción dice la consecuencia, no el nombre: el
 // label ya nombra la opción, la descripción aclara qué se crea.
-export async function selectScope(): Promise<ProjectScope> {
-  const { scope } = await inquirer.prompt([
-    {
-      type: "list",
-      name: "scope",
-      message: "¿Qué querés crear?",
-      theme: selectionTheme,
-      choices: [
+export async function selectScope(
+  options: PromptOptions<ProjectScope> = {}
+): Promise<StepResult<ProjectScope>> {
+  return promptWithBack<ProjectScope>({
+    type: "list",
+    name: "scope",
+    message: withHint("¿Qué querés crear?", options.canGoBack),
+    theme: selectionTheme,
+    default: options.defaultValue,
+    choices: [
         {
           ...describeChoice("Full stack", "backend + frontend"),
           value: "fullstack",
@@ -68,9 +142,7 @@ export async function selectScope(): Promise<ProjectScope> {
           value: "studio",
         },
       ],
-    },
-  ]);
-  return scope;
+  });
 }
 
 // Lista los templates de una capa (backend/frontend). La capa es
@@ -79,49 +151,56 @@ export async function selectScope(): Promise<ProjectScope> {
 // El nombre va como label y la descripción del template va en su propia
 // columna (inquirer), así el menú queda alineado.
 export async function selectTemplateFromLayer(
-  layer: TemplateLayer
-): Promise<Template> {
-  const { template } = await inquirer.prompt([
-    {
-      type: "list",
-      name: "template",
-      message:
-        layer === "backend"
-          ? "¿Qué backend querés usar?"
-          : "¿Qué frontend querés usar?",
-      theme: selectionTheme,
-      choices: getTemplatesByLayer(layer).map((t) => ({
-        ...describeChoice(t.name, t.description),
-        value: t,
-      })),
-    },
-  ]);
-  return template;
+  layer: TemplateLayer,
+  options: PromptOptions<Template> = {}
+): Promise<StepResult<Template>> {
+  return promptWithBack<Template>({
+    type: "list",
+    name: "template",
+    message: withHint(
+      layer === "backend"
+        ? "¿Qué backend querés usar?"
+        : "¿Qué frontend querés usar?",
+      options.canGoBack
+    ),
+    theme: selectionTheme,
+    default: options.defaultValue,
+    choices: getTemplatesByLayer(layer).map((t) => ({
+      ...describeChoice(t.name, t.description),
+      value: t,
+    })),
+  });
 }
 
 // Al crear el proyecto, ¿inicializar un repositorio git? El git init
 // corre en la raíz del proyecto (cubre backend/ + .opencode/ + .agents/ + specs/).
-export async function askGitInit(): Promise<boolean> {
-  const { initGit } = await inquirer.prompt([
-    {
-      type: "confirm",
-      name: "initGit",
-      message: "¿Inicializar un repositorio git?",
-      default: true,
-      theme: brandTheme,
-    },
-  ]);
-  return initGit;
+export async function askGitInit(
+  options: PromptOptions<boolean> = {}
+): Promise<StepResult<boolean>> {
+  return promptWithBack<boolean>({
+    type: "confirm",
+    name: "initGit",
+    message: withHint(
+      "¿Inicializar un repositorio git?",
+      options.canGoBack
+    ),
+    default: options.defaultValue ?? true,
+    theme: brandTheme,
+  });
 }
 
-export async function selectPackageManager(): Promise<PackageManager> {
-  const { pm } = await inquirer.prompt([
-    {
-      type: "list",
-      name: "pm",
-      message: "¿Qué package manager querés usar?",
-      theme: selectionTheme,
-      choices: [
+export async function selectPackageManager(
+  options: PromptOptions<PackageManager> = {}
+): Promise<StepResult<PackageManager>> {
+  return promptWithBack<PackageManager>({
+    type: "list",
+    name: "pm",
+    message: withHint(
+      "¿Qué package manager querés usar?",
+      options.canGoBack
+    ),
+    theme: selectionTheme,
+    choices: [
         {
           ...describeChoice("pnpm", "más rápido, lockfile determinista"),
           value: "pnpm",
@@ -135,48 +214,51 @@ export async function selectPackageManager(): Promise<PackageManager> {
           value: "bun",
         },
       ],
-      default: "pnpm",
-    },
-  ]);
-  return pm;
+    default: options.defaultValue ?? "pnpm",
+  });
 }
 
-export async function askProjectName(): Promise<string> {
-  const { name } = await inquirer.prompt([
-    {
-      type: "input",
-      name: "name",
-      message: "Nombre del proyecto:",
-      theme: brandTheme,
-      validate: (input) => {
-        if (!input.trim()) return "El nombre no puede estar vacío";
-        if (!/^[a-zA-Z0-9_-]+$/.test(input)) {
-          return "Solo letras, números, guiones y guiones bajos";
-        }
-        return true;
-      },
+export async function askProjectName(
+  options: PromptOptions<string> = {}
+): Promise<StepResult<string>> {
+  const result = await promptWithBack<string>({
+    type: "input",
+    name: "name",
+    message: withHint("Nombre del proyecto:", options.canGoBack),
+    theme: brandTheme,
+    default: options.defaultValue,
+    validate: (input: string) => {
+      if (!input.trim()) return "El nombre no puede estar vacío";
+      if (!/^[a-zA-Z0-9_-]+$/.test(input)) {
+        return "Solo letras, números, guiones y guiones bajos";
+      }
+      return true;
     },
-  ]);
-  return name.trim();
+  });
+  return result.kind === "back"
+    ? result
+    : { kind: "value", value: result.value.trim() };
 }
 
 // Estructura de monorepo liviano: el código del template va dentro de
 // backend/ (o frontend/), y .opencode/, .agents/ (skills) + specs/ (creadas por
 // create-specs) quedan al mismo nivel, en la raíz del proyecto.
-export async function askLayerLayout(layer: TemplateLayer): Promise<boolean> {
-  const { layout } = await inquirer.prompt([
-    {
-      type: "confirm",
-      name: "layout",
-      message:
-        layer === "backend"
-          ? "¿Empaquetar el código del template en una carpeta backend/?"
-          : "¿Empaquetar el código del template en una carpeta frontend/?",
-      default: true,
-      theme: brandTheme,
-    },
-  ]);
-  return layout;
+export async function askLayerLayout(
+  layer: TemplateLayer,
+  options: PromptOptions<boolean> = {}
+): Promise<StepResult<boolean>> {
+  return promptWithBack<boolean>({
+    type: "confirm",
+    name: "layout",
+    message: withHint(
+      layer === "backend"
+        ? "¿Empaquetar el código del template en una carpeta backend/?"
+        : "¿Empaquetar el código del template en una carpeta frontend/?",
+      options.canGoBack
+    ),
+    default: options.defaultValue ?? true,
+    theme: brandTheme,
+  });
 }
 
 // Los destinos llegan como label ya armado por global-skills.ts
@@ -296,34 +378,39 @@ export async function selectStudioAction(
 // los templates siguen convenciones de npm/dotnet que no llevan identidad de
 // dominio propia. Normaliza antes de devolver: el caller siempre recibe un
 // valor en minúsculas y sin espacios.
-export async function askFlutterOrg(): Promise<string> {
-  const { org } = await inquirer.prompt([
-    {
-      type: "input",
-      name: "org",
-      message:
-        "Organización para el bundle id (reverse-domain, ej. com.example):",
-      default: FLUTTER_ORG_DEFAULT,
-      validate: checkOrg,
-      theme: brandTheme,
-    },
-  ]);
-  return normalizeOrg(org);
+export async function askFlutterOrg(
+  options: PromptOptions<string> = {}
+): Promise<StepResult<string>> {
+  const result = await promptWithBack<string>({
+    type: "input",
+    name: "org",
+    message: withHint(
+      "Organización para el bundle id (reverse-domain, ej. com.example):",
+      options.canGoBack
+    ),
+    default: options.defaultValue ?? FLUTTER_ORG_DEFAULT,
+    validate: checkOrg,
+    theme: brandTheme,
+  });
+  return result.kind === "back"
+    ? result
+    : { kind: "value", value: normalizeOrg(result.value) };
 }
 
 // Post-creación: instalar el bundle también en los destinos globales.
 // Default en "no": el bundle de proyecto ya viaja versionado con el repo,
 // así que instalar en global es una decisión consciente, no el default.
-export async function askGlobalSkillsToo(): Promise<boolean> {
-  const { global } = await inquirer.prompt([
-    {
-      type: "confirm",
-      name: "global",
-      message:
-        "¿Instalar las skills también globalmente (OpenCode/Pi/Gentle Shell/Agent Skills)?",
-      default: false,
-      theme: brandTheme,
-    },
-  ]);
-  return global;
+export async function askGlobalSkillsToo(
+  options: PromptOptions<boolean> = {}
+): Promise<StepResult<boolean>> {
+  return promptWithBack<boolean>({
+    type: "confirm",
+    name: "global",
+    message: withHint(
+      "¿Instalar las skills también globalmente (OpenCode/Pi/Gentle Shell/Agent Skills)?",
+      options.canGoBack
+    ),
+    default: options.defaultValue ?? false,
+    theme: brandTheme,
+  });
 }
