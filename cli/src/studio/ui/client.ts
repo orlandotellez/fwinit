@@ -18,7 +18,7 @@ export const CLIENT_JS = `
   var meta = metaEl ? JSON.parse(metaEl.textContent || '{}') : {};
 
   var state = {
-    view: 'skills',
+    view: 'specs',
     scope: 'global',
     skillKey: null,
     specPath: null,
@@ -32,6 +32,7 @@ export const CLIENT_JS = `
     doc: null,
     collapsed: {},
     expanded: {},
+    drawerOpen: false,
     tocLinks: []
   };
 
@@ -156,6 +157,38 @@ export const CLIENT_JS = `
     applyTheme(currentTheme() === 'light' ? 'dark' : 'light');
   }
 
+  /* ── Navegación lateral (mobile) ───────────────────────────────────────── */
+
+  /**
+   * Debajo de 820px el raíl activo es un drawer fuera de pantalla. Se abre con
+   * la hamburguesa y se cierra al navegar, con el velo o con Esc.
+   */
+  function setDrawer(open, options) {
+    state.drawerOpen = open === true;
+    if (state.drawerOpen) document.body.dataset.drawer = 'open';
+    else delete document.body.dataset.drawer;
+
+    var toggle = q('[data-drawer-toggle]');
+    if (toggle) {
+      toggle.setAttribute('aria-expanded', state.drawerOpen ? 'true' : 'false');
+      toggle.setAttribute('aria-label', state.drawerOpen ? 'Cerrar navegación' : 'Abrir navegación');
+    }
+    var scrim = q('[data-drawer-scrim]');
+    if (scrim) scrim.hidden = !state.drawerOpen;
+
+    if (state.drawerOpen) {
+      var input = q('[data-search="' + state.view + '"]');
+      if (input) input.focus();
+    } else if (options && options.restoreFocus && toggle) {
+      toggle.focus();
+    }
+  }
+
+  function closeDrawer(options) {
+    if (!state.drawerOpen) return;
+    setDrawer(false, options);
+  }
+
   /* ── Data ──────────────────────────────────────────────────────────────── */
 
   function fetchJson(url) {
@@ -188,7 +221,7 @@ export const CLIENT_JS = `
   /* ── Routing ───────────────────────────────────────────────────────────── */
 
   function route() {
-    var raw = (location.hash || '#/skills').replace(/^#\\/?/, '');
+    var raw = (location.hash || '#/specs').replace(/^#\\/?/, '');
     var parts = raw.split('/').map(function (part) {
       try { return decodeURIComponent(part); } catch (error) { return part; }
     });
@@ -210,6 +243,9 @@ export const CLIENT_JS = `
   }
 
   function navigate(hash) {
+    // Elegir algo en la navegación lateral la cierra: en mobile el panel es lo
+    // que se viene a ver.
+    closeDrawer();
     if (location.hash === hash) render();
     else location.hash = hash;
   }
@@ -745,10 +781,27 @@ export const CLIENT_JS = `
    * borde superior del panel. Al llegar al fondo gana la última, para que las
    * secciones cortas finales también queden activas.
    */
+  function markToc(links, active) {
+    for (var i = 0; i < links.length; i++) {
+      if (links[i] === active) links[i].setAttribute('aria-current', 'location');
+      else links[i].removeAttribute('aria-current');
+    }
+  }
+
   function syncToc() {
     var links = state.tocLinks;
     var pane = q('[data-detail="specs"]');
     if (!links.length || !pane) return;
+    // Sin layout todavía no hay posición que medir: no marcar nada y dejar que
+    // el próximo render lo resuelva es más honesto que adivinar.
+    if (pane.clientHeight === 0) return;
+    // Documento que entra completo: no hay "sección actual" por posición, la
+    // primera es la única respuesta verdadera (antes se marcaba la última
+    // porque scrollTop + clientHeight ya estaba en el fondo).
+    if (pane.scrollHeight <= pane.clientHeight + 2) {
+      markToc(links, links[0]);
+      return;
+    }
     var paneTop = pane.getBoundingClientRect().top;
     var atBottom = pane.scrollTop + pane.clientHeight >= pane.scrollHeight - 2;
     var active = null;
@@ -761,10 +814,7 @@ export const CLIENT_JS = `
     // Arriba de la primera sección (el título no está en el índice) el lector
     // está por entrar a la primera: marcarla evita un índice "apagado".
     if (!active) active = links[0];
-    for (var j = 0; j < links.length; j++) {
-      if (links[j] === active) links[j].setAttribute('aria-current', 'location');
-      else links[j].removeAttribute('aria-current');
-    }
+    markToc(links, active);
   }
 
   function renderSpecDoc() {
@@ -931,6 +981,29 @@ export const CLIENT_JS = `
     var toggle = q('[data-theme-toggle]');
     if (toggle) toggle.addEventListener('click', toggleTheme);
 
+    var drawerToggle = q('[data-drawer-toggle]');
+    if (drawerToggle) {
+      drawerToggle.addEventListener('click', function () {
+        setDrawer(!state.drawerOpen);
+      });
+    }
+
+    var scrim = q('[data-drawer-scrim]');
+    if (scrim) {
+      scrim.addEventListener('click', function () {
+        closeDrawer({ restoreFocus: true });
+      });
+    }
+
+    // Al cruzar a desktop el drawer deja de existir como concepto.
+    if (window.matchMedia) {
+      var desktop = window.matchMedia('(min-width: 821px)');
+      var onViewportChange = function () {
+        if (desktop.matches) closeDrawer();
+      };
+      if (desktop.addEventListener) desktop.addEventListener('change', onViewportChange);
+    }
+
     qa('[data-view]').forEach(function (tab) {
       tab.addEventListener('click', function () { navigate('#/' + tab.dataset.view); });
     });
@@ -973,6 +1046,11 @@ export const CLIENT_JS = `
         if (input) input.focus();
         return;
       }
+      if (event.key === 'Escape' && state.drawerOpen) {
+        event.preventDefault();
+        closeDrawer({ restoreFocus: true });
+        return;
+      }
       if (event.key === 'Escape' && typing) {
         target.value = '';
         state.filter[state.view] = '';
@@ -982,8 +1060,8 @@ export const CLIENT_JS = `
       }
       if (typing || event.metaKey || event.ctrlKey || event.altKey) return;
       if (event.key === 't') { toggleTheme(); return; }
-      if (event.key === '1') { navigate('#/skills'); return; }
-      if (event.key === '2') { navigate('#/specs'); return; }
+      if (event.key === '1') { navigate('#/specs'); return; }
+      if (event.key === '2') { navigate('#/skills'); return; }
     });
 
     var pane = q('[data-detail="specs"]');

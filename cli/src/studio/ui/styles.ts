@@ -282,6 +282,30 @@ button {
   border-color: var(--success);
 }
 
+/* Navegación lateral en mobile: el botón y el velo sólo existen debajo de 820px. */
+.nav-toggle {
+  display: none;
+}
+
+.nav-bars {
+  display: inline-flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  width: 16px;
+  height: 16px;
+}
+
+.nav-bars span {
+  display: block;
+  height: 2px;
+  background: currentColor;
+}
+
+.drawer-scrim {
+  display: none;
+}
+
 .theme-toggle .icon-sun {
   display: none;
 }
@@ -1123,17 +1147,42 @@ button {
     display: none;
   }
 
-  /* Una columna: el rail se queda con su franja y el panel con el resto, ambos
-     con scroll propio. */
+  .nav-toggle {
+    display: inline-flex;
+  }
+
+  /* Una sola fila: el panel ocupa todo el ancho y el raíl pasa a ser la
+     navegación lateral, fuera de pantalla hasta que se abre. */
   .view--skills,
   .view--specs {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: minmax(0, 38%) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
   }
 
   .rail {
-    border-right: 0;
-    border-bottom: var(--hairline-strong);
+    position: fixed;
+    top: var(--header-height);
+    bottom: 36px;
+    left: 0;
+    width: min(86vw, 340px);
+    z-index: 45;
+    transform: translateX(-100%);
+    transition: transform var(--duration-base) var(--ease-out);
+    border-right: var(--hairline-strong);
+    border-bottom: 0;
+    box-shadow: var(--shadow-pop);
+  }
+
+  body[data-drawer='open'] .view[data-active='true'] .rail {
+    transform: translateX(0);
+  }
+
+  body[data-drawer='open'] .drawer-scrim {
+    display: block;
+    position: fixed;
+    inset: var(--header-height) 0 36px 0;
+    z-index: 44;
+    background: var(--scrim);
   }
 
   .pane {
@@ -1142,6 +1191,20 @@ button {
 
   .statusbar__hint {
     display: none;
+  }
+}
+
+/* Pantallas muy angostas: los contadores y la versión le dejan el lugar a la
+   navegación. */
+@media (max-width: 430px) {
+  .tab__count,
+  .badge--version,
+  .statusbar [data-status-counts] {
+    display: none;
+  }
+
+  .tabs {
+    gap: var(--space-sm);
   }
 }
 

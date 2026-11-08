@@ -65,17 +65,17 @@ export function renderStudioHtml(options: StudioDocumentOptions): string {
 <a class="skip" href="#main">Saltar al contenido</a>
 <header class="topbar">
   <div class="topbar__inner">
-    <a class="brand" href="#/skills" aria-label="fwinit studio, inicio">
+    <a class="brand" href="#/specs" aria-label="fwinit studio, inicio">
       <span class="brand__glyph" aria-hidden="true">S</span>
       <span class="brand__name">fwinit</span>
       <span class="brand__div" aria-hidden="true">/</span>
       <span class="brand__page">studio</span>
     </a>
     <nav class="tabs" aria-label="Secciones">
-      <button type="button" class="tab" role="tab" data-view="specs" aria-selected="false">
+      <button type="button" class="tab" role="tab" data-view="specs" aria-selected="true">
         Specs <span class="tab__count" data-count="specs">—</span>
       </button>
-      <button type="button" class="tab" role="tab" data-view="skills" aria-selected="true">
+      <button type="button" class="tab" role="tab" data-view="skills" aria-selected="false">
         Skills <span class="tab__count" data-count="skills">—</span>
       </button>
     </nav>
@@ -84,12 +84,17 @@ export function renderStudioHtml(options: StudioDocumentOptions): string {
       <button type="button" class="btn btn--icon theme-toggle" data-theme-toggle aria-pressed="false" aria-label="Cambiar al tema claro">
         ${ICON.moon}${ICON.sun}
       </button>
+      <button type="button" class="btn btn--icon nav-toggle" data-drawer-toggle aria-expanded="false" aria-label="Abrir navegación">
+        <span class="nav-bars" aria-hidden="true"><span></span><span></span><span></span></span>
+      </button>
     </div>
   </div>
 </header>
 
+<div class="drawer-scrim" data-drawer-scrim hidden></div>
+
 <main id="main" class="shell">
-  <section class="view view--specs" data-view-panel="specs" data-active="false" aria-label="Specs del proyecto">
+  <section class="view view--specs" data-view-panel="specs" data-active="true" aria-label="Specs del proyecto">
     <aside class="rail">
       <div class="rail__head">
         <div class="field">
@@ -111,7 +116,7 @@ export function renderStudioHtml(options: StudioDocumentOptions): string {
     </aside>
   </section>
 
-  <section class="view view--skills" data-view-panel="skills" data-active="true" aria-label="Skills instaladas">
+  <section class="view view--skills" data-view-panel="skills" data-active="false" aria-label="Skills instaladas">
     <aside class="rail">
       <div class="rail__head">
         <div class="field">

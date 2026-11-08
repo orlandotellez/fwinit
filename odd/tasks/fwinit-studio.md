@@ -27,9 +27,11 @@ S7. Each skill can be read from the interface, not only located: its own text fi
 rendered, `SKILL.md` first.
 > "quieor poder leer lo que dice cada skill, quiero leer el contenido de cada una"
 
-S8. The top navigation orders Specs before Skills; the default view stays Skills so the studio never
-opens on an empty specs tree.
+S8. The top navigation orders Specs before Skills and the studio **opens on Specs**, with the first
+spec loaded and its on-page index ready; a project without `specs/` lands on the specs view's empty
+state that explains how to create them.
 > "primero Specs y luego skills en la navegacion de arriba"
+> "cuando abro studio me abre por defecto las skills, me tiene que abrir por defecto las specs"
 
 ## Tasks
 
@@ -124,3 +126,18 @@ L9 (verification round on skill content, `gentle-ai-verify`): two defects found 
 2. The binary guard sniffed only the first 4096 bytes, so a NUL at the end of a file was served as
    text. The guard now inspects the whole buffer (bounded by the 512 KB cap), pinned by a test that
    writes its own late-NUL fixture so the shared listing stays stable.
+
+L12 (mobile, requirement change): below 820px the rail becomes a side drawer instead of a top strip.
+The hamburger lives in the top bar (hidden on desktop), the drawer slides in from the left, the pane
+takes the full width, and the drawer closes on navigate, scrim tap or Escape; crossing to desktop
+closes it. Very narrow screens drop the tab counters, the version badge and the status counters so
+the navigation keeps its room. The shell contract is pinned by `ui/document.test.ts`.
+
+L10 (default view, requirement change): the studio used to open on Skills to avoid landing on an
+empty specs tree; the human asked for Specs to be the default, so the initial `data-active` panel,
+the no-hash route and the `1`/`2` shortcuts now follow the visible tab order (Specs first). The
+empty state for a project without `specs/` stays as the explanation in that case.
+L11 (TOC fix found while verifying L10): with a document short enough that the pane cannot scroll,
+`scrollTop + clientHeight >= scrollHeight - 2` was already true, so the on-page index marked the
+last section while the reader was at the top. It now marks the first section when there is nothing
+to scroll, and does nothing at all before layout has a height to measure.

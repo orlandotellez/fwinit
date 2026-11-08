@@ -96,7 +96,7 @@ export const TOKENS_CSS = `
   --radius-pill: 0px;
 
   /* Layout */
-  --container: 1300px;
+  --container: 2000px;
   --container-pad: 48px;
   --text-column: 800px;
   --hero-column: 560px;
