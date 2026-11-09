@@ -91,11 +91,16 @@ fwinit --no-color    # menú sin color (también vale NO_COLOR=1)
 
 ### Studio local (`fwinit studio`)
 
-Abre una vista de sólo lectura en el navegador con dos cosas: las skills que ya
-tenés instaladas para **OpenCode, Pi y Gentle Shell** (globales y del proyecto)
+Abre una vista en el navegador con dos cosas: las skills que ya tenés
+instaladas para **OpenCode, Pi y Gentle Shell** (globales y del proyecto)
 —con el contenido de cada `SKILL.md` y sus archivos de texto—, y el árbol de
 `specs/` del directorio donde corrés el comando, renderizado como documentación
 navegable.
+
+La vista de skills arranca en el **alcance del proyecto**, porque eso es lo que
+estás trabajando; el control `Globales` muestra todo lo instalado a nivel
+usuario, y si el proyecto todavía no tiene skills propias la lista te ofrece el
+salto a las globales en un click.
 
 ```bash
 fwinit studio                 # elige un puerto libre y abre el navegador
@@ -103,10 +108,30 @@ fwinit studio --port 4321     # puerto fijo
 fwinit studio --no-open       # sólo imprime la URL (útil por SSH)
 ```
 
-El servidor escucha **sólo en 127.0.0.1**, no escribe nada en disco y se cierra
-con `Ctrl+C`. Si el proyecto todavía no tiene `specs/`, la vista de specs lo dice
-y el resto del studio sigue funcionando; para crearlas, usá la skill
-`create-specs` (`/create-specs`).
+#### Implementar una skill desde el studio
+
+En el detalle de una skill del bundle (`create-specs`, `create-specs-from-code`,
+`create-prompt`, `design`) hay un botón **Implementar skill**. Pide confirmación
+mostrando los tres destinos exactos, avisa cuál se va a reemplazar y recién
+entonces copia la skill en `~/.config/opencode/skills`, `~/.pi/agent/skills` y
+`~/.gentle-shell/agent/skills` (o `$GENTLE_SHELL_HOME/skills`). Es una copia
+determinista: no invoca ningún agente ni modelo.
+
+- Sólo copia lo que trae el bundle del repo, y sólo la carpeta de la skill.
+  Los comandos slash (`/create-specs`) siguen instalándose con
+  `fwinit skills --global opencode,pi,gentle-shell`.
+- El resultado se reporta por destino: si uno falla, el studio lo dice y no
+  presenta el resto como una instalación completa.
+- Ese `POST` es la única escritura del studio. Exige el token que viaja en el
+  documento y un pedido del mismo origen, así que una página de otro sitio no
+  puede dispararlo contra tu `127.0.0.1`.
+- Si el bundle no está junto al CLI, el botón no aparece y el studio te dice el
+  comando que hace el trabajo.
+
+El servidor escucha **sólo en 127.0.0.1** y se cierra con `Ctrl+C`. Fuera de esa
+instalación explícita no escribe nada. Si el proyecto todavía no tiene `specs/`,
+la vista de specs lo dice y el resto del studio sigue funcionando; para crearlas,
+usá la skill `create-specs` (`/create-specs`).
 
 La interfaz usa los mismos tokens de diseño que la landing page (`--accent`
 #8aa2ff, esquinas rectas, separadores hairline) con tema claro y oscuro

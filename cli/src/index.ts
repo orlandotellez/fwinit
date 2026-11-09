@@ -558,12 +558,13 @@ program
   });
 
 // `fwinit studio` abre una vista local en el navegador: las skills que ya están
-// instaladas para cada agente y las specs/ del proyecto actual. Es de sólo
-// lectura, escucha en 127.0.0.1 y no toca el disco que muestra.
+// instaladas para cada agente y las specs/ del proyecto actual. Escucha en
+// 127.0.0.1; lo único que escribe es la instalación explícita de una skill del
+// bundle en los tres agentes (POST con token y mismo origen).
 program
   .command("studio")
   .description(
-    "Abrir en el navegador las skills instaladas (OpenCode, Pi, Gentle Shell) y las specs/ del proyecto"
+    "Abrir en el navegador las skills instaladas (OpenCode, Pi, Gentle Shell) y las specs/ del proyecto; permite implementar una skill del bundle en los tres agentes"
   )
   .option(
     "--port <puerto>",
