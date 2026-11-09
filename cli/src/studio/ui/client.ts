@@ -11,6 +11,7 @@
  */
 import { MODEL_CHOICE_SOURCE } from './model-select.js';
 import { RUN_RESTORE_SOURCE } from './run-restore.js';
+import { RUN_SESSION_SOURCE } from './run-session.js';
 
 export const CLIENT_JS = `
 (function () {
@@ -160,6 +161,21 @@ export const CLIENT_JS = `
       type: 'button',
       class: 'btn',
       'aria-label': 'Copiar ' + label,
+      text: label,
+      onclick: function (event) { copyValue(value, event.currentTarget); }
+    });
+  }
+
+  /**
+   * Un botón de copiar con su propia etiqueta accesible y su texto visible.
+   * Lo usan los botones nuevos del panel y de las filas del historial (S17).
+   */
+  function copyChip(ariaLabel, label, value) {
+    return el('button', {
+      type: 'button',
+      class: 'btn',
+      'aria-label': ariaLabel,
+      title: ariaLabel,
       text: label,
       onclick: function (event) { copyValue(value, event.currentTarget); }
     });
@@ -745,6 +761,7 @@ export const CLIENT_JS = `
       id: null,
       agent: agent,
       model: model || '',
+      sessionId: null,
       prompt: prompt || '',
       phase: phase || 'starting',
       lines: [],
@@ -860,6 +877,11 @@ export const CLIENT_JS = `
       el('p', { class: 'install__status', dataset: { runState: '' }, 'aria-live': 'polite' }),
       el('p', { class: 'install__error', dataset: { runError: '' } }),
       el('p', { class: 'install__note', dataset: { runCommand: '' } }),
+      // La sesión del agente: su id y el comando exacto para retomarla (S17).
+      el('div', { class: 'run__session', dataset: { runSession: '' } }, [
+        el('p', { class: 'install__note', dataset: { runSessionNote: '' } }),
+        el('div', { class: 'detail__actions', dataset: { runSessionActions: '' } })
+      ]),
       el('div', { class: 'run__output', dataset: { runOutput: '' }, tabindex: '0', role: 'log', 'aria-live': 'polite' })
     ]);
 
@@ -1065,6 +1087,7 @@ export const CLIENT_JS = `
       if (commandEl) commandEl.textContent = '';
       if (startBtn) startBtn.disabled = runBusyElsewhere(key);
       if (cancelBtn) cancelBtn.hidden = true;
+      syncRunSession(null);
       return;
     }
 
@@ -1079,6 +1102,24 @@ export const CLIENT_JS = `
     }
     if (startBtn) startBtn.disabled = active || runBusyElsewhere(key);
     if (cancelBtn) cancelBtn.hidden = !active || selecting;
+    syncRunSession(run);
+  }
+
+  /**
+   * La sesión del run en el panel (S17): el id, el comando exacto para
+   * retomarla, la copia y —cuando no hay id— el motivo, nunca una sesión
+   * inventada. Un run viejo sin sesión se sigue mostrando con su aviso.
+   */
+  function syncRunSession(run) {
+    var note = q('[data-run-session-note]');
+    var actions = q('[data-run-session-actions]');
+    if (note) note.textContent = run ? sessionNote(run.agent, run.sessionId || null) : '';
+    if (!actions) return;
+    actions.textContent = '';
+    if (!run || !run.sessionId) return;
+    actions.appendChild(copyChip('Copiar id de sesión', 'Copiar id de sesión', run.sessionId));
+    var resume = sessionResumeCommand(run.agent, run.sessionId);
+    if (resume) actions.appendChild(copyChip('Copiar comando para retomar', 'Copiar comando', resume));
   }
 
   function stopRunPolling() {
@@ -1129,6 +1170,7 @@ export const CLIENT_JS = `
     if (!run || (run.id && run.id !== status.id)) return;
     var cursor = run.next || 0;
     run.id = status.id;
+    run.sessionId = status.sessionId || null;
     var fresh = (status.lines || []).filter(function (line) { return line.n > cursor; });
     if (fresh.length) {
       fresh.forEach(function (line) { run.lines.push(line); });
@@ -1245,6 +1287,8 @@ export const CLIENT_JS = `
 
   ${RUN_RESTORE_SOURCE}
 
+  ${RUN_SESSION_SOURCE}
+
   /** True cuando la skill del run sigue instalada en el reporte actual. */
   function skillExistsInReport(ref) {
     if (!state.skills) return true;
@@ -1333,6 +1377,7 @@ export const CLIENT_JS = `
       summary.state
     );
     selection.id = summary.id;
+    selection.sessionId = summary.sessionId || null;
     selection.exitCode = summary.exitCode;
     selection.truncated = summary.truncated === true;
     selection.summary = summary;
@@ -1362,6 +1407,7 @@ export const CLIENT_JS = `
       summary.state
     );
     state.run.id = summary.id;
+    state.run.sessionId = summary.sessionId || null;
     state.run.notes = [];
     state.prompts[key] = summary.prompt || '';
     if (summary.model) state.modelText[key] = summary.model;
@@ -1382,6 +1428,41 @@ export const CLIENT_JS = `
     renderSkillList();
     renderSkillDetail();
     syncShell();
+  }
+
+  /**
+   * La sesión de un run como parte del texto de una fila del historial (S17).
+   * Un run anterior a S17 no tiene id: se abre igual, rotulado sin sesión.
+   */
+  function runSessionRowLabel(run) {
+    if (run && run.sessionId) return 'sesión ' + sessionShort(run.sessionId);
+    return 'sin sesión';
+  }
+
+  /**
+   * Una fila del historial: la fila abre el run, y si hay sesión el botón de al
+   * lado copia su id completo (S17). Un run sin sesión no ofrece el botón.
+   */
+  function runHistoryRow(options) {
+    var run = options.run;
+    var title = run.prompt || run.skill.name;
+    if (run.sessionId) title += ' · sesión ' + run.sessionId;
+    var row = el('button', {
+      type: 'button',
+      class: 'row row--run',
+      'aria-current': options.selected ? 'true' : 'false',
+      title: title,
+      dataset: options.dataset,
+      onclick: function () { openHistoricalRun(run); }
+    }, [
+      el('span', { class: 'row__name', text: options.name }),
+      el('span', { class: 'row__meta', text: options.meta })
+    ]);
+    if (!run.sessionId) return row;
+    return el('div', { class: 'row__run', dataset: { runRow: run.id } }, [
+      row,
+      copyChip('Copiar id de sesión', 'Copiar id de sesión', run.sessionId)
+    ]);
   }
 
   /** El historial clicable del raíl: todas las skills, de la más nueva a la vieja. */
@@ -1405,21 +1486,18 @@ export const CLIENT_JS = `
     }
     runs.forEach(function (run) {
       var installed = skillExistsInReport(run.skill);
-      var meta = runStateLabel(run.state) + ' · ' + run.agent + ' · ' + fmtDate(run.startedAt);
+      var meta = runStateLabel(run.state) + ' · ' + run.agent + ' · ' + fmtDate(run.startedAt) +
+        ' · ' + runSessionRowLabel(run);
       var selected = state.selection && state.selection.id === run.id;
       // Un run de una skill desinstalada se abre igual: los archivos no dependen
       // del reporte. El aviso va en el nombre, no en un renglón muerto (S16).
-      host.appendChild(el('button', {
-        type: 'button',
-        class: 'row row--run',
-        'aria-current': selected ? 'true' : 'false',
-        title: run.prompt || run.skill.name,
-        dataset: { runId: run.id, runMissing: installed ? null : 'true' },
-        onclick: function () { openHistoricalRun(run); }
-      }, [
-        el('span', { class: 'row__name', text: run.skill.name + (installed ? '' : ' · no instalada') }),
-        el('span', { class: 'row__meta', text: meta })
-      ]));
+      host.appendChild(runHistoryRow({
+        run: run,
+        name: run.skill.name + (installed ? '' : ' · no instalada'),
+        meta: meta,
+        selected: selected,
+        dataset: { runId: run.id, runMissing: installed ? null : 'true' }
+      }));
     });
   }
 
@@ -1489,17 +1567,14 @@ export const CLIENT_JS = `
     var list = el('div', { class: 'run__history-list' });
     runs.forEach(function (run) {
       var selected = !!(state.selection && state.selection.id === run.id);
-      list.appendChild(el('button', {
-        type: 'button',
-        class: 'row row--run',
-        'aria-current': selected ? 'true' : 'false',
-        title: run.prompt || run.skill.name,
-        dataset: { runId: run.id },
-        onclick: function () { openHistoricalRun(run); }
-      }, [
-        el('span', { class: 'row__name', text: runStateLabel(run.state) }),
-        el('span', { class: 'row__meta', text: (run.model || 'modelo por defecto') + ' · ' + fmtDate(run.startedAt) })
-      ]));
+      list.appendChild(runHistoryRow({
+        run: run,
+        name: runStateLabel(run.state),
+        meta: (run.model || 'modelo por defecto') + ' · ' + fmtDate(run.startedAt) +
+          ' · ' + runSessionRowLabel(run),
+        selected: selected,
+        dataset: { runId: run.id }
+      }));
     });
     section.appendChild(list);
     return section;
@@ -1520,6 +1595,7 @@ export const CLIENT_JS = `
     selection.id = status.id;
     selection.agent = status.agent;
     selection.model = status.model || '';
+    selection.sessionId = status.sessionId || null;
     selection.prompt = status.prompt || selection.prompt;
     selection.phase = status.state;
     selection.exitCode = status.exitCode;

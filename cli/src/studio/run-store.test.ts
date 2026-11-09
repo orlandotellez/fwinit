@@ -4,6 +4,7 @@ import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promis
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+  parseRunFile,
   RUN_STORE_LIMITS,
   RunStore,
   runFilePath,
@@ -40,6 +41,7 @@ function metaFor(id: string, extra: Partial<RunMetaRecord> = {}): RunMetaRecord 
     prompt: "creá las specs de una app de turnos",
     command: { binary: "pi", args: ["--print", "--mode", "json", "--skill", "/tmp/x"] },
     startedAt: nextIso(),
+    sessionId: null,
     ...extra,
   };
 }
@@ -214,6 +216,72 @@ describe("run store", () => {
 
     expect(stored?.lines.map((line) => line.text)).toEqual(["uno", "dos"]);
     expect(stored?.truncated).toBe(true);
+  });
+
+  test("el id de sesión del agente se guarda en el meta del run (S17)", () => {
+    const store = storeWith();
+    const id = "dddddddddddddddd";
+    const sessionId = "01936f5e-7a1b-7d3c-9f00-2c9a1d4e5b60";
+
+    store.begin(metaFor(id));
+    store.session(id, sessionId);
+    store.appendLine(id, { n: 1, kind: "text", text: "hola" });
+    store.end(id, { state: "done", exitCode: 0, endedAt: nextIso(), truncated: false });
+
+    const stored = store.read(id);
+    expect(stored?.meta.sessionId).toBe(sessionId);
+    // El resumen del historial lleva la sesión para poder retomarla.
+    expect(summarise(stored!, true).sessionId).toBe(sessionId);
+  });
+
+  test("un run interrumpido conserva el id de sesión capturado", () => {
+    const store = storeWith();
+    const id = "eeeeeeeeeeeeeeee";
+    const sessionId = "01936f5e-7a1b-7d3c-9f00-2c9a1d4e5b61";
+
+    store.begin(metaFor(id));
+    store.session(id, sessionId);
+    store.appendLine(id, { n: 1, kind: "text", text: "quedó a medias" });
+
+    const stored = store.read(id);
+    expect(stored?.state).toBe("interrupted");
+    // La sesión capturada sobrevive aunque falte el cierre: es la que el usuario
+    // quiere retomar justamente cuando el studio se cortó.
+    expect(stored?.meta.sessionId).toBe(sessionId);
+    expect(summarise(stored!, true).sessionId).toBe(sessionId);
+  });
+
+  test("un run viejo sin id de sesión se lee con null y sigue abriendo", () => {
+    const id = "ffffffffffffffff";
+    const legacy = metaFor(id) as unknown as Record<string, unknown>;
+    delete legacy.sessionId;
+    const stored = parseRunFile(
+      [
+        JSON.stringify(legacy),
+        JSON.stringify({ type: "line", n: 1, kind: "text", text: "viejo", at: nextIso() }),
+        JSON.stringify({
+          type: "end",
+          state: "done",
+          exitCode: 0,
+          endedAt: nextIso(),
+          truncated: false,
+        }),
+      ].join("\n")
+    );
+
+    expect(stored?.meta.sessionId).toBeNull();
+    expect(stored?.lines).toEqual([{ n: 1, kind: "text", text: "viejo" }]);
+    expect(summarise(stored!, true).sessionId).toBeNull();
+  });
+
+  test("un id de sesión que no es una etiqueta no se guarda", () => {
+    const store = storeWith();
+    const id = "1212121212121212";
+
+    store.begin(metaFor(id));
+    for (const bad of ["../../evil", "a b", "a\nb", ""]) store.session(id, bad);
+
+    expect(store.read(id)?.meta.sessionId).toBeNull();
   });
 
   test("un id con separadores o puntos no sale de la carpeta de ejecuciones", () => {

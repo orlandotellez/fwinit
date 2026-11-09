@@ -258,6 +258,12 @@ export interface StudioRunStatus {
   command: StudioRunCommand;
   /** Modelo elegido por el usuario, o null cuando el agente usa su default. */
   model: string | null;
+  /**
+   * Id de sesión que informó el agente, o null cuando no lo expuso (S17).
+   * Es el que se pasa a `--session <id>` para retomar la ejecución en pi o
+   * Gentle Shell; en opencode nunca se inventa uno.
+   */
+  sessionId: string | null;
   /** El pedido original: el historial permite recuperar qué se había pedido. */
   prompt: string;
   state: StudioRunState;
@@ -285,6 +291,8 @@ export interface StudioRunSummary {
   agent: SkillTargetId;
   skill: SkillFileRef;
   model: string | null;
+  /** Id de la sesión del agente, o null cuando el agente no lo expuso (S17). */
+  sessionId: string | null;
   prompt: string;
   /** `interrupted` es un archivo sin cierre: el server anterior murió. */
   state: StudioRunState;

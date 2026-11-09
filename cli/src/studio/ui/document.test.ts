@@ -125,6 +125,23 @@ describe("studio document", () => {
     expect(CLIENT_JS).not.toContain("no se puede abrir");
   });
 
+  test("el panel muestra la sesión del run y el comando para retomarla (S17)", () => {
+    // La sesión ya no es efímera: el panel la nombra y deja copiar el comando
+    // exacto, o dice que no hay sesión guardada en vez de callarse.
+    expect(CLIENT_JS).toContain("function syncRunSession(");
+    expect(CLIENT_JS).toContain("data-run-session");
+    expect(CLIENT_JS).toContain("function sessionNote(");
+    expect(CLIENT_JS).toContain(" --session ");
+    expect(CLIENT_JS).toContain("opencode session list");
+    // El historial muestra la sesión de cada run y deja copiar el id.
+    expect(CLIENT_JS).toContain("function runHistoryRow(");
+    expect(CLIENT_JS).toContain("function runSessionRowLabel(");
+    expect(CLIENT_JS).toContain("sin sesión");
+    expect(CLIENT_JS).toContain("Copiar id de sesión");
+    // Un run viejo, sin id capturado, se abre igual: se avisa que no hay sesión.
+    expect(CLIENT_JS).toContain("run.sessionId");
+  });
+
   test("el panel dice cuál es el modelo activo y que elegir no toca la config (S15)", () => {
     // El activo se anuncia con su origen, y si no se pudo leer se dice, en vez
     // de inventar un modelo.

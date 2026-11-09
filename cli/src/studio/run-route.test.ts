@@ -28,6 +28,10 @@ let gentleBinary = "";
 let studio: StudioServer | null = null;
 let token = "";
 let piSkillDir = "";
+let piTable = "";
+
+/** El id de sesión que pi informa en el primer evento de su JSONL (S17). */
+const SESSION_ID = "01936f5e-7a1b-7d3c-9f00-2c9a1d4e5b60";
 
 async function script(name: string, body: string): Promise<string> {
   const path = join(workspace, name);
@@ -126,7 +130,7 @@ beforeEach(async () => {
 
   // Los fixtures contestan el catálogo de modelos y, para el resto de los
   // argumentos, se comportan como el agente que transmite la salida.
-  const piTable = join(import.meta.dir, "fixtures", "pi-list-models.txt");
+  piTable = join(import.meta.dir, "fixtures", "pi-list-models.txt");
   piBinary = await script(
     "pi-fast.sh",
     [
@@ -219,7 +223,8 @@ describe("studio run route", () => {
     expect(started.status).toBe(200);
     expect(status.state).toBe("running");
     expect(status.id).toBeTruthy();
-    // S10 al pie de la letra, con la ruta que resolvió el server.
+    // S10 al pie de la letra, con el nombre de sesión de S17 y la ruta que
+    // resolvió el server. Ya no hay `--no-session`: la sesión se guarda.
     expect(status.command.args).toEqual([
       "--print",
       "--mode",
@@ -227,7 +232,8 @@ describe("studio run route", () => {
       "--skill",
       piSkillDir,
       "-a",
-      "--no-session",
+      "--name",
+      "fwinit studio · create-specs",
       "creá las specs",
     ]);
 
@@ -455,7 +461,10 @@ describe("studio run route", () => {
 
     expect(list.inFlight).toBeNull();
     expect(list.runs[0]).toMatchObject({ id, state: "interrupted", exitCode: null, lineCount: 2 });
+    // Un run anterior a S17 no tiene sesión guardada: se abre igual, sin id.
+    expect(list.runs[0].sessionId).toBeNull();
     expect(run.state).toBe("interrupted");
+    expect(run.sessionId).toBeNull();
     expect(run.lines.map((line) => line.text)).toEqual(["segunda"]);
     expect(run.next).toBe(2);
     expect(run.endedAt).toBeNull();
@@ -480,6 +489,57 @@ describe("studio run route", () => {
       finished.lines.map((line) => ({ n: line.n, kind: line.kind, text: line.text }))
     );
     expect(reloaded.prompt).toBe("hola");
+  });
+
+  test("la sesión de pi se expone, se lista y sobrevive al reinicio (S17)", async () => {
+    const withSession = await script(
+      "pi-session.sh",
+      [
+        `if [ "$1" = "--list-models" ]; then`,
+        `  cat "${piTable}"`,
+        `  exit 0`,
+        `fi`,
+        `printf '%s\\n' '{"type":"session","version":3,"id":"${SESSION_ID}","cwd":"'"$PWD"'"}'`,
+        FAST_OUTPUT,
+      ].join("\n")
+    );
+    await studio?.close();
+    await openStudio({ piBinary: withSession });
+
+    const started = (await (
+      await startRun({ ...piSkill, agent: "pi", prompt: "hola", token })
+    ).json()) as StudioRunStatus;
+
+    // La sesión es de verdad: el proceso no corre aislado del historial del agente.
+    expect(started.command.args).not.toContain("--no-session");
+    expect(started.command.args[started.command.args.indexOf("--name") + 1]).toBe(
+      "fwinit studio · create-specs"
+    );
+
+    const finished = await waitForRun(started.id);
+    expect(finished.state).toBe("done");
+    expect(finished.sessionId).toBe(SESSION_ID);
+
+    const list = (await (await readRuns()).json()) as StudioRunsList;
+    expect(list.runs[0]).toMatchObject({ id: started.id, sessionId: SESSION_ID });
+
+    // Reiniciar el studio no pierde la sesión: sale del meta del run en disco.
+    await studio?.close();
+    await openStudio();
+    const reloaded = (await (await readRun(started.id, 0)).json()) as StudioRunStatus;
+    expect(reloaded.sessionId).toBe(SESSION_ID);
+  });
+
+  test("sin id de sesión en la salida, el estado no lo inventa (S17)", async () => {
+    const started = (await (
+      await startRun({ ...piSkill, agent: "pi", prompt: "hola", token })
+    ).json()) as StudioRunStatus;
+    const finished = await waitForRun(started.id);
+
+    expect(finished.sessionId).toBeNull();
+    expect((await (await readRuns()).json()) as StudioRunsList).toMatchObject({
+      runs: [expect.objectContaining({ id: started.id, sessionId: null })],
+    });
   });
 
   test("el proyecto se auto-ignora en .fwinit/.gitignore", async () => {

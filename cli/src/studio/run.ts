@@ -19,7 +19,7 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { stat } from "node:fs/promises";
 import { join, resolve } from "node:path";
-import { RunStore, summarise } from "./run-store.js";
+import { RunStore, normaliseSessionId, summarise } from "./run-store.js";
 import { resolveSkillTargets } from "./skills.js";
 import type {
   SkillFileRef,
@@ -70,6 +70,17 @@ const SKILL_NAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 
 /** Tope del modelo elegido por el usuario (spec S14). */
 export const MAX_MODEL_LENGTH = 128;
+
+/**
+ * Nombre con el que la sesión aparece en el selector del agente (S17).
+ *
+ * Sin este nombre las sesiones del studio se mezclarían con las de trabajo
+ * manual; con él se distinguen de un vistazo en `pi -r`.
+ */
+export function studioSessionName(skillName: string): string {
+  const name = typeof skillName === "string" ? skillName.trim() : "";
+  return name === "" ? "fwinit studio" : `fwinit studio · ${name}`;
+}
 
 /** Caracteres de control: un modelo es una etiqueta, no una línea de texto. */
 const CONTROL_CHARS = /[\u0000-\u001f\u007f-\u009f]/;
@@ -140,6 +151,8 @@ export interface InvocationOptions {
   skillDir: string;
   /** Entrada del usuario tal cual: viaja como argumento, nunca por un shell. */
   prompt: string;
+  /** Nombre de la skill: entra en el nombre de la sesión (S17). */
+  skillName: string;
   /** Modelo elegido; sin él el agente usa su default y no se pasa el flag. */
   model?: string | null;
   /** Binario explícito (tests). */
@@ -173,11 +186,15 @@ export function normaliseModel(value: unknown): string | null {
 }
 
 /**
- * El comando exacto de S10 para cada agente, con el modelo de S14.
+ * El comando exacto de S10 para cada agente, con el modelo de S14 y el nombre
+ * de sesión de S17.
  *
  * pi y Gentle Shell aceptan `--skill <dir>`; opencode no tiene flag de skill,
  * así que sólo recibe el prompt y descubre la skill por nombre. El modelo se
  * agrega sólo cuando el usuario eligió uno: sin modelo, el agente usa su default.
+ *
+ * La sesión ya no se descarta: `--name` la deja reconocible en el selector del
+ * agente, así que una ejecución del studio se puede retomar después (S17).
  */
 export function buildAgentInvocation(
   agent: SkillTargetId,
@@ -204,7 +221,8 @@ export function buildAgentInvocation(
       options.skillDir,
       ...modelArgs,
       "-a",
-      "--no-session",
+      "--name",
+      studioSessionName(options.skillName),
       options.prompt,
     ],
   };
@@ -216,6 +234,8 @@ export interface RunLineDraft {
   text: string;
   /** True cuando el texto se suma a la línea de prosa anterior. */
   append: boolean;
+  /** Id de sesión, sólo en el encabezado `session` del JSONL (S17). */
+  sessionId?: string | null;
 }
 
 export interface NormaliseOptions {
@@ -250,6 +270,10 @@ const EVENT_LABELS: Record<string, string> = {
  * Un `text_delta` pide `append` para que el manager lo agrupe; todo lo que no
  * se reconoce —un `type` nuevo, JSON roto, texto suelto— vuelve como `raw` con
  * la línea intacta, porque descartar salida es peor que mostrarla cruda.
+ *
+ * El encabezado `{"type":"session","id":...}` que pi imprime primero en
+ * `--mode json` se presenta como estado y además expone el id: es la sesión que
+ * después se puede retomar (S17).
  */
 export function normaliseOutputLine(
   line: string,
@@ -267,6 +291,15 @@ export function normaliseOutputLine(
   if (!isRecord(parsed)) return { kind: "raw", text: line, append: false };
 
   const type = typeof parsed.type === "string" ? parsed.type : "";
+
+  if (type === "session") {
+    return {
+      kind: "status",
+      text: EVENT_LABELS.session,
+      append: false,
+      sessionId: normaliseSessionId(parsed.id),
+    };
+  }
 
   if (type === "message_update") {
     if (isRecord(parsed.assistantMessageEvent)) {
@@ -320,6 +353,8 @@ interface ActiveRun {
   command: StudioRunCommand;
   /** Modelo elegido, o null cuando el agente usa su default. */
   model: string | null;
+  /** Id de sesión que informó el agente, o null mientras no lo haya hecho (S17). */
+  sessionId: string | null;
   /** El pedido original: viaja al historial junto con el resto del meta. */
   prompt: string;
   state: StudioRunState;
@@ -403,6 +438,7 @@ export class RunManager {
     const command = buildAgentInvocation(agent, {
       skillDir,
       prompt,
+      skillName: skill.name,
       model,
       binary: resolveAgentBinary(agent, this.agentBinaries),
     });
@@ -413,12 +449,14 @@ export class RunManager {
     this.trimRuns();
     // El `meta` se escribe antes de arrancar el proceso: si el binario no
     // existe, el run igual queda en el historial con su cierre `failed`.
+    // `sessionId` arranca en null y lo completa el registro `session` (S17).
     this.store.begin({
       type: "meta",
       id: run.id,
       agent: run.agent,
       skill: run.skill,
       model: run.model,
+      sessionId: run.sessionId,
       prompt: run.prompt,
       command: run.command,
       startedAt: new Date(run.startedAt).toISOString(),
@@ -560,6 +598,7 @@ export class RunManager {
       skill: { target: skill.target, scope: skill.scope, name: skill.name },
       command,
       model: input.model,
+      sessionId: null,
       prompt: input.prompt,
       state: "running",
       exitCode: null,
@@ -639,6 +678,7 @@ export class RunManager {
   private consume(run: ActiveRun, line: string, format: "jsonl" | "text"): void {
     const draft = normaliseOutputLine(line, { format });
     if (!draft) return;
+    if (draft.sessionId) this.recordSession(run, draft.sessionId);
     if (draft.append) {
       run.pendingText += draft.text;
       this.scheduleFlush(run);
@@ -646,6 +686,18 @@ export class RunManager {
     }
     this.flushPending(run);
     this.pushLine(run, draft.kind, draft.text);
+  }
+
+  /**
+   * Guarda el id de sesión que informó el agente (S17).
+   *
+   * El primero gana: un run es una sola sesión. Se persiste de inmediato, así
+   * un studio que se corta a mitad de camino igual deja cómo retomar el trabajo.
+   */
+  private recordSession(run: ActiveRun, sessionId: string): void {
+    if (run.sessionId !== null) return;
+    run.sessionId = sessionId;
+    this.store.session(run.id, sessionId);
   }
 
   /**
@@ -783,6 +835,7 @@ export class RunManager {
       skill: { ...run.skill },
       command: { binary: run.command.binary, args: [...run.command.args] },
       model: run.model,
+      sessionId: run.sessionId,
       prompt: run.prompt,
       state: run.state,
       exitCode: run.exitCode,
@@ -803,6 +856,7 @@ export class RunManager {
       agent: run.agent,
       skill: { ...run.skill },
       model: run.model,
+      sessionId: run.sessionId,
       prompt: run.prompt,
       state: run.state,
       exitCode: run.exitCode,
@@ -831,6 +885,7 @@ export class RunManager {
       skill: { ...stored.meta.skill },
       command: { binary: stored.meta.command.binary, args: [...stored.meta.command.args] },
       model: stored.meta.model,
+      sessionId: stored.meta.sessionId,
       prompt: stored.meta.prompt,
       state: stored.state,
       exitCode: stored.end ? stored.end.exitCode : null,

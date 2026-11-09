@@ -8,6 +8,7 @@ import {
   normaliseOutputLine,
   RunError,
   RunManager,
+  studioSessionName,
   type RunManagerOptions,
 } from "./run.js";
 import type { SkillFileRef, StudioRunStatus } from "./types.js";
@@ -31,6 +32,16 @@ async function script(name: string, body: string): Promise<string> {
   await chmod(path, 0o755);
   return path;
 }
+
+/** El id de sesión que pi informa en el primer evento de su JSONL (S17). */
+const SESSION_ID = "01936f5e-7a1b-7d3c-9f00-2c9a1d4e5b60";
+
+/** Salida con el encabezado de sesión: es la primera línea de `--mode json`. */
+const SESSION_OUTPUT = [
+  `printf '%s\\n' '{"type":"session","version":3,"id":"${SESSION_ID}","cwd":"/tmp/proyecto"}'`,
+  `printf '%s\\n' '{"type":"agent_start"}'`,
+  `exit 0`,
+].join("\n");
 
 /** El agente que termina enseguida y cubre todos los tipos de evento. */
 const FAST_OUTPUT = [
@@ -94,10 +105,16 @@ afterEach(async () => {
 });
 
 describe("agent invocation contracts", () => {
-  const options = { skillDir: "/tmp/skills/create-specs", prompt: "creá las specs de una app de turnos" };
+  const options = {
+    skillDir: "/tmp/skills/create-specs",
+    prompt: "creá las specs de una app de turnos",
+    skillName: "create-specs",
+  };
 
-  test("pin the pi argument list from S10", () => {
-    expect(buildAgentInvocation("pi", options)).toEqual({
+  test("pi conserva los argumentos de S10, pero ya no es efímera (S17)", () => {
+    const command = buildAgentInvocation("pi", options);
+
+    expect(command).toEqual({
       binary: "pi",
       args: [
         "--print",
@@ -106,26 +123,28 @@ describe("agent invocation contracts", () => {
         "--skill",
         "/tmp/skills/create-specs",
         "-a",
-        "--no-session",
+        "--name",
+        "fwinit studio · create-specs",
         "creá las specs de una app de turnos",
       ],
     });
+    // La sesión se guarda: sin `--no-session` aparece en `pi -r` (S17).
+    expect(command.args).not.toContain("--no-session");
   });
 
   test("gentle-shell reenvía exactamente los mismos argumentos que pi", () => {
-    expect(buildAgentInvocation("gentle-shell", options)).toEqual({
+    const command = buildAgentInvocation("gentle-shell", options);
+
+    expect(command).toEqual({
       binary: "gentle-shell",
-      args: [
-        "--print",
-        "--mode",
-        "json",
-        "--skill",
-        "/tmp/skills/create-specs",
-        "-a",
-        "--no-session",
-        "creá las specs de una app de turnos",
-      ],
+      args: buildAgentInvocation("pi", options).args,
     });
+    expect(command.args).not.toContain("--no-session");
+  });
+
+  test("el nombre de la sesión lleva la skill para reconocerla en el selector", () => {
+    expect(studioSessionName("dark-luxury")).toBe("fwinit studio · dark-luxury");
+    expect(studioSessionName("  ")).toBe("fwinit studio");
   });
 
   test("opencode ejecuta sin flag de skill, con el prompt como argumento", () => {
@@ -161,7 +180,11 @@ describe("agent invocation contracts", () => {
 });
 
 describe("model flag (spec S14)", () => {
-  const options = { skillDir: "/tmp/skills/create-specs", prompt: "hacé las specs" };
+  const options = {
+    skillDir: "/tmp/skills/create-specs",
+    prompt: "hacé las specs",
+    skillName: "create-specs",
+  };
   const model = "anthropic/claude-sonnet-5";
 
   test("pi recibe --model con el modelo elegido", () => {
@@ -174,7 +197,8 @@ describe("model flag (spec S14)", () => {
       "--model",
       "anthropic/claude-sonnet-5",
       "-a",
-      "--no-session",
+      "--name",
+      "fwinit studio · create-specs",
       "hacé las specs",
     ]);
   });
@@ -221,6 +245,22 @@ describe("model flag (spec S14)", () => {
 });
 
 describe("output normalisation", () => {
+  test("el encabezado de sesión se presenta como estado y expone el id (S17)", () => {
+    expect(
+      normaliseOutputLine(
+        `{"type":"session","version":3,"id":"${SESSION_ID}","cwd":"/tmp/proyecto"}`
+      )
+    ).toEqual({ kind: "status", text: "sesión iniciada", append: false, sessionId: SESSION_ID });
+  });
+
+  test("un id de sesión con forma de ruta no se captura como sesión", () => {
+    // El id se muestra y se copia como comando: no puede traer separadores.
+    for (const id of ["../../evil", "a\nb", "", "   "]) {
+      const draft = normaliseOutputLine(`{"type":"session","id":"${id.replace("\n", "\\n")}"}`);
+      expect(draft?.sessionId ?? null).toBeNull();
+    }
+  });
+
   test("el texto en streaming se acumula como una sola línea de texto", () => {
     const first = normaliseOutputLine(
       '{"type":"message_update","assistantMessageEvent":{"type":"text_delta","delta":"hola "}}'
@@ -467,6 +507,43 @@ describe("run manager", () => {
     );
     expect(fromDisk?.next).toBe(finished.next);
     expect(restarted.list().map((summary) => summary.id)).toContain(started.id);
+  });
+
+  test("captura el id de sesión del primer evento del JSONL (S17)", async () => {
+    const manager = managerWith({
+      agentBinaries: { pi: await script("pi-session.sh", SESSION_OUTPUT) },
+    });
+
+    const started = await manager.start({ agent: "pi", skill: piSkill, prompt: "hola" });
+    const finished = await waitForIdle(manager, started.id);
+
+    expect(finished.sessionId).toBe(SESSION_ID);
+    // El encabezado sigue visible como estado: no se descarta salida.
+    expect(finished.lines[0]).toEqual({ n: 1, kind: "status", text: "sesión iniciada" });
+  });
+
+  test("sin evento de sesión el id queda en null: nunca se inventa", async () => {
+    const manager = managerWith({ agentBinaries: { pi: await script("pi-fast.sh", FAST_OUTPUT) } });
+
+    const started = await manager.start({ agent: "pi", skill: piSkill, prompt: "hola" });
+    const finished = await waitForIdle(manager, started.id);
+
+    expect(started.sessionId).toBeNull();
+    expect(finished.sessionId).toBeNull();
+  });
+
+  test("el id de sesión queda en disco y lo lee un manager nuevo (S17)", async () => {
+    const manager = managerWith({
+      agentBinaries: { pi: await script("pi-session.sh", SESSION_OUTPUT) },
+    });
+    const started = await manager.start({ agent: "pi", skill: piSkill, prompt: "hola" });
+    await waitForIdle(manager, started.id);
+
+    const restarted = new RunManager({ projectRoot, home });
+    managers.push(restarted);
+
+    expect(restarted.poll(started.id, 0)?.sessionId).toBe(SESSION_ID);
+    expect(restarted.list().find((run) => run.id === started.id)?.sessionId).toBe(SESSION_ID);
   });
 
   test("dispose mata la ejecución en curso", async () => {    const manager = managerWith({

@@ -840,6 +840,34 @@ button {
   max-width: 420px;
 }
 
+/* La sesión del agente con el comando exacto para retomarla (S17). */
+.run__session {
+  margin-top: var(--space-2xs);
+}
+
+.run__session .detail__actions {
+  margin-top: var(--space-3xs);
+}
+
+/* Sin sesión no hay botones: el bloque no deja un hueco vacío. */
+.run__session .detail__actions:empty {
+  display: none;
+}
+
+/* Fila del historial con su sesión: la fila abre, el botón copia el id (S17). */
+.row__run {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3xs);
+}
+
+.row__run .btn {
+  margin-right: var(--space-3xs);
+  font-family: var(--font-mono);
+  font-size: var(--text-caption);
+}
+
 .run__timer {
   color: var(--text-muted);
   font-family: var(--font-mono);

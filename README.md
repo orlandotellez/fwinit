@@ -120,7 +120,9 @@ llega, línea por línea con su número y con el tiempo transcurrido; mientras
 corre hay un botón **Cancelar**.
 
 - `pi` y `Gentle Shell` reciben la skill por ruta:
-  `--print --mode json --skill <directorio> -a --no-session "<tu pedido>"`.
+  `--print --mode json --skill <directorio> -a --name "fwinit studio · <skill>" "<tu pedido>"`.
+  La sesión se guarda (ya no se pasa `--no-session`), así que la ejecución
+  también queda visible y retomable en el agente (ver **Sesiones**, más abajo).
 - `opencode` no tiene flag de skill: sólo descubre las que están en
   `~/.config/opencode/skills` o `<proyecto>/.opencode/skills`. Si la skill
   abierta no está ahí, el studio rechaza la ejecución y dice el motivo, en vez
@@ -136,6 +138,27 @@ corre hay un botón **Cancelar**.
 - Al terminar, el panel dice el estado y el código de salida, y el studio vuelve
   a leer las skills y las specs, así que un `specs/` recién creado por la skill
   aparece en la otra vista sin recargar la página.
+
+#### Sesiones: retomar la ejecución en el agente
+
+Cada ejecución deja una sesión real en el agente, con el nombre
+`fwinit studio · <skill>`, para que se distinga de las sesiones de trabajo
+manual en el selector.
+
+- `pi` y `Gentle Shell` reciben `--name "<ese nombre>"` y ya **no**
+  `--no-session`: la sesión queda guardada y aparece en `pi -r` y en
+  `gentle-shell -r`.
+- El id de la sesión de `pi` —y de Gentle Shell, que envuelve a `pi`— viaja en el
+  primer evento de su JSONL (`{"type":"session","id":...}`). El studio lo
+  captura, lo guarda en el archivo del run y lo muestra en el panel y en el
+  historial con el comando exacto para retomarla: `pi --session <id>` (o
+  `gentle-shell --session <id>`), más `pi -r` para elegirla a mano. El botón de
+  copiar deja el id en el portapapeles.
+- `opencode` maneja su propio formato de sesión: el studio no le fuerza ni le
+  inventa un id. Si su salida no lo expone, el panel lo dice y sugiere
+  `opencode session list`, en vez de fingir que la sesión es visible desde acá.
+- Un run guardado antes de que existiera la captura se abre igual: el panel
+  avisa que no tiene sesión guardada y el historial lo rotula `sin sesión`.
 
 #### Elegir el modelo
 
@@ -182,11 +205,12 @@ Cada ejecución se guarda en el proyecto, un archivo JSONL por run:
 <proyecto>/.fwinit/studio/runs/<id>.jsonl
 ```
 
-El formato es una línea `meta` (id, agente, skill, modelo, pedido, comando,
-`startedAt`), una línea `line` por cada línea de salida (`n`, `kind`, `text`,
-`at`) y un cierre `end` (`state`, `exitCode`, `endedAt`, `truncated`). La carpeta
-se auto-ignora con un `.fwinit/.gitignore` que contiene `*`: tu `.gitignore` no
-se toca y el repo no se ensucia.
+El formato es una línea `meta` (id, agente, skill, modelo, `sessionId`, pedido,
+comando, `startedAt`), una línea `line` por cada línea de salida (`n`, `kind`,
+`text`, `at`), una línea `session` con el id de sesión del agente si lo informó,
+y un cierre `end` (`state`, `exitCode`, `endedAt`, `truncated`). La carpeta se
+auto-ignora con un `.fwinit/.gitignore` que contiene `*`: tu `.gitignore` no se
+toca y el repo no se ensucia.
 
 - Al recargar la página, el raíl **Ejecuciones** se llena con el historial
   (el más nuevo primero) y, si había un run corriendo, el studio se reengancha
@@ -234,9 +258,10 @@ ni modelo.
 
 El servidor escucha **sólo en 127.0.0.1** y se cierra con `Ctrl+C`. El studio
 sólo escribe cuando se lo pedís: instalar copia archivos del bundle, ejecutar
-lanza el agente que elegiste —que hace lo que la skill diga— y cada ejecución
-deja su registro en `.fwinit/studio/runs/` para que el historial sobreviva a una
-recarga o a un reinicio. Si el proyecto todavía no tiene `specs/`, la vista de
+lanza el agente que elegiste —que hace lo que la skill diga— y deja una sesión
+retomable en ese agente, y cada ejecución deja su registro en
+`.fwinit/studio/runs/` para que el historial sobreviva a una recarga o a un
+reinicio. Si el proyecto todavía no tiene `specs/`, la vista de
 specs lo dice y el resto del studio sigue funcionando; para crearlas, ejecutá la
 skill `create-specs` desde el panel (o usá `/create-specs`).
 

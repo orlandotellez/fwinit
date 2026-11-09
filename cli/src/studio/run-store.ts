@@ -2,10 +2,11 @@
  * Persistencia de las ejecuciones del studio (spec S13).
  *
  * Un archivo JSONL por ejecución en `<raíz del proyecto>/.fwinit/studio/runs/`:
- * una línea `meta` al arrancar, una línea por cada línea de salida y una línea
- * `end` al cerrar. El disco es la copia durable: la memoria del server sigue
- * siendo la que transmite en vivo, pero recargar la página o reiniciar el
- * studio ya no pierde la ejecución.
+ * una línea `meta` al arrancar, una línea por cada línea de salida, una línea
+ * `session` cuando el agente informa el id de su sesión (S17) y una línea `end`
+ * al cerrar. El disco es la copia durable: la memoria del server sigue siendo
+ * la que transmite en vivo, pero recargar la página o reiniciar el studio ya no
+ * pierde la ejecución — ni la sesión con la que se puede retomar.
  *
  * Decisiones que este módulo sostiene:
  *
@@ -67,10 +68,29 @@ export interface RunMetaRecord {
   skill: SkillFileRef;
   /** Modelo elegido por el usuario, o null cuando se usa el default del agente. */
   model: string | null;
+  /**
+   * Id de sesión del agente, capturado de su salida (S17). Se escribe null al
+   * arrancar y un registro `session` lo completa cuando el agente lo informa.
+   */
+  sessionId: string | null;
   /** El pedido tal cual: el historial sirve para recuperar qué se había pedido. */
   prompt: string;
   command: StudioRunCommand;
   startedAt: string;
+}
+
+/**
+ * La sesión que informó el agente, agregada cuando aparece en su salida (S17).
+ *
+ * Va como registro propio en vez de reescribir el `meta`: el archivo es
+ * append-only a propósito, y así un run interrumpido a mitad de camino no
+ * pierde el id de la sesión justo cuando más se quiere retomar.
+ */
+export interface RunSessionRecord {
+  type: "session";
+  sessionId: string;
+  /** Momento en que se capturó, en ISO. */
+  at: string;
 }
 
 export interface RunLineRecord extends StudioRunLine {
@@ -87,7 +107,7 @@ export interface RunEndRecord {
   truncated: boolean;
 }
 
-export type RunRecord = RunMetaRecord | RunLineRecord | RunEndRecord;
+export type RunRecord = RunMetaRecord | RunLineRecord | RunEndRecord | RunSessionRecord;
 
 /** Un archivo de ejecución ya leído. */
 export interface StoredRun {
@@ -130,6 +150,29 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
+/**
+ * Un id de sesión es una etiqueta, nunca una ruta ni un comando (S17).
+ *
+ * Se muestra y se copia tal cual para `--session <id>`: un separador, un
+ * espacio o un salto de línea lo convertirían en otra cosa.
+ */
+const SESSION_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
+
+/** Tope del id de sesión aceptado; un uuid entra de sobra. */
+export const MAX_SESSION_ID_LENGTH = 128;
+
+/**
+ * Normaliza un id de sesión informado por el agente, o null si no es una
+ * etiqueta aceptable. Lo usan el capturador (`run.ts`) y el lector del disco.
+ */
+export function normaliseSessionId(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const id = value.trim();
+  if (id === "" || id.length > MAX_SESSION_ID_LENGTH) return null;
+  if (!SESSION_ID_PATTERN.test(id)) return null;
+  return id;
+}
+
 function isTarget(value: unknown): value is SkillTargetId {
   return value === "opencode" || value === "pi" || value === "gentle-shell";
 }
@@ -169,6 +212,8 @@ function asMeta(value: unknown): RunMetaRecord | null {
     agent: value.agent,
     skill,
     model: typeof value.model === "string" && value.model !== "" ? value.model : null,
+    // Un archivo anterior a S17 no trae la clave: se lee sin sesión, no roto.
+    sessionId: normaliseSessionId(value.sessionId),
     prompt: typeof value.prompt === "string" ? value.prompt : "",
     command,
     startedAt: value.startedAt,
@@ -197,6 +242,14 @@ function asEnd(value: unknown): RunEndRecord | null {
     endedAt: value.endedAt,
     truncated: value.truncated === true,
   };
+}
+
+/** El registro que completa el id de sesión capturado del agente (S17). */
+function asSession(value: unknown): RunSessionRecord | null {
+  if (!isRecord(value) || value.type !== "session") return null;
+  const sessionId = normaliseSessionId(value.sessionId);
+  if (!sessionId) return null;
+  return { type: "session", sessionId, at: typeof value.at === "string" ? value.at : "" };
 }
 
 /**
@@ -230,6 +283,12 @@ export function parseRunFile(text: string, bytes = Buffer.byteLength(text, "utf8
       lines.push(candidateLine);
       continue;
     }
+    const candidateSession = asSession(parsed);
+    if (candidateSession) {
+      // El primer id capturado gana: un run es una sola sesión del agente.
+      if (meta && meta.sessionId === null) meta.sessionId = candidateSession.sessionId;
+      continue;
+    }
     const candidateEnd = asEnd(parsed);
     if (candidateEnd) end = candidateEnd;
   }
@@ -253,6 +312,7 @@ export function summarise(run: StoredRun, fromDisk: boolean): StudioRunSummary {
     agent: run.meta.agent,
     skill: run.meta.skill,
     model: run.meta.model,
+    sessionId: run.meta.sessionId,
     prompt: run.meta.prompt,
     state: run.state,
     exitCode: run.end ? run.end.exitCode : null,
@@ -322,6 +382,18 @@ export class RunStore {
       at: new Date().toISOString(),
     };
     this.write(id, record);
+  }
+
+  /**
+   * Guarda la sesión que informó el agente (S17).
+   *
+   * Un id que no es una etiqueta se descarta: viaja a la vista y al comando que
+   * el usuario copia, así que no puede traer separadores ni saltos de línea.
+   */
+  session(id: string, sessionId: string): void {
+    const clean = normaliseSessionId(sessionId);
+    if (!clean) return;
+    this.write(id, { type: "session", sessionId: clean, at: new Date().toISOString() });
   }
 
   /** Cierra la ejecución: sin este registro el run se lee `interrupted`. */
