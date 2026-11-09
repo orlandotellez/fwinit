@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>02 · Panel de ejecución — ficha e informe</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --base: #07090f; --surface: #0b0e16; --surface-elevated: #121623; --code-bg: #121623;
+    --text: #eef2f8; --text-secondary: #a8b2c4; --text-muted: #77839a;
+    --accent: #8aa2ff; --accent-hover: #a6b8ff; --accent-soft: #16203a; --accent-border: #3d4a7a;
+    --on-accent: #07090f; --success: #4ade80; --warning: #fbbf24; --error: #f87171;
+    --border: #1e2433; --border-strong: #2c3446; --border-input: #5f6b8a;
+    --hairline: 1px dashed var(--border); --hairline-strong: 1px dashed var(--border-strong);
+    --focus: var(--accent);
+    --space-3xs: .25rem; --space-2xs: .5rem; --space-xs: .75rem; --space-sm: 1rem;
+    --space-md: 1.5rem; --space-lg: 2rem;
+    --caption: .8125rem; --small: .9375rem; --body: 1.0625rem; --code: .875rem;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; background: var(--base); color: var(--text);
+    font-family: var(--sans); font-size: var(--small); line-height: 1.5;
+    display: flex; flex-direction: column;
+  }
+  .mono { font-family: var(--mono); }
+  .muted { color: var(--text-muted); }
+  button {
+    font: inherit; font-size: var(--small); cursor: pointer; min-height: 32px;
+    background: transparent; color: var(--text); border: 1px solid var(--border-input);
+    padding: var(--space-3xs) var(--space-xs);
+    transition: background 150ms cubic-bezier(.16,1,.3,1), border-color 150ms cubic-bezier(.16,1,.3,1);
+  }
+  button:hover { background: var(--surface-elevated); border-color: var(--accent-border); }
+  button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  button[data-variant="primary"] { background: var(--accent); color: var(--on-accent); border-color: var(--accent); font-weight: 600; }
+  button[data-variant="primary"]:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+  .badge { font-family: var(--mono); font-size: var(--caption); padding: 1px var(--space-2xs); border: 1px solid var(--border-strong); color: var(--text-secondary); white-space: nowrap; }
+  .badge[data-tone="ok"] { color: var(--success); border-color: #2c5b3c; }
+  .badge[data-tone="run"] { color: var(--accent); border-color: var(--accent-border); background: var(--accent-soft); }
+  .badge[data-tone="warn"] { color: var(--warning); border-color: #5c4a1c; }
+
+  /* ── Header como ficha: identidad a la izquierda, hechos alineados a la derecha ── */
+  header.record { flex: none; background: var(--surface); border-bottom: 1px solid var(--border); padding: var(--space-sm) var(--space-md); }
+  .record__top { display: flex; align-items: baseline; gap: var(--space-2xs); }
+  .record__top h1 { margin: 0; font-size: var(--h3, 1.5rem); font-size: 1.5rem; font-weight: 600; letter-spacing: -.015em; }
+  .record__top .badge { align-self: center; }
+  .record__prompt { margin: var(--space-3xs) 0 0; color: var(--text-secondary); max-width: 82ch; }
+  .record__prompt b { color: var(--text); font-weight: 600; }
+  .facts {
+    display: grid; grid-template-columns: repeat(6, minmax(0,1fr)); gap: var(--space-sm);
+    margin-top: var(--space-sm); padding-top: var(--space-2xs); border-top: var(--hairline);
+  }
+  .fact__k { font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--text-muted); }
+  .fact__v { font-family: var(--mono); font-size: var(--caption); color: var(--text); margin-top: 1px; }
+  .record__actions { display: flex; gap: var(--space-2xs); margin-top: var(--space-xs); }
+
+  /* ── Cuerpo: informe del trabajo + columna de números ── */
+  .body { flex: 1; display: grid; grid-template-columns: minmax(0,1fr) 264px; min-height: 0; }
+  main.report { overflow-y: auto; padding: var(--space-md); min-width: 0; }
+
+  .group { margin-bottom: var(--space-md); }
+  .group__head {
+    display: flex; align-items: baseline; gap: var(--space-2xs); padding-bottom: var(--space-3xs);
+    border-bottom: 1px solid var(--border-strong);
+  }
+  .group__head h2 { margin: 0; font-size: var(--caption); letter-spacing: .12em; text-transform: uppercase; color: var(--text-secondary); font-weight: 600; }
+  .group__head .muted { font-size: var(--caption); margin-left: auto; font-family: var(--mono); }
+
+  table.steps { width: 100%; border-collapse: collapse; font-size: var(--caption); }
+  table.steps th {
+    text-align: left; font-weight: 500; font-size: 10px; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--text-muted); padding: var(--space-3xs) var(--space-2xs); border-bottom: var(--hairline);
+  }
+  table.steps td { padding: var(--space-3xs) var(--space-2xs); border-bottom: var(--hairline); vertical-align: top; }
+  table.steps tr:last-child td { border-bottom: 0; }
+  td.verb { font-family: var(--mono); color: var(--accent); white-space: nowrap; width: 72px; }
+  td.target { font-family: var(--mono); color: var(--text); }
+  td.result { font-family: var(--mono); color: var(--text-secondary); white-space: nowrap; width: 1%; }
+  td.time { font-family: var(--mono); color: var(--text-muted); text-align: right; white-space: nowrap; width: 1%; }
+  .ok { color: var(--success); }
+  .run { color: var(--accent); }
+
+  .note {
+    margin: var(--space-xs) 0 0; padding: var(--space-2xs) var(--space-xs);
+    border-left: 2px solid var(--accent); background: rgb(138 162 255 / .05);
+    color: var(--text-secondary); font-size: var(--caption); max-width: 78ch;
+  }
+  .note b { color: var(--text); }
+
+  /* ── Columna de números ── */
+  aside.rail { background: var(--surface); border-left: 1px solid var(--border); overflow-y: auto; }
+  .block { padding: var(--space-xs) var(--space-sm) var(--space-sm); border-bottom: var(--hairline-strong); }
+  .block__head { font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--text-muted); margin-bottom: var(--space-2xs); display: flex; justify-content: space-between; }
+  .kv { display: flex; justify-content: space-between; gap: var(--space-2xs); font-size: var(--caption); padding: 2px 0; }
+  .kv span:first-child { color: var(--text-muted); }
+  .kv span:last-child { font-family: var(--mono); color: var(--text); }
+  .progress { height: 4px; background: var(--border); margin: var(--space-2xs) 0 var(--space-3xs); }
+  .progress > i { display: block; height: 100%; width: 66%; background: var(--accent); }
+  .hrow { display: flex; align-items: center; gap: var(--space-2xs); width: 100%; padding: 4px 0; border: 0; border-bottom: var(--hairline); background: none; font-size: var(--caption); color: var(--text-secondary); text-align: left; min-height: 28px; }
+  .hrow:hover { color: var(--text); }
+  .hrow:last-child { border-bottom: 0; }
+  .hrow__when { margin-left: auto; font-family: var(--mono); color: var(--text-muted); }
+
+  @media (prefers-reduced-motion: reduce) { button { transition: none; } }
+</style>
+</head>
+<body>
+  <header class="record">
+    <div class="record__top">
+      <h1>create-specs</h1>
+      <span class="badge" data-tone="run" aria-live="polite">● ejecutando</span>
+    </div>
+    <p class="record__prompt">Pedido: <b>specs del panel de ejecución del studio</b></p>
+    <div class="facts">
+      <div><div class="fact__k">Agente</div><div class="fact__v">pi</div></div>
+      <div><div class="fact__k">Modelo</div><div class="fact__v">deepseek-v4.1-flash</div></div>
+      <div><div class="fact__k">Inicio</div><div class="fact__v">21:14:02</div></div>
+      <div><div class="fact__k">Tiempo</div><div class="fact__v">1m 12s</div></div>
+      <div><div class="fact__k">Archivos</div><div class="fact__v">3 tocados</div></div>
+      <div><div class="fact__k">Suite</div><div class="fact__v">364 pass</div></div>
+    </div>
+    <div class="record__actions">
+      <button>Cancelar ejecución</button>
+      <button>Ver historial</button>
+      <button disabled>Editar pedido mientras corre</button>
+    </div>
+  </header>
+
+  <div class="body">
+    <main class="report">
+      <section class="group">
+        <div class="group__head"><h2>Lectura</h2><span class="muted">2 pasos · 2.1s</span></div>
+        <table class="steps">
+          <thead><tr><th>Acción</th><th>Archivo</th><th>Resultado</th><th>Tiempo</th></tr></thead>
+          <tbody>
+            <tr><td class="verb">leer</td><td class="target">specs/frontend/01-style.md</td><td class="result"><span class="ok">✓</span> 6.4 KB</td><td class="time">1.1s</td></tr>
+            <tr><td class="verb">leer</td><td class="target">specs/modules/frontend/02-componentes.md</td><td class="result"><span class="ok">✓</span> 4.1 KB</td><td class="time">1.0s</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="group">
+        <div class="group__head"><h2>Escritura</h2><span class="muted">1 de 2 pasos</span></div>
+        <table class="steps">
+          <thead><tr><th>Acción</th><th>Archivo</th><th>Resultado</th><th>Tiempo</th></tr></thead>
+          <tbody>
+            <tr><td class="verb">escribir</td><td class="target">specs/modules/frontend/03-panel-ejecucion.md</td><td class="result"><span class="ok">✓</span> 8.2 KB</td><td class="time">18.4s</td></tr>
+            <tr><td class="verb">escribir</td><td class="target">specs/tasks/frontend.md</td><td class="result"><span class="run">en curso</span></td><td class="time">6.0s</td></tr>
+          </tbody>
+        </table>
+        <p class="note"><b>El módulo ya está en disco.</b> Escribir las tareas no lo invalida: son dos archivos
+          independientes y el segundo se puede cancelar sin perder el primero.</p>
+      </section>
+
+      <section class="group" style="margin-bottom:0">
+        <div class="group__head"><h2>Verificación</h2><span class="muted">1 paso · 24.6s</span></div>
+        <table class="steps">
+          <thead><tr><th>Acción</th><th>Comando</th><th>Resultado</th><th>Tiempo</th></tr></thead>
+          <tbody>
+            <tr><td class="verb">ejecutar</td><td class="target">bun test</td><td class="result"><span class="ok">✓</span> 364 pass / 0 fail</td><td class="time">24.6s</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <div class="record__actions" style="margin-top:var(--space-md)">
+        <button data-variant="primary">Ejecutar de nuevo</button>
+        <button>Cambiar agente</button>
+        <button>Cambiar modelo</button>
+      </div>
+    </main>
+
+    <aside class="rail" aria-label="Números de la ejecución">
+      <section class="block">
+        <div class="block__head"><span>Progreso</span><span class="mono">4 / 6</span></div>
+        <div class="progress"><i></i></div>
+        <div class="kv"><span>Pasos hechos</span><span>4</span></div>
+        <div class="kv"><span>Fallidos</span><span>0</span></div>
+      </section>
+
+      <section class="block">
+        <div class="block__head"><span>Consumo</span><span class="mono">$0.081</span></div>
+        <div class="kv"><span>Tokens entrada</span><span>42.1k</span></div>
+        <div class="kv"><span>Tokens salida</span><span>3.9k</span></div>
+        <div class="kv"><span>Cache</span><span>91%</span></div>
+        <div class="kv"><span>Herramientas</span><span>5</span></div>
+      </section>
+
+      <section class="block" style="border-bottom:0">
+        <div class="block__head"><span>Historial de la skill</span><span class="mono">3</span></div>
+        <div class="hrow"><span class="badge" data-tone="run">●</span> esta corrida<span class="hrow__when">ahora</span></div>
+        <div class="hrow"><span class="badge" data-tone="ok">✓</span> pi · 1m 12s<span class="hrow__when">hoy</span></div>
+        <div class="hrow"><span class="badge" data-tone="warn">!</span> opencode<span class="hrow__when">ayer</span></div>
+      </section>
+    </aside>
+  </div>
+</body>
+</html>
