@@ -68,4 +68,24 @@ describe("studio document", () => {
     expect(CLIENT_JS).toContain("function refreshReports(");
     expect(CLIENT_JS).toContain("state.specs = null;");
   });
+
+  test("el historial reengancha la ejecución en curso al cargar la página (S13)", () => {
+    // El historial vive en el raíl: se ve sin abrir el detalle de una skill.
+    expect(html).toContain("data-run-history");
+    expect(CLIENT_JS).toContain("'/api/skills/runs'");
+    expect(CLIENT_JS).toContain("function bootRunHistory(");
+    expect(CLIENT_JS).toContain("function reattachRun(");
+    expect(CLIENT_JS).toContain("function renderRunHistory(");
+    expect(CLIENT_JS).toContain("function loadHistoricalRun(");
+    // Un run sin cierre se nombra como interrumpido, nunca como en curso.
+    expect(CLIENT_JS).toContain("interrupted");
+  });
+
+  test("el panel ofrece el modelo del catálogo y no inventa ids (S14)", () => {
+    expect(CLIENT_JS).toContain("'/api/skills/models?agent='");
+    expect(CLIENT_JS).toContain("data-run-model");
+    expect(CLIENT_JS).toContain("datalist");
+    expect(CLIENT_JS).toContain("function ensureModelList(");
+    expect(CLIENT_JS).toContain("model: model");
+  });
 });

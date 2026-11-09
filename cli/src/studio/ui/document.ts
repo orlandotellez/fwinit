@@ -143,6 +143,9 @@ export function renderStudioHtml(options: StudioDocumentOptions): string {
       <div class="rail__body" data-list="skills">
         <p class="loading">Leyendo las skills instaladas…</p>
       </div>
+      <div class="rail__runs" data-run-history aria-label="Ejecuciones">
+        <p class="loading">Leyendo el historial…</p>
+      </div>
     </aside>
     <section class="pane" data-detail="skills">
       <p class="loading">Leyendo las skills instaladas…</p>

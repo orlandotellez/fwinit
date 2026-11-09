@@ -221,9 +221,11 @@ export interface InstallResult {
  * Estado de una ejecución de skill (`run.ts`).
  *
  * `running` es el único estado que admite una segunda consulta con líneas
- * nuevas; los otros tres son finales y el panel deja de pedir.
+ * nuevas; los otros son finales y el panel deja de pedir. `interrupted` sólo
+ * aparece al leer un archivo del historial sin registro de cierre: el proceso
+ * murió con el server anterior, así que jamás se reporta como `running`.
  */
-export type StudioRunState = "running" | "done" | "failed" | "cancelled";
+export type StudioRunState = "running" | "done" | "failed" | "cancelled" | "interrupted";
 
 /**
  * Cómo se presenta una línea de la salida del agente.
@@ -254,6 +256,10 @@ export interface StudioRunStatus {
   /** La skill que el usuario tenía abierta, resuelta en el server. */
   skill: SkillFileRef;
   command: StudioRunCommand;
+  /** Modelo elegido por el usuario, o null cuando el agente usa su default. */
+  model: string | null;
+  /** El pedido original: el historial permite recuperar qué se había pedido. */
+  prompt: string;
   state: StudioRunState;
   /** Código de salida del proceso, o null mientras corre o si lo mató una señal. */
   exitCode: number | null;
@@ -268,6 +274,63 @@ export interface StudioRunStatus {
   truncated: boolean;
   /** Avisos para el panel antes o después de ejecutar (p. ej. el límite de opencode). */
   notes: string[];
+}
+
+/**
+ * Un run del historial (`GET /api/skills/runs`), leído de la memoria del server
+ * o del disco, con lo justo para listarlo sin mandar toda la salida.
+ */
+export interface StudioRunSummary {
+  id: string;
+  agent: SkillTargetId;
+  skill: SkillFileRef;
+  model: string | null;
+  prompt: string;
+  /** `interrupted` es un archivo sin cierre: el server anterior murió. */
+  state: StudioRunState;
+  exitCode: number | null;
+  startedAt: string;
+  endedAt: string | null;
+  lineCount: number;
+  truncated: boolean;
+  /** True cuando el resumen salió del disco y no de la memoria del server. */
+  fromDisk: boolean;
+}
+
+/** Respuesta de `GET /api/skills/runs`: la ejecución viva y el historial. */
+export interface StudioRunsList {
+  /** Id de la ejecución en curso, o null cuando no hay ninguna. */
+  inFlight: string | null;
+  /** Resúmenes de la más nueva a la más vieja. */
+  runs: StudioRunSummary[];
+}
+
+/** Un modelo tal como lo publica el CLI del agente (spec S14). */
+export interface StudioModel {
+  provider: string;
+  model: string;
+  /** `provider/model`, el formato que aceptan `pi --model` y `opencode run --model`. */
+  id: string;
+  context?: string;
+  maxOut?: string;
+  thinking?: boolean;
+  images?: boolean;
+}
+
+/**
+ * Catálogo de modelos de un agente.
+ *
+ * `available: false` no es un error del studio: el comando del CLI falló o no
+ * devolvió nada, y el panel deja el campo como texto libre con ese motivo.
+ */
+export interface StudioModelList {
+  agent: SkillTargetId;
+  /** Agente cuyo CLI se consultó: `gentle-shell` reusa el catálogo de `pi`. */
+  source: SkillTargetId;
+  available: boolean;
+  models: StudioModel[];
+  command: StudioRunCommand;
+  error?: string;
 }
 
 export interface StudioOpenOptions {
@@ -293,6 +356,8 @@ export interface StudioOpenOptions {
   runMaxOutputBytes?: number;
   /** Espera entre SIGTERM y SIGKILL al cancelar; por defecto 5 s (spec S12). */
   runCancelGraceMs?: number;
+  /** Corte del comando de catálogo de modelos; por defecto 5 s (spec S14). */
+  modelListTimeoutMs?: number;
 }
 
 export interface StudioAddress {

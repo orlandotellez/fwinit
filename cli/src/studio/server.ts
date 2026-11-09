@@ -3,7 +3,9 @@ import { randomBytes, timingSafeEqual } from "node:crypto";
 import type { AddressInfo } from "node:net";
 import { join, resolve } from "node:path";
 import { applyInstall, buildInstallPlan, InstallError, resolveInstallInfo } from "./install.js";
+import { isModelAgent, ModelCatalog } from "./models.js";
 import { isRunAgent, isRunScope, RunError, RunManager, type RunErrorCode } from "./run.js";
+import { isRunId } from "./run-store.js";
 import { listSkillFiles, readSkillFile, SkillFileError } from "./skill-files.js";
 import { buildSpecsTree, readSpecFile, SpecPathError } from "./specs.js";
 import { discoverSkills } from "./skills.js";
@@ -11,6 +13,7 @@ import type {
   SkillFileRef,
   StudioInstallInfo,
   StudioOpenOptions,
+  StudioRunsList,
   StudioServer,
 } from "./types.js";
 import { renderStudioHtml } from "./ui/document.js";
@@ -25,6 +28,10 @@ const INSTALL_PATH = "/api/skills/install";
 /** Ejecución de una skill: iniciar, consultar por cursor y cancelar (S11/S12). */
 const RUN_PATH = "/api/skills/run";
 const RUN_CANCEL_PATH = "/api/skills/run/cancel";
+
+/** Historial durable de ejecuciones y catálogo de modelos (S13/S14). */
+const RUNS_PATH = "/api/skills/runs";
+const MODELS_PATH = "/api/skills/models";
 
 /**
  * Largest body the install route accepts. The payload is `{name, token}`; a
@@ -241,13 +248,21 @@ export async function startStudio(options: StudioOpenOptions = {}): Promise<Stud
   let listeningPort = options.port ?? 0;
 
   // Un solo run a la vez: el manager es el dueño de los procesos hijos y de su
-  // salida numerada (S11/S12). Los binarios son inyectables para los tests.
+  // salida numerada (S11/S12), y de la copia durable en el proyecto (S13).
   const runs = new RunManager({
     projectRoot,
     home,
     agentBinaries: options.agentBinaries,
     maxOutputBytes: options.runMaxOutputBytes,
     cancelGraceMs: options.runCancelGraceMs,
+  });
+
+  // Catálogo por agente, cacheado por arranque: un click no lanza un proceso
+  // por vez y el CLI real sigue siendo la única fuente de ids (S14).
+  const models = new ModelCatalog({
+    projectRoot,
+    agentBinaries: options.agentBinaries,
+    timeoutMs: options.modelListTimeoutMs,
   });
 
   const server = createServer((request, response) => {
@@ -395,6 +410,8 @@ export async function startStudio(options: StudioOpenOptions = {}): Promise<Stud
         agent,
         skill: { target, scope, name: name.trim() },
         prompt: typeof payload.prompt === "string" ? payload.prompt : "",
+        // El modelo viaja como texto y lo valida el manager antes del argv.
+        model: payload.model === null || payload.model === undefined ? null : String(payload.model),
       });
       sendJson(response, 200, status);
     } catch (error) {
@@ -440,6 +457,12 @@ export async function startStudio(options: StudioOpenOptions = {}): Promise<Stud
       sendJson(response, 400, { error: "Falta el parámetro id." });
       return;
     }
+    // El id nombra un archivo en `.fwinit/studio/runs/`: separadores y puntos
+    // se rechazan antes de tocar el disco.
+    if (!isRunId(id)) {
+      sendJson(response, 400, { error: "El id de la ejecución no es válido." });
+      return;
+    }
     const sinceRaw = url.searchParams.get("since") ?? "0";
     const since = Number.parseInt(sinceRaw, 10);
     if (!Number.isFinite(since) || since < 0) {
@@ -453,6 +476,31 @@ export async function startStudio(options: StudioOpenOptions = {}): Promise<Stud
       return;
     }
     sendJson(response, 200, status);
+  }
+
+  /**
+   * El historial: la ejecución en curso y el resumen de cada run en disco.
+   *
+   * Es de lectura: no arranca ni toca ningún proceso, y por eso no pide token.
+   */
+  function handleRunsGet(response: ServerResponse): void {
+    const body: StudioRunsList = { inFlight: runs.inFlight(), runs: runs.list() };
+    sendJson(response, 200, body);
+  }
+
+  /**
+   * Catálogo de modelos del agente, leído del CLI real y cacheado por arranque.
+   *
+   * Siempre responde 200: si el comando falla, `available: false` y el motivo
+   * dejan el campo como texto libre en vez de romper el panel (S14).
+   */
+  async function handleModelsGet(url: URL, response: ServerResponse): Promise<void> {
+    const agent = url.searchParams.get("agent");
+    if (!isModelAgent(agent)) {
+      sendJson(response, 400, { error: "Falta el parámetro agent (opencode, pi o gentle-shell)." });
+      return;
+    }
+    sendJson(response, 200, await models.list(agent));
   }
 
   async function handle(request: IncomingMessage, response: ServerResponse): Promise<void> {
@@ -553,6 +601,16 @@ export async function startStudio(options: StudioOpenOptions = {}): Promise<Stud
 
     if (pathname === RUN_CANCEL_PATH) {
       await handleRunCancel(request, response, hostPort);
+      return;
+    }
+
+    if (pathname === RUNS_PATH) {
+      handleRunsGet(response);
+      return;
+    }
+
+    if (pathname === MODELS_PATH) {
+      await handleModelsGet(url, response);
       return;
     }
 

@@ -416,6 +416,30 @@ button {
   border: 3px solid var(--surface);
 }
 
+/* Historial de ejecuciones: vive abajo del raíl y no le roba la lista. */
+.rail__runs {
+  max-height: 38%;
+  overflow-y: auto;
+  padding: var(--space-2xs) 0;
+  border-top: var(--hairline-strong);
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+.rail__title {
+  margin: 0;
+  padding: var(--space-3xs) var(--space-sm);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-caption);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.rail__runs .row--empty {
+  padding: var(--space-3xs) var(--space-sm);
+}
+
 .field {
   display: flex;
   align-items: center;
@@ -774,6 +798,21 @@ button {
 .run__input:disabled {
   color: var(--text-muted);
   background: var(--surface);
+}
+
+/* El modelo es una sola línea: el campo de texto libre del catálogo (S14). */
+.run__input--model {
+  min-height: 0;
+  padding: 0.35rem var(--space-2xs);
+  font-family: var(--font-mono);
+  resize: none;
+}
+
+.run__history {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-3xs);
+  margin-top: var(--space-2xs);
 }
 
 .run__row {

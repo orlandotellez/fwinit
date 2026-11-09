@@ -160,6 +160,66 @@ describe("agent invocation contracts", () => {
   });
 });
 
+describe("model flag (spec S14)", () => {
+  const options = { skillDir: "/tmp/skills/create-specs", prompt: "hacé las specs" };
+  const model = "anthropic/claude-sonnet-5";
+
+  test("pi recibe --model con el modelo elegido", () => {
+    expect(buildAgentInvocation("pi", { ...options, model }).args).toEqual([
+      "--print",
+      "--mode",
+      "json",
+      "--skill",
+      "/tmp/skills/create-specs",
+      "--model",
+      "anthropic/claude-sonnet-5",
+      "-a",
+      "--no-session",
+      "hacé las specs",
+    ]);
+  });
+
+  test("gentle-shell también recibe --model", () => {
+    const args = buildAgentInvocation("gentle-shell", { ...options, model }).args;
+
+    expect(args[args.indexOf("--model") + 1]).toBe("anthropic/claude-sonnet-5");
+    expect(args[args.length - 1]).toBe("hacé las specs");
+  });
+
+  test("opencode run recibe --model antes del prompt", () => {
+    expect(buildAgentInvocation("opencode", { ...options, model }).args).toEqual([
+      "run",
+      "--auto",
+      "--model",
+      "anthropic/claude-sonnet-5",
+      "hacé las specs",
+    ]);
+  });
+
+  test("sin modelo elegido no se pasa el flag y el agente usa su default", () => {
+    for (const agent of ["pi", "gentle-shell", "opencode"] as const) {
+      expect(buildAgentInvocation(agent, options).args).not.toContain("--model");
+      expect(buildAgentInvocation(agent, { ...options, model: "   " }).args).not.toContain(
+        "--model"
+      );
+    }
+  });
+
+  test("un modelo con caracteres de control o de más de 128 caracteres se rechaza", () => {
+    expect(() => buildAgentInvocation("pi", { ...options, model: "a\nb" })).toThrow(RunError);
+    expect(() => buildAgentInvocation("pi", { ...options, model: "modelo\u0007" })).toThrow(
+      RunError
+    );
+    expect(() => buildAgentInvocation("pi", { ...options, model: "x".repeat(129) })).toThrow(
+      RunError
+    );
+    // 128 caracteres es el límite aceptado.
+    expect(
+      buildAgentInvocation("pi", { ...options, model: "x".repeat(128) }).args
+    ).toContain("x".repeat(128));
+  });
+});
+
 describe("output normalisation", () => {
   test("el texto en streaming se acumula como una sola línea de texto", () => {
     const first = normaliseOutputLine(
@@ -356,6 +416,57 @@ describe("run manager", () => {
     } finally {
       delete process.env.FWINIT_STUDIO_BIN_PI;
     }
+  });
+
+  test("el modelo elegido queda en el estado y en los argumentos (S14)", async () => {
+    const manager = managerWith({ agentBinaries: { pi: await script("pi-fast.sh", FAST_OUTPUT) } });
+
+    const started = await manager.start({
+      agent: "pi",
+      skill: piSkill,
+      prompt: "hola",
+      model: "anthropic/claude-sonnet-5",
+    });
+
+    expect(started.model).toBe("anthropic/claude-sonnet-5");
+    expect(started.command.args[started.command.args.indexOf("--model") + 1]).toBe(
+      "anthropic/claude-sonnet-5"
+    );
+    await waitForIdle(manager, started.id);
+
+    const plain = await manager.start({ agent: "pi", skill: piSkill, prompt: "sin modelo" });
+    expect(plain.model).toBeNull();
+    expect(plain.command.args).not.toContain("--model");
+    await waitForIdle(manager, plain.id);
+  });
+
+  test("rechaza un modelo inválido sin arrancar el proceso", async () => {
+    const manager = managerWith({ agentBinaries: { pi: await script("pi-fast.sh", FAST_OUTPUT) } });
+
+    await expect(
+      manager.start({ agent: "pi", skill: piSkill, prompt: "x", model: "a\nb" })
+    ).rejects.toThrow(RunError);
+    await expect(
+      manager.start({ agent: "pi", skill: piSkill, prompt: "x", model: "y".repeat(200) })
+    ).rejects.toThrow(RunError);
+  });
+
+  test("la ejecución persiste en disco y la lee un manager nuevo (S13)", async () => {
+    const manager = managerWith({ agentBinaries: { pi: await script("pi-fast.sh", FAST_OUTPUT) } });
+    const started = await manager.start({ agent: "pi", skill: piSkill, prompt: "hola" });
+    const finished = await waitForIdle(manager, started.id);
+
+    // Un server nuevo sobre el mismo proyecto: el run se recupera del disco.
+    const restarted = new RunManager({ projectRoot, home });
+    managers.push(restarted);
+
+    const fromDisk = restarted.poll(started.id, 0);
+    expect(fromDisk?.state).toBe("done");
+    expect(fromDisk?.lines).toEqual(
+      finished.lines.map((line) => ({ n: line.n, kind: line.kind, text: line.text }))
+    );
+    expect(fromDisk?.next).toBe(finished.next);
+    expect(restarted.list().map((summary) => summary.id)).toContain(started.id);
   });
 
   test("dispose mata la ejecución en curso", async () => {    const manager = managerWith({

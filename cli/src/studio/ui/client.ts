@@ -44,10 +44,22 @@ export const CLIENT_JS = `
     agents: {},
     /**
      * La ejecución en curso (o la última de esta pestaña):
-     * { skillKey, id, agent, prompt, phase, lines, next, exitCode, error, ... }.
+     * { skillKey, id, agent, prompt, model, phase, lines, next, exitCode, error, ... }.
      * Sólo hay una a la vez en todo el studio, igual que en el server.
      */
-    run: null
+    run: null,
+    /** Historial de GET /api/skills/runs: { inFlight, runs } (S13). */
+    history: null,
+    historyError: null,
+    /** Run del historial elegido, con la misma forma que un run vivo. */
+    selection: null,
+    /** Skill del run en curso, para reabrirla sola al recargar la página. */
+    reattachKey: null,
+    /** Catálogo de modelos por agente, cacheado en la pestaña (S14). */
+    models: {},
+    modelLoading: {},
+    /** Modelo escrito por skill, para que un repintado no lo borre. */
+    modelText: {}
   };
 
   function q(sel, root) {
@@ -345,9 +357,7 @@ export const CLIENT_JS = `
     state.scope = scope === 'project' ? 'project' : 'global';
     state.skillKey = null;
     state.install = null;
-    qa('[data-scope]').forEach(function (button) {
-      button.setAttribute('aria-pressed', button.dataset.scope === state.scope ? 'true' : 'false');
-    });
+    syncScopeButtons();
     var first = state.skills ? visibleSkills(state.skills, state.scope)[0] : null;
     if (first) {
       state.skillKey = first.target + '/' + first.name;
@@ -356,6 +366,13 @@ export const CLIENT_JS = `
     renderSkillList();
     renderSkillDetail();
     syncShell();
+  }
+
+  /** El control de alcance refleja el alcance que se está mirando. */
+  function syncScopeButtons() {
+    qa('[data-scope]').forEach(function (button) {
+      button.setAttribute('aria-pressed', button.dataset.scope === state.scope ? 'true' : 'false');
+    });
   }
 
   function visibleSkills(report, scope) {
@@ -592,16 +609,28 @@ export const CLIENT_JS = `
     return id;
   }
 
-  /** La ejecución de esta skill, si la hay: la identidad incluye el alcance. */
+  /** La ejecución viva de esta skill, si la hay: la identidad incluye el alcance. */
   function runFor(skill) {
     return state.run && state.run.skillKey === skillKeyOf(skill) ? state.run : null;
   }
 
+  /** El run que muestra el panel: la ejecución del historial elegida o la viva. */
+  function viewedRun(skill) {
+    return runByKey(skillKeyOf(skill));
+  }
+
+  /** El run de una skill por clave, sin necesitar el reporte de skills. */
+  function runByKey(key) {
+    if (state.selection && state.selection.skillKey === key) return state.selection;
+    if (state.run && state.run.skillKey === key) return state.run;
+    return null;
+  }
+
   function agentFor(skill) {
-    var key = skillKeyOf(skill);
-    if (state.run && state.run.skillKey === key) return state.run.agent;
+    var viewed = viewedRun(skill);
+    if (viewed) return viewed.agent;
     // Gentle Shell es el agente propio del usuario; los otros dos quedan a un click.
-    return state.agents[key] || 'gentle-shell';
+    return state.agents[skillKeyOf(skill)] || 'gentle-shell';
   }
 
   function runIsActive(run) {
@@ -625,7 +654,20 @@ export const CLIENT_JS = `
     if (run.phase === 'running') return 'Ejecutando con ' + runAgentLabel(run.agent) + '…';
     if (run.phase === 'done') return 'Listo: terminó con código ' + (run.exitCode === null ? '—' : run.exitCode) + ' en ' + runElapsedText(run) + '.';
     if (run.phase === 'cancelled') return 'Cancelada después de ' + runElapsedText(run) + '.';
+    if (run.phase === 'interrupted') {
+      return 'Se interrumpió: el studio se cerró antes de que terminara y no sigue corriendo.';
+    }
     return 'La ejecución falló' + (run.exitCode === null ? '' : ' con código ' + run.exitCode) + '.';
+  }
+
+  /** Nombre corto del estado, para el historial y el resumen del panel. */
+  function runStateLabel(state) {
+    if (state === 'running') return 'en curso';
+    if (state === 'done') return 'lista';
+    if (state === 'failed') return 'falló';
+    if (state === 'cancelled') return 'cancelada';
+    if (state === 'interrupted') return 'interrumpida';
+    return String(state || '—');
   }
 
   function runNoteFor(agent) {
@@ -635,14 +677,15 @@ export const CLIENT_JS = `
     return 'A la skill abierta se la pasa como --skill <directorio>, con la raíz del proyecto como cwd.';
   }
 
-  function emptyRun(skill, extra) {
-    var key = skillKeyOf(skill);
-    var base = {
+  /** Un run vacío; el historial reusa la misma forma para pintarse igual. */
+  function emptyRunFor(key, agent, model, prompt, startedAt, phase) {
+    return {
       skillKey: key,
       id: null,
-      agent: agentFor(skill),
-      prompt: '',
-      phase: 'starting',
+      agent: agent,
+      model: model || '',
+      prompt: prompt || '',
+      phase: phase || 'starting',
       lines: [],
       next: 0,
       exitCode: null,
@@ -651,20 +694,27 @@ export const CLIENT_JS = `
       truncated: false,
       notes: [],
       command: null,
-      startedAtMs: Date.now()
+      startedAtMs: Date.parse(startedAt) > 0 ? Date.parse(startedAt) : Date.now()
     };
+  }
+
+  function emptyRun(skill, extra) {
+    var key = skillKeyOf(skill);
+    var base = emptyRunFor(key, agentFor(skill), '', state.prompts[key] || '', new Date().toISOString());
     Object.keys(extra || {}).forEach(function (name) { base[name] = extra[name]; });
     return base;
   }
 
-  /** El bloque de ejecución: input, agente, ejecutar / cancelar y salida viva. */
+  /** El bloque de ejecución: input, agente, modelo, ejecutar / cancelar y salida viva. */
   function renderRunBlock(skill) {
     var key = skillKeyOf(skill);
-    var run = runFor(skill);
-    var agent = agentFor(skill);
+    var run = viewedRun(skill);
+    var agent = run ? run.agent : agentFor(skill);
     var active = run ? runIsActive(run) : false;
+    var historical = !!(state.selection && state.selection.skillKey === key);
     // Un solo run a la vez: si corre en otra skill, Ejecutar queda apagado.
     var busyElsewhere = runBusyElsewhere(key);
+    var model = (run && run.model) || state.modelText[key] || '';
 
     var section = el('section', {
       class: 'install install--run',
@@ -673,6 +723,16 @@ export const CLIENT_JS = `
     }, [
       el('h2', { class: 'install__title', text: 'Ejecutar skill' }),
       el('p', { class: 'install__note', text: 'La skill hace su trabajo con el agente que elijas, en la raíz del proyecto y con permiso para escribir archivos.' }),
+      historical ? el('div', { class: 'run__history' }, [
+        el('p', { class: 'install__note', text: 'Mostrando una ejecución del historial: ' + runStateLabel(run ? run.phase : '') + '. Quedó guardada en .fwinit/studio/runs.' }),
+        el('button', {
+          type: 'button',
+          class: 'btn',
+          'data-run-back': '',
+          text: state.run && state.run.skillKey === key ? 'Ver la ejecución en curso' : 'Volver al panel',
+          onclick: function () { closeHistoricalRun(); }
+        })
+      ]) : null,
       el('label', { class: 'run__field' }, [
         el('span', { class: 'meta__key', text: 'Qué querés que haga' }),
         el('textarea', {
@@ -697,6 +757,24 @@ export const CLIENT_JS = `
           });
         }))
       ]),
+      // El modelo es texto libre respaldado por el catálogo del CLI (S14):
+      // vacío significa "el default del agente" y no se pasa el flag.
+      el('label', { class: 'run__field' }, [
+        el('span', { class: 'meta__key', text: 'Modelo (opcional)' }),
+        el('input', {
+          class: 'run__input run__input--model',
+          type: 'text',
+          'data-run-model': '',
+          list: 'run-models-' + agent,
+          placeholder: 'Default de ' + runAgentLabel(agent),
+          autocomplete: 'off',
+          spellcheck: 'false',
+          disabled: active,
+          oninput: function (event) { state.modelText[key] = event.target.value; }
+        })
+      ]),
+      el('datalist', { id: 'run-models-' + agent, dataset: { runModels: agent } }),
+      el('p', { class: 'install__note', dataset: { modelNote: '' } }),
       el('p', { class: 'install__note', dataset: { runNote: '' }, text: runNoteFor(agent) }),
       el('div', { class: 'detail__actions' }, [
         el('button', {
@@ -725,7 +803,62 @@ export const CLIENT_JS = `
 
     var area = q('[data-run-prompt]', section);
     if (area) area.value = run ? run.prompt : (state.prompts[key] || '');
+    var modelInput = q('[data-run-model]', section);
+    if (modelInput) modelInput.value = model;
     return section;
+  }
+
+  /* ── Catálogo de modelos (S14) ──────────────────────────────────────────── */
+
+  /**
+   * Pide el catálogo del agente una vez por pestaña y refresca el campo.
+   *
+   * Si el CLI falla, available: false con el motivo deja el campo como texto
+   * libre: el panel no inventa ids de modelo que el agente no conoce.
+   */
+  function ensureModelList(agent) {
+    if (state.models[agent] || state.modelLoading[agent]) return;
+    state.modelLoading[agent] = true;
+    fetchJson('/api/skills/models?agent=' + encodeURIComponent(agent)).then(function (report) {
+      state.models[agent] = report;
+      state.modelLoading[agent] = false;
+      syncModelField(agent);
+    }, function (error) {
+      state.models[agent] = {
+        agent: agent,
+        available: false,
+        models: [],
+        error: error && error.message ? error.message : 'No se pudo leer el catálogo.'
+      };
+      state.modelLoading[agent] = false;
+      syncModelField(agent);
+    });
+  }
+
+  /** Vuelca el catálogo en el datalist del panel y explica su estado. */
+  function syncModelField(agent) {
+    var list = q('[data-run-models="' + agent + '"]');
+    var note = q('[data-model-note]');
+    var report = state.models[agent] || null;
+
+    if (list) {
+      list.textContent = '';
+      ((report && report.models) || []).forEach(function (model) {
+        list.appendChild(el('option', { value: model.id, label: model.model }));
+      });
+    }
+    if (!note) return;
+    if (!report) {
+      note.textContent = 'Leyendo el catálogo de ' + runAgentLabel(agent) + '…';
+      return;
+    }
+    if (report.available) {
+      note.textContent = 'Catálogo de ' + runAgentLabel(report.source || agent) + ': ' +
+        report.models.length + ' modelos. Si lo dejás vacío, el agente usa su default.';
+      return;
+    }
+    note.textContent = 'No se pudo leer el catálogo (' + (report.error || 'motivo desconocido') +
+      '). Escribí el modelo a mano o dejalo vacío para usar el default.';
   }
 
   function setRunAgent(skill, agent) {
@@ -739,16 +872,19 @@ export const CLIENT_JS = `
     var panel = q('[data-run-panel]');
     if (!out) return;
     out.textContent = '';
-    var run = runFor(skill);
+    var run = viewedRun(skill);
     if (!panel || panel.dataset.runFor !== skillKeyOf(skill)) {
       syncRunPanel();
       return;
     }
-    if (run && run.lines.length) appendRunLines(run.lines);
+    if (run && run.lines.length) paintLines(out, run.lines);
     else {
       out.appendChild(el('p', { class: 'run__placeholder', dataset: { runPlaceholder: '' }, text: 'Acá va la salida del agente, línea por línea.' }));
     }
     syncRunPanel();
+    // El panel ya está en el documento: recién ahora se puede llenar el catálogo.
+    var dataList = q('[data-run-models]');
+    if (dataList && dataList.dataset.runModels) ensureModelList(dataList.dataset.runModels);
     // Al repintar se muestra lo último: el usuario acaba de llegar al panel.
     var scroll = function () { out.scrollTop = out.scrollHeight; };
     if (window.requestAnimationFrame) window.requestAnimationFrame(scroll);
@@ -757,12 +893,18 @@ export const CLIENT_JS = `
 
   /**
    * Agrega líneas nuevas sin mover al lector: sólo se pega al fondo si ya
-   * estaba abajo, y nunca escribe en el panel de otra skill.
+   * estaba abajo, y nunca escribe en el panel de otra skill ni mezcla la
+   * salida viva con la de un run del historial.
    */
-  function appendRunLines(lines) {
+  function appendRunLines(lines, key) {
     var out = q('[data-run-output]');
     var panel = q('[data-run-panel]');
-    if (!out || !panel || !state.run || panel.dataset.runFor !== state.run.skillKey) return;
+    if (!out || !panel || !key || panel.dataset.runFor !== key) return;
+    if (state.selection && state.selection.skillKey === key) return;
+    paintLines(out, lines);
+  }
+
+  function paintLines(out, lines) {
     if (!lines || !lines.length) return;
     var placeholder = q('[data-run-placeholder]', out);
     if (placeholder) out.removeChild(placeholder);
@@ -779,20 +921,25 @@ export const CLIENT_JS = `
   /** Refresca los textos y botones del panel sin redibujar el detalle entero. */
   function syncRunPanel() {
     var panel = q('[data-run-panel]');
+    var key = panel ? panel.dataset.runFor : '';
     var stateEl = q('[data-run-state]');
     var errorEl = q('[data-run-error]');
     var timerEl = q('[data-run-timer]');
     var commandEl = q('[data-run-command]');
     var startBtn = q('[data-run-start]');
     var cancelBtn = q('[data-run-cancel]');
-    var run = state.run;
+    var backBtn = q('[data-run-back]');
+    var run = key ? runByKey(key) : null;
+    var selecting = !!(state.selection && key && state.selection.skillKey === key);
 
-    if (!run || !panel || panel.dataset.runFor !== run.skillKey) {
+    if (backBtn) backBtn.hidden = !selecting;
+
+    if (!run) {
       if (stateEl) stateEl.textContent = '';
       if (errorEl) errorEl.textContent = '';
       if (timerEl) timerEl.textContent = '';
       if (commandEl) commandEl.textContent = '';
-      if (startBtn) startBtn.disabled = runBusyElsewhere(panel ? panel.dataset.runFor : '');
+      if (startBtn) startBtn.disabled = runBusyElsewhere(key);
       if (cancelBtn) cancelBtn.hidden = true;
       return;
     }
@@ -806,8 +953,8 @@ export const CLIENT_JS = `
         ? 'Comando: ' + run.command.binary + ' ' + run.command.args.slice(0, -1).join(' ') + ' "…"'
         : '';
     }
-    if (startBtn) startBtn.disabled = active;
-    if (cancelBtn) cancelBtn.hidden = !active;
+    if (startBtn) startBtn.disabled = active || runBusyElsewhere(key);
+    if (cancelBtn) cancelBtn.hidden = !active || selecting;
   }
 
   function stopRunPolling() {
@@ -861,7 +1008,7 @@ export const CLIENT_JS = `
     var fresh = (status.lines || []).filter(function (line) { return line.n > cursor; });
     if (fresh.length) {
       fresh.forEach(function (line) { run.lines.push(line); });
-      appendRunLines(fresh);
+      appendRunLines(fresh, run.skillKey);
     }
     run.next = status.next;
     run.phase = status.state;
@@ -877,6 +1024,8 @@ export const CLIENT_JS = `
   function finishRun() {
     stopRunPolling();
     refreshReports();
+    // El historial acaba de cambiar: el resumen y el estado final se releen.
+    refreshRunHistory();
   }
 
   /**
@@ -900,10 +1049,15 @@ export const CLIENT_JS = `
     var key = skillKeyOf(skill);
     var area = q('[data-run-prompt]');
     var prompt = (area ? area.value : state.prompts[key] || '').trim();
+    var modelField = q('[data-run-model]');
+    var model = (modelField ? modelField.value : state.modelText[key] || '').trim();
     var agent = agentFor(skill);
+    // Ejecutar vuelve siempre a la ejecución viva, nunca a una del historial.
+    state.selection = null;
     if (!prompt) {
       state.run = emptyRun(skill, {
         agent: agent,
+        model: model,
         phase: 'failed',
         error: 'Escribí qué querés que haga la skill antes de ejecutar.'
       });
@@ -913,7 +1067,8 @@ export const CLIENT_JS = `
     }
 
     state.prompts[key] = prompt;
-    state.run = emptyRun(skill, { agent: agent, prompt: prompt });
+    state.modelText[key] = model;
+    state.run = emptyRun(skill, { agent: agent, prompt: prompt, model: model });
     renderSkillDetail();
 
     postJson('/api/skills/run', {
@@ -922,14 +1077,18 @@ export const CLIENT_JS = `
       name: skill.name,
       agent: agent,
       prompt: prompt,
+      // Vacío = default del agente: el server no pasa el flag (S14).
+      model: model,
       token: meta.installToken
     }).then(function (status) {
       if (!state.run) return;
       state.run.id = status.id;
+      state.run.model = status.model || '';
       state.run.startedAtMs = Date.parse(status.startedAt) || state.run.startedAtMs;
       state.run.notes = status.notes || [];
       applyRunStatus(status);
       if (state.run && state.run.phase === 'running') ensureRunPolling();
+      refreshRunHistory();
     }, function (error) {
       if (!state.run) return;
       state.run.phase = 'failed';
@@ -939,7 +1098,9 @@ export const CLIENT_JS = `
   }
 
   function cancelRun(skill) {
-    var run = runFor(skill);
+    // Cancelar actúa sobre el proceso vivo, aunque el panel muestre historia.
+    var key = skillKeyOf(skill);
+    var run = state.run && state.run.skillKey === key ? state.run : null;
     if (!run || !run.id) return;
     var cancelBtn = q('[data-run-cancel]');
     if (cancelBtn) cancelBtn.disabled = true;
@@ -951,6 +1112,204 @@ export const CLIENT_JS = `
       if (state.run) state.run.error = error && error.message ? error.message : 'No se pudo cancelar.';
       syncRunPanel();
     });
+  }
+
+  /* ── Historial de ejecuciones (S13) ─────────────────────────────────────── */
+
+  /** Cuántos runs del historial se listan; el resto sigue en disco. */
+  var HISTORY_LIMIT = 20;
+
+  function skillKeyFromRef(ref) {
+    return ref.target + '/' + ref.scope + '/' + ref.name;
+  }
+
+  /** True cuando la skill del run sigue instalada en el reporte actual. */
+  function skillExistsInReport(ref) {
+    if (!state.skills) return true;
+    var found = false;
+    (state.skills.targets || []).forEach(function (target) {
+      if (target.id !== ref.target) return;
+      (target.skills || []).forEach(function (skill) {
+        if (skill.scope === ref.scope && skill.name === ref.name) found = true;
+      });
+    });
+    return found;
+  }
+
+  /**
+   * Carga inicial: el historial y, si hay una ejecución en curso, el reenganche.
+   * Es lo que antes se perdía al recargar la página (S13).
+   */
+  function bootRunHistory() {
+    fetchJson('/api/skills/runs').then(function (data) {
+      state.history = data;
+      state.historyError = null;
+      renderRunHistory();
+      if (data.inFlight) reattachRun(data);
+    }, function (error) {
+      state.historyError = error;
+      renderRunHistory();
+    });
+  }
+
+  /** Vuelve a pedir el historial sin reenganchar nada (ya hay un run propio). */
+  function refreshRunHistory() {
+    fetchJson('/api/skills/runs').then(function (data) {
+      state.history = data;
+      state.historyError = null;
+      renderRunHistory();
+    }, function () {
+      // Se reintenta solo al recargar: el historial no es crítico para ejecutar.
+    });
+  }
+
+  /**
+   * Se reengancha al run que sigue vivo en el server.
+   *
+   * La salida se pide con since=0 y se sigue con el cursor que devuelve el
+   * server, así ninguna línea se duplica ni se pierde.
+   */
+  function reattachRun(list) {
+    var summary = null;
+    (list.runs || []).forEach(function (run) {
+      if (run.id === list.inFlight) summary = run;
+    });
+    if (!summary) return;
+    var key = skillKeyFromRef(summary.skill);
+    state.run = emptyRunFor(
+      key,
+      summary.agent,
+      summary.model,
+      summary.prompt,
+      summary.startedAt,
+      summary.state
+    );
+    state.run.id = summary.id;
+    state.run.notes = [];
+    state.prompts[key] = summary.prompt || '';
+    if (summary.model) state.modelText[key] = summary.model;
+    state.reattachKey = key;
+    ensureRunPolling();
+    revealReattached();
+  }
+
+  /** Abre la skill del run reenganchado si el usuario no vino a otra. */
+  function revealReattached() {
+    var key = state.reattachKey;
+    if (!key || !state.skills || state.skillKey) return;
+    var parts = key.split('/');
+    state.scope = parts[1] === 'global' ? 'global' : 'project';
+    syncScopeButtons();
+    state.skillKey = parts[0] + '/' + parts.slice(2).join('/');
+    state.reattachKey = null;
+    renderSkillList();
+    renderSkillDetail();
+    syncShell();
+  }
+
+  /** El historial clicable del raíl: todas las skills, de la más nueva a la vieja. */
+  function renderRunHistory() {
+    var host = q('[data-run-history]');
+    if (!host) return;
+    host.textContent = '';
+    host.appendChild(el('p', { class: 'rail__title', text: 'Ejecuciones' }));
+    if (state.historyError) {
+      host.appendChild(el('p', { class: 'row--empty', text: 'No se pudo leer el historial.' }));
+      return;
+    }
+    if (!state.history) {
+      host.appendChild(el('p', { class: 'loading', text: 'Leyendo el historial…' }));
+      return;
+    }
+    var runs = (state.history.runs || []).slice(0, HISTORY_LIMIT);
+    if (!runs.length) {
+      host.appendChild(el('p', { class: 'row--empty', text: 'Todavía no ejecutaste ninguna skill.' }));
+      return;
+    }
+    runs.forEach(function (run) {
+      var meta = runStateLabel(run.state) + ' · ' + run.agent + ' · ' + fmtDate(run.startedAt);
+      if (!skillExistsInReport(run.skill)) {
+        // Una skill desinstalada no se puede abrir: se dice, no se esconde.
+        host.appendChild(el('p', { class: 'row--empty', text: run.skill.name + ' (ya no está instalada) · ' + meta }));
+        return;
+      }
+      var selected = state.selection && state.selection.id === run.id;
+      host.appendChild(el('button', {
+        type: 'button',
+        class: 'row row--run',
+        'aria-current': selected ? 'true' : 'false',
+        title: run.prompt || run.skill.name,
+        dataset: { runId: run.id },
+        onclick: function () { openHistoricalRun(run); }
+      }, [
+        el('span', { class: 'row__name', text: run.skill.name }),
+        el('span', { class: 'row__meta', text: meta })
+      ]));
+    });
+  }
+
+  /** Abre un run del historial: su salida completa y su estado final. */
+  function openHistoricalRun(summary) {
+    var ref = summary.skill;
+    var key = skillKeyFromRef(ref);
+    var selection = emptyRunFor(
+      key,
+      summary.agent,
+      summary.model,
+      summary.prompt,
+      summary.startedAt,
+      summary.state
+    );
+    selection.id = summary.id;
+    selection.exitCode = summary.exitCode;
+    selection.truncated = summary.truncated === true;
+    selection.summary = summary;
+    state.selection = selection;
+    state.prompts[key] = summary.prompt || '';
+    state.modelText[key] = summary.model || '';
+    state.scope = ref.scope === 'global' ? 'global' : 'project';
+    syncScopeButtons();
+    state.skillKey = ref.target + '/' + ref.name;
+    navigate(skillHash(ref.target, ref.name));
+    renderRunHistory();
+    loadHistoricalRun(summary);
+  }
+
+  function loadHistoricalRun(summary) {
+    var id = summary.id;
+    fetchJson('/api/skills/run?id=' + encodeURIComponent(id) + '&since=0').then(function (status) {
+      if (!state.selection || state.selection.id !== id) return;
+      applyHistoricalStatus(state.selection, status);
+      renderSkillDetail();
+      syncRunPanel();
+    }, function (error) {
+      if (!state.selection || state.selection.id !== id) return;
+      state.selection.error = error && error.message ? error.message : 'No se pudo leer la ejecución.';
+      syncRunPanel();
+    });
+  }
+
+  /** Vuelve del historial a la ejecución viva (o al panel vacío). */
+  function closeHistoricalRun() {
+    state.selection = null;
+    renderSkillDetail();
+    renderRunHistory();
+  }
+
+  /** Un run del disco se pinta con la misma forma que uno vivo. */
+  function applyHistoricalStatus(selection, status) {
+    selection.id = status.id;
+    selection.agent = status.agent;
+    selection.model = status.model || '';
+    selection.prompt = status.prompt || selection.prompt;
+    selection.phase = status.state;
+    selection.exitCode = status.exitCode;
+    selection.durationMs = status.durationMs;
+    selection.truncated = status.truncated === true;
+    selection.notes = status.notes || [];
+    selection.command = status.command;
+    selection.next = status.next;
+    selection.lines = status.lines || [];
   }
 
   /* ── Instalar skill (acción secundaria) ─────────────────────────────────── */
@@ -1538,6 +1897,9 @@ export const CLIENT_JS = `
 
   function bootSkills() {
     loadSkills().then(function () {
+      // El run reenganchado manda: si el usuario recargó mientras el agente
+      // trabajaba, lo primero que ve es esa skill con su salida (S13).
+      revealReattached();
       // Elegir la primera skill no debe reescribir la URL: si el usuario llegó
       // por un deep link a /specs, el hash ya es la ruta que eligió.
       if (!state.skillKey) {
@@ -1546,6 +1908,8 @@ export const CLIENT_JS = `
       }
       renderSkillList();
       renderSkillDetail();
+      // El historial filtra las skills que existen: recién ahora se sabe.
+      renderRunHistory();
       syncShell();
     }, function (error) {
       var list = q('[data-list="skills"]');
@@ -1673,6 +2037,7 @@ export const CLIENT_JS = `
     window.addEventListener('hashchange', route);
 
     route();
+    bootRunHistory();
     bootSkills();
     bootSpecs();
   }

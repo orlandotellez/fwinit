@@ -5,11 +5,13 @@
  * el prompt tal cual, le pasa la skill resuelta en el server y transmite su
  * salida por líneas numeradas. Cada pieza es chica y testeable por separado:
  *
- * - `buildAgentInvocation` fija el contrato de S10 por agente.
+ * - `buildAgentInvocation` fija el contrato de S10/S14 por agente.
  * - `normaliseOutputLine` traduce una línea cruda a `text` / `tool` / `status`
  *   y deja lo que no entiende como `raw`, nunca lo descarta.
  * - `RunManager` es el único dueño del proceso hijo: arranque, cursor `since`,
  *   cancelación con SIGTERM→SIGKILL, tope de salida y limpieza al cerrar.
+ * - `RunStore` es la copia durable (S13): cada run queda en `.fwinit/studio/runs`
+ *   y un manager nuevo lo puede leer después de un reinicio.
  *
  * Nada se concatena en un shell: siempre `spawn(binary, args, { cwd })`.
  */
@@ -17,6 +19,7 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { stat } from "node:fs/promises";
 import { join, resolve } from "node:path";
+import { RunStore, summarise } from "./run-store.js";
 import { resolveSkillTargets } from "./skills.js";
 import type {
   SkillFileRef,
@@ -27,6 +30,7 @@ import type {
   StudioRunLineKind,
   StudioRunState,
   StudioRunStatus,
+  StudioRunSummary,
 } from "./types.js";
 
 /** Los tres agentes, en el orden en que el panel los ofrece. */
@@ -64,6 +68,16 @@ const MAX_RETAINED_RUNS = 5;
 /** Nombre de skill aceptado: un único segmento de directorio, nunca una ruta. */
 const SKILL_NAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 
+/** Tope del modelo elegido por el usuario (spec S14). */
+export const MAX_MODEL_LENGTH = 128;
+
+/** Caracteres de control: un modelo es una etiqueta, no una línea de texto. */
+const CONTROL_CHARS = /[\u0000-\u001f\u007f-\u009f]/;
+
+/** Aviso que acompaña a un run leído del disco sin registro de cierre. */
+export const INTERRUPTED_NOTE =
+  "La ejecución se interrumpió: el studio se cerró antes de que terminara.";
+
 export type RunErrorCode = "invalid" | "busy" | "skill-missing" | "not-discoverable" | "unknown";
 
 /** Un problema de ejecución que el server traduce a un status concreto. */
@@ -95,6 +109,8 @@ export interface RunStartRequest {
   /** Qué skill ejecutar: se resuelve a un directorio en el server, nunca viene como ruta. */
   skill: SkillFileRef;
   prompt: string;
+  /** Modelo elegido por el usuario; vacío u omitido deja el default del agente. */
+  model?: string | null;
 }
 
 /** True sólo para los tres agentes del contrato. */
@@ -124,15 +140,44 @@ export interface InvocationOptions {
   skillDir: string;
   /** Entrada del usuario tal cual: viaja como argumento, nunca por un shell. */
   prompt: string;
+  /** Modelo elegido; sin él el agente usa su default y no se pasa el flag. */
+  model?: string | null;
   /** Binario explícito (tests). */
   binary?: string;
 }
 
 /**
- * El comando exacto de S10 para cada agente.
+ * Valida el modelo como entrada del usuario (S14).
+ *
+ * Devuelve null cuando no se eligió ninguno y lanza `RunError` cuando el valor
+ * no es un nombre de modelo: más de 128 caracteres o caracteres de control.
+ * Viaja siempre como argumento, nunca concatenado en un shell.
+ */
+export function normaliseModel(value: unknown): string | null {
+  if (value === undefined || value === null) return null;
+  if (typeof value !== "string") {
+    throw new RunError("invalid", "El modelo tiene que ser texto.");
+  }
+  const model = value.trim();
+  if (model === "") return null;
+  if (model.length > MAX_MODEL_LENGTH) {
+    throw new RunError(
+      "invalid",
+      `El modelo no puede tener más de ${MAX_MODEL_LENGTH} caracteres.`
+    );
+  }
+  if (CONTROL_CHARS.test(model)) {
+    throw new RunError("invalid", "El modelo tiene caracteres de control.");
+  }
+  return model;
+}
+
+/**
+ * El comando exacto de S10 para cada agente, con el modelo de S14.
  *
  * pi y Gentle Shell aceptan `--skill <dir>`; opencode no tiene flag de skill,
- * así que sólo recibe el prompt y descubre la skill por nombre.
+ * así que sólo recibe el prompt y descubre la skill por nombre. El modelo se
+ * agrega sólo cuando el usuario eligió uno: sin modelo, el agente usa su default.
  */
 export function buildAgentInvocation(
   agent: SkillTargetId,
@@ -142,9 +187,11 @@ export function buildAgentInvocation(
     throw new RunError("invalid", `Agente desconocido: "${String(agent)}".`);
   }
   const binary = options.binary?.trim() || resolveAgentBinary(agent);
+  const model = normaliseModel(options.model);
+  const modelArgs = model === null ? [] : ["--model", model];
 
   if (agent === "opencode") {
-    return { binary, args: ["run", "--auto", options.prompt] };
+    return { binary, args: ["run", "--auto", ...modelArgs, options.prompt] };
   }
 
   return {
@@ -155,6 +202,7 @@ export function buildAgentInvocation(
       "json",
       "--skill",
       options.skillDir,
+      ...modelArgs,
       "-a",
       "--no-session",
       options.prompt,
@@ -270,6 +318,10 @@ interface ActiveRun {
   agent: SkillTargetId;
   skill: SkillFileRef;
   command: StudioRunCommand;
+  /** Modelo elegido, o null cuando el agente usa su default. */
+  model: string | null;
+  /** El pedido original: viaja al historial junto con el resto del meta. */
+  prompt: string;
   state: StudioRunState;
   exitCode: number | null;
   startedAt: number;
@@ -299,6 +351,8 @@ export class RunManager {
   private readonly maxOutputBytes: number;
   private readonly cancelGraceMs: number;
   private readonly flushMs: number;
+  /** Copia durable de cada ejecución, dentro del proyecto (S13). */
+  private readonly store: RunStore;
   private readonly runs = new Map<string, ActiveRun>();
   private currentId: string | null = null;
 
@@ -309,6 +363,7 @@ export class RunManager {
     this.maxOutputBytes = options.maxOutputBytes ?? MAX_RUN_OUTPUT_BYTES;
     this.cancelGraceMs = options.cancelGraceMs ?? CANCEL_GRACE_MS;
     this.flushMs = options.flushMs ?? DEFAULT_FLUSH_MS;
+    this.store = new RunStore({ projectRoot: this.projectRoot });
   }
 
   /**
@@ -332,6 +387,8 @@ export class RunManager {
     if (prompt === "") {
       throw new RunError("invalid", "Escribí qué querés que haga la skill.");
     }
+    // El modelo se valida antes de arrancar: un valor inválido no llega al argv.
+    const model = normaliseModel(request.model);
 
     const running = this.runningRun();
     if (running) {
@@ -346,23 +403,64 @@ export class RunManager {
     const command = buildAgentInvocation(agent, {
       skillDir,
       prompt,
+      model,
       binary: resolveAgentBinary(agent, this.agentBinaries),
     });
 
-    const run = this.createRun(agent, skill, command, notes);
+    const run = this.createRun(agent, skill, command, notes, { prompt, model });
     this.runs.set(run.id, run);
     this.currentId = run.id;
     this.trimRuns();
+    // El `meta` se escribe antes de arrancar el proceso: si el binario no
+    // existe, el run igual queda en el historial con su cierre `failed`.
+    this.store.begin({
+      type: "meta",
+      id: run.id,
+      agent: run.agent,
+      skill: run.skill,
+      model: run.model,
+      prompt: run.prompt,
+      command: run.command,
+      startedAt: new Date(run.startedAt).toISOString(),
+    });
 
     this.spawnRun(run);
     return this.status(run, 0);
   }
 
-  /** Estado y líneas con `n > since`. Devuelve null si el id no existe. */
+  /**
+   * Estado y líneas con `n > since`.
+   *
+   * Primero la memoria (es la ejecución viva); si el id no pertenece a este
+   * arranque del server, el archivo del disco, para que la página pueda abrir
+   * el historial después de un reinicio (S13).
+   */
   poll(id: string, since = 0): StudioRunStatus | null {
+    const cursor = Number.isFinite(since) && since > 0 ? Math.floor(since) : 0;
     const run = this.runs.get(id);
-    if (!run) return null;
-    return this.status(run, Number.isFinite(since) && since > 0 ? Math.floor(since) : 0);
+    if (run) return this.status(run, cursor);
+    return this.storedStatus(id, cursor);
+  }
+
+  /** El id de la ejecución en curso, o null cuando no hay ninguna. */
+  inFlight(): string | null {
+    return this.runningRun()?.id ?? null;
+  }
+
+  /**
+   * Historial completo: los runs de este server (con su estado vivo) más los
+   * que quedaron en el disco de arranques anteriores, del más nuevo al más viejo.
+   */
+  list(): StudioRunSummary[] {
+    const byId = new Map<string, StudioRunSummary>();
+    for (const stored of this.store.list()) {
+      byId.set(stored.meta.id, summarise(stored, true));
+    }
+    for (const run of this.runs.values()) byId.set(run.id, this.summary(run));
+    return [...byId.values()].sort((a, b) => {
+      if (a.startedAt !== b.startedAt) return a.startedAt > b.startedAt ? -1 : 1;
+      return a.id > b.id ? -1 : a.id < b.id ? 1 : 0;
+    });
   }
 
   /**
@@ -453,13 +551,16 @@ export class RunManager {
     agent: SkillTargetId,
     skill: SkillFileRef,
     command: StudioRunCommand,
-    notes: string[]
+    notes: string[],
+    input: { prompt: string; model: string | null }
   ): ActiveRun {
     const run: ActiveRun = {
       id: randomBytes(8).toString("hex"),
       agent,
       skill: { target: skill.target, scope: skill.scope, name: skill.name },
       command,
+      model: input.model,
+      prompt: input.prompt,
       state: "running",
       exitCode: null,
       startedAt: Date.now(),
@@ -580,7 +681,7 @@ export class RunManager {
     const size = Buffer.byteLength(text, "utf8");
     if (run.bytes + size > this.maxOutputBytes) {
       run.truncated = true;
-      run.lines.push({
+      this.commitLine(run, {
         n: run.lines.length + 1,
         kind: "status",
         text: `Salida truncada: se alcanzó el tope de ${formatMegabytes(this.maxOutputBytes)} MB acumulados.`,
@@ -588,7 +689,13 @@ export class RunManager {
       return;
     }
     run.bytes += size;
-    run.lines.push({ n: run.lines.length + 1, kind, text });
+    this.commitLine(run, { n: run.lines.length + 1, kind, text });
+  }
+
+  /** Publica una línea en memoria y en el archivo de la ejecución (S13). */
+  private commitLine(run: ActiveRun, line: StudioRunLine): void {
+    run.lines.push(line);
+    this.store.appendLine(run.id, line);
   }
 
   /** Marca el final, publica el resumen y suelta a quien esperaba la salida. */
@@ -602,6 +709,7 @@ export class RunManager {
     run.exitCode = code;
     run.endedAt = Date.now();
     this.pushLine(run, "status", describeEnd(run.state, code));
+    this.persistEnd(run);
     run.child = null;
     run.resolveExit?.();
     run.resolveExit = null;
@@ -616,9 +724,20 @@ export class RunManager {
     run.exitCode = null;
     run.endedAt = Date.now();
     this.pushLine(run, "status", message);
+    this.persistEnd(run);
     run.child = null;
     run.resolveExit?.();
     run.resolveExit = null;
+  }
+
+  /** Cierre durable: sin este registro el archivo se leería `interrupted`. */
+  private persistEnd(run: ActiveRun): void {
+    this.store.end(run.id, {
+      state: run.state,
+      exitCode: run.exitCode,
+      endedAt: new Date(run.endedAt ?? Date.now()).toISOString(),
+      truncated: run.truncated,
+    });
   }
 
   private signal(run: ActiveRun, signal: NodeJS.Signals): void {
@@ -663,6 +782,8 @@ export class RunManager {
       agent: run.agent,
       skill: { ...run.skill },
       command: { binary: run.command.binary, args: [...run.command.args] },
+      model: run.model,
+      prompt: run.prompt,
       state: run.state,
       exitCode: run.exitCode,
       startedAt: new Date(run.startedAt).toISOString(),
@@ -672,6 +793,54 @@ export class RunManager {
       next: run.lines.length === 0 ? 0 : run.lines[run.lines.length - 1].n,
       truncated: run.truncated,
       notes: [...run.notes],
+    };
+  }
+
+  /** Resumen de un run de este server, con su estado vivo. */
+  private summary(run: ActiveRun): StudioRunSummary {
+    return {
+      id: run.id,
+      agent: run.agent,
+      skill: { ...run.skill },
+      model: run.model,
+      prompt: run.prompt,
+      state: run.state,
+      exitCode: run.exitCode,
+      startedAt: new Date(run.startedAt).toISOString(),
+      endedAt: run.endedAt === null ? null : new Date(run.endedAt).toISOString(),
+      lineCount: run.lines.length,
+      truncated: run.truncated,
+      fromDisk: false,
+    };
+  }
+
+  /**
+   * Un run leído del disco, con el mismo contrato que el de memoria.
+   *
+   * Un archivo sin cierre se reporta `interrupted` (S13) y se avisa en `notes`:
+   * el proceso murió con el server anterior, no sigue corriendo.
+   */
+  private storedStatus(id: string, since: number): StudioRunStatus | null {
+    const stored = this.store.read(id);
+    if (!stored) return null;
+    const startedMs = Date.parse(stored.meta.startedAt);
+    const endedMs = stored.end ? Date.parse(stored.end.endedAt) : null;
+    return {
+      id: stored.meta.id,
+      agent: stored.meta.agent,
+      skill: { ...stored.meta.skill },
+      command: { binary: stored.meta.command.binary, args: [...stored.meta.command.args] },
+      model: stored.meta.model,
+      prompt: stored.meta.prompt,
+      state: stored.state,
+      exitCode: stored.end ? stored.end.exitCode : null,
+      startedAt: stored.meta.startedAt,
+      endedAt: stored.end ? stored.end.endedAt : null,
+      durationMs: Math.max(0, (endedMs ?? Date.now()) - (Number.isFinite(startedMs) ? startedMs : 0)),
+      lines: stored.lines.filter((line) => line.n > since),
+      next: stored.lines.length === 0 ? 0 : stored.lines[stored.lines.length - 1].n,
+      truncated: stored.truncated,
+      notes: stored.state === "interrupted" ? [INTERRUPTED_NOTE] : [],
     };
   }
 

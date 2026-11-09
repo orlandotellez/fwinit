@@ -1,9 +1,14 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { chmod, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { startStudio } from "./server.js";
-import type { StudioRunStatus, StudioServer } from "./types.js";
+import type {
+  StudioModelList,
+  StudioRunStatus,
+  StudioRunsList,
+  StudioServer,
+} from "./types.js";
 
 /**
  * Rutas de ejecución (spec S11/S12).
@@ -16,6 +21,10 @@ import type { StudioRunStatus, StudioServer } from "./types.js";
 let workspace = "";
 let home = "";
 let projectRoot = "";
+let bundleRoot = "";
+let piBinary = "";
+let opencodeBinary = "";
+let gentleBinary = "";
 let studio: StudioServer | null = null;
 let token = "";
 let piSkillDir = "";
@@ -71,6 +80,18 @@ function readRun(id: string, since = 0) {
   );
 }
 
+/** El historial: ejecución en curso más el resumen de cada run en disco. */
+function readRuns() {
+  return fetch(`${studio?.address.url}/api/skills/runs`, { headers: { origin: origin() } });
+}
+
+/** El catálogo de modelos que el CLI de cada agente publica (S14). */
+function readModels(agent: string) {
+  return fetch(`${studio?.address.url}/api/skills/models?agent=${encodeURIComponent(agent)}`, {
+    headers: { origin: origin() },
+  });
+}
+
 /** Consulta el estado hasta que la ejecución termina o se acaba el tiempo. */
 async function waitForRun(id: string): Promise<StudioRunStatus> {
   const deadline = Date.now() + 5000;
@@ -95,28 +116,66 @@ beforeEach(async () => {
   await mkdir(projectRoot, { recursive: true });
   const bundle = join(workspace, "bundle");
   await seedSkill(join(bundle, "skills"), "create-specs");
+  bundleRoot = bundle;
+
+  // Los fixtures contestan el catálogo de modelos y, para el resto de los
+  // argumentos, se comportan como el agente que transmite la salida.
+  const piTable = join(import.meta.dir, "fixtures", "pi-list-models.txt");
+  piBinary = await script(
+    "pi-fast.sh",
+    [
+      `if [ "$1" = "--list-models" ]; then`,
+      `  cat "${piTable}"`,
+      `  exit 0`,
+      `fi`,
+      FAST_OUTPUT,
+    ].join("\n")
+  );
+  opencodeBinary = await script(
+    "oc-fast.sh",
+    [
+      `if [ "$1" = "models" ]; then`,
+      `  printf '%s\\n' "opencode no tiene proveedores configurados" >&2`,
+      `  exit 1`,
+      `fi`,
+      FAST_OUTPUT,
+    ].join("\n")
+  );
+  gentleBinary = await script("gentle-slow.sh", SLOW_OUTPUT);
 
   // HOME y GENTLE_SHELL_HOME a un directorio temporal: nada toca el home real.
   process.env.HOME = home;
   process.env.GENTLE_SHELL_HOME = join(home, ".gentle-shell", "agent");
   delete process.env.FWINIT_BUNDLE_ROOT;
 
-  studio = await startStudio({
+  studio = await openStudio();
+});
+
+/**
+ * Levanta el studio sobre el proyecto temporal.
+ *
+ * Se puede volver a llamar dentro de un test: es la forma de simular un
+ * reinicio del server conservando el disco del proyecto.
+ */
+async function openStudio(): Promise<StudioServer> {
+  const server = await startStudio({
     projectRoot,
     home,
-    bundleRoot: bundle,
+    bundleRoot,
     open: false,
     agentBinaries: {
-      pi: await script("pi-fast.sh", FAST_OUTPUT),
-      opencode: await script("oc-fast.sh", FAST_OUTPUT),
-      "gentle-shell": await script("gentle-slow.sh", SLOW_OUTPUT),
+      pi: piBinary,
+      opencode: opencodeBinary,
+      "gentle-shell": gentleBinary,
     },
     runCancelGraceMs: 500,
   });
-  const html = await (await fetch(`${studio.address.url}/`)).text();
+  studio = server;
+  const html = await (await fetch(`${server.address.url}/`)).text();
   const meta = /<script type="application\/json" id="studio-meta">([\s\S]*?)<\/script>/.exec(html);
   token = JSON.parse(meta?.[1] ?? "{}").installToken;
-});
+  return server;
+}
 
 afterEach(async () => {
   await studio?.close();
@@ -323,5 +382,178 @@ describe("studio run route", () => {
     expect(run.status).toBe(405);
     expect(run.headers.get("allow")).toBe("GET, HEAD, POST");
     expect(cancelGet.status).toBe(405);
+  });
+
+  test("el historial lista el run en curso y después su resumen (S13)", async () => {
+    const started = (await (
+      await startRun({ ...piSkill, agent: "pi", prompt: "hola", token, model: "anthropic/claude-sonnet-5" })
+    ).json()) as StudioRunStatus;
+
+    const during = (await (await readRuns()).json()) as StudioRunsList;
+    expect(during.inFlight).toBe(started.id);
+    expect(during.runs[0]).toMatchObject({
+      id: started.id,
+      agent: "pi",
+      model: "anthropic/claude-sonnet-5",
+      prompt: "hola",
+      state: "running",
+      // La salida avanza mientras se consulta: no se fija una cantidad exacta.
+      lineCount: expect.any(Number),
+      skill: piSkill,
+    });
+
+    const finished = await waitForRun(started.id);
+    const after = (await (await readRuns()).json()) as StudioRunsList;
+
+    expect(after.inFlight).toBeNull();
+    expect(after.runs[0]).toMatchObject({
+      id: started.id,
+      state: "done",
+      exitCode: 0,
+      lineCount: finished.lines.length,
+    });
+    expect(after.runs[0].endedAt).toBeTruthy();
+  });
+
+  test("una ejecución sin cierre se lee como interrupted, no como running", async () => {
+    const id = "fedcba9876543210";
+    const records = [
+      {
+        type: "meta",
+        id,
+        agent: "pi",
+        skill: piSkill,
+        model: null,
+        prompt: "quedó a medias",
+        command: { binary: "pi", args: ["--print"] },
+        startedAt: "2026-01-01T00:00:00.000Z",
+      },
+      { type: "line", n: 1, kind: "text", text: "primera", at: "2026-01-01T00:00:01.000Z" },
+      { type: "line", n: 2, kind: "text", text: "segunda", at: "2026-01-01T00:00:02.000Z" },
+    ];
+    await mkdir(join(projectRoot, ".fwinit", "studio", "runs"), { recursive: true });
+    await writeFile(
+      join(projectRoot, ".fwinit", "studio", "runs", `${id}.jsonl`),
+      `${records.map((record) => JSON.stringify(record)).join("\n")}\n`,
+      "utf8"
+    );
+
+    const list = (await (await readRuns()).json()) as StudioRunsList;
+    const run = (await (await readRun(id, 1)).json()) as StudioRunStatus;
+
+    expect(list.inFlight).toBeNull();
+    expect(list.runs[0]).toMatchObject({ id, state: "interrupted", exitCode: null, lineCount: 2 });
+    expect(run.state).toBe("interrupted");
+    expect(run.lines.map((line) => line.text)).toEqual(["segunda"]);
+    expect(run.next).toBe(2);
+    expect(run.endedAt).toBeNull();
+  });
+
+  test("tras reiniciar el studio, el run sigue consultable desde el disco", async () => {
+    const started = (await (
+      await startRun({ ...piSkill, agent: "pi", prompt: "hola", token })
+    ).json()) as StudioRunStatus;
+    const finished = await waitForRun(started.id);
+
+    await studio?.close();
+    await openStudio();
+
+    const response = await readRun(started.id, 0);
+    const reloaded = (await response.json()) as StudioRunStatus;
+
+    expect(response.status).toBe(200);
+    expect(reloaded.state).toBe("done");
+    expect(reloaded.exitCode).toBe(0);
+    expect(reloaded.lines).toEqual(
+      finished.lines.map((line) => ({ n: line.n, kind: line.kind, text: line.text }))
+    );
+    expect(reloaded.prompt).toBe("hola");
+  });
+
+  test("el proyecto se auto-ignora en .fwinit/.gitignore", async () => {
+    await startRun({ ...piSkill, agent: "pi", prompt: "hola", token });
+
+    const ignore = await readFile(join(projectRoot, ".fwinit", ".gitignore"), "utf8");
+
+    expect(ignore).toBe("*\n");
+  });
+
+  test("el modelo viaja como argumento y uno inválido se rechaza (S14)", async () => {
+    const started = (await (
+      await startRun({
+        ...piSkill,
+        agent: "pi",
+        prompt: "x",
+        token,
+        model: "anthropic/claude-sonnet-5",
+      })
+    ).json()) as StudioRunStatus;
+
+    expect(started.model).toBe("anthropic/claude-sonnet-5");
+    expect(started.command.args).toContain("--model");
+    expect(started.command.args[started.command.args.indexOf("--model") + 1]).toBe(
+      "anthropic/claude-sonnet-5"
+    );
+    await waitForRun(started.id);
+
+    const newline = await startRun({ ...piSkill, agent: "pi", prompt: "x", token, model: "a\nb" });
+    const tooLong = await startRun({
+      ...piSkill,
+      agent: "pi",
+      prompt: "x",
+      token,
+      model: "y".repeat(160),
+    });
+    const plain = (await (
+      await startRun({ ...piSkill, agent: "pi", prompt: "x", token, model: "   " })
+    ).json()) as StudioRunStatus;
+
+    expect(newline.status).toBe(400);
+    expect(tooLong.status).toBe(400);
+    // Sin modelo elegido no hay flag: el agente usa su default.
+    expect(plain.model).toBeNull();
+    expect(plain.command.args).not.toContain("--model");
+    await waitForRun(plain.id);
+  });
+
+  test("el catálogo de modelos se lee de cada CLI y degrada si falla (S14)", async () => {
+    const pi = (await (await readModels("pi")).json()) as StudioModelList;
+    const gentle = (await (await readModels("gentle-shell")).json()) as StudioModelList;
+    const opencode = (await (await readModels("opencode")).json()) as StudioModelList;
+    const bad = await readModels("bash");
+
+    expect(pi.available).toBe(true);
+    expect(pi.source).toBe("pi");
+    expect(pi.models.length).toBeGreaterThan(0);
+    expect(pi.models[0].id).toBe("opencode-go/beam-free");
+    // gentle-shell envuelve a pi: mismo catálogo, misma fuente.
+    expect(gentle.source).toBe("pi");
+    expect(gentle.models).toEqual(pi.models);
+    // Un CLI que falla no rompe la ruta: el campo queda como texto libre.
+    expect(opencode.available).toBe(false);
+    expect(opencode.models).toEqual([]);
+    expect(opencode.error).toContain("proveedores");
+    expect(bad.status).toBe(400);
+  });
+
+  test("el historial y el catálogo son de lectura; un id con ruta se rechaza", async () => {
+    const runsPost = await fetch(`${studio?.address.url}/api/skills/runs`, {
+      method: "POST",
+      headers: { "content-type": "application/json", origin: origin() },
+      body: JSON.stringify({ token }),
+    });
+    const modelsPost = await fetch(`${studio?.address.url}/api/skills/models?agent=pi`, {
+      method: "POST",
+      headers: { "content-type": "application/json", origin: origin() },
+      body: JSON.stringify({ token }),
+    });
+    const escaped = await readRun("../../etc/passwd");
+    const dotted = await readRun("a.b");
+
+    expect(runsPost.status).toBe(405);
+    expect(runsPost.headers.get("allow")).toBe("GET, HEAD");
+    expect(modelsPost.status).toBe(405);
+    expect(escaped.status).toBe(400);
+    expect(dotted.status).toBe(400);
   });
 });

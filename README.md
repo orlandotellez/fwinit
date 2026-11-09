@@ -137,6 +137,51 @@ corre hay un botón **Cancelar**.
   a leer las skills y las specs, así que un `specs/` recién creado por la skill
   aparece en la otra vista sin recargar la página.
 
+#### Elegir el modelo
+
+Debajo del selector de agente hay un campo **Modelo (opcional)**. El catálogo
+sale de los CLI reales, no de una lista escrita a mano: `pi --list-models`
+(tabla `provider model context max-out thinking images`) y `opencode models`
+(una `provider/model` por línea), y Gentle Shell reusa el catálogo de `pi`
+porque lo envuelve. Se lee una vez por arranque del studio y se sirve en
+`GET /api/skills/models?agent=pi|opencode|gentle-shell`.
+
+- El campo es texto libre con sugerencias (`datalist`): podés escribir un
+  `provider/model` que el catálogo no tenga o uno con `#variant`.
+- Si lo dejás vacío, el agente usa su default y el flag no se pasa. Con modelo,
+  el studio agrega `--model <modelo>` a `pi`/Gentle Shell y a `opencode run`.
+- Si el comando del catálogo falla, el panel lo dice con el motivo y el campo
+  queda como texto libre: nunca se inventan ids de modelo.
+- El modelo es entrada del usuario: se valida no vacío, hasta 128 caracteres y
+  sin caracteres de control, y viaja siempre como argumento del proceso.
+
+#### Historial de ejecuciones
+
+Cada ejecución se guarda en el proyecto, un archivo JSONL por run:
+
+```
+<proyecto>/.fwinit/studio/runs/<id>.jsonl
+```
+
+El formato es una línea `meta` (id, agente, skill, modelo, pedido, comando,
+`startedAt`), una línea `line` por cada línea de salida (`n`, `kind`, `text`,
+`at`) y un cierre `end` (`state`, `exitCode`, `endedAt`, `truncated`). La carpeta
+se auto-ignora con un `.fwinit/.gitignore` que contiene `*`: tu `.gitignore` no
+se toca y el repo no se ensucia.
+
+- Al recargar la página, el raíl **Ejecuciones** se llena con el historial
+  (el más nuevo primero) y, si había un run corriendo, el studio se reengancha
+  solo: abre esa skill y sigue el streaming desde `since=0` sin duplicar líneas.
+- Elegir un run del historial muestra su salida completa y su estado final,
+  aunque el studio se haya reiniciado. Leerlo no arranca nada.
+- Un archivo con `meta` y sin `end` se reporta como **interrumpida**: el proceso
+  murió con el server anterior y no sigue corriendo.
+- Se conservan los últimos 50 runs y 20 MB en total; al pasarse, se borran los
+  más viejos. El historial no permite lanzar un segundo run.
+- `GET /api/skills/runs` devuelve la ejecución en curso y el resumen de cada run;
+  `GET /api/skills/run?id=&since=` sirve tanto el run vivo como el del disco.
+  Son rutas de lectura: no piden token y no tocan ningún proceso.
+
 #### Instalar una skill en los agentes (acción secundaria)
 
 En el mismo panel, **Instalar en los agentes** copia la skill del bundle
@@ -160,11 +205,12 @@ ni modelo.
   te dice el comando que hace el trabajo.
 
 El servidor escucha **sólo en 127.0.0.1** y se cierra con `Ctrl+C`. El studio
-sólo escribe cuando se lo pedís: instalar copia archivos del bundle y ejecutar
-lanza el agente que elegiste, que hace lo que la skill diga. Si el proyecto
-todavía no tiene `specs/`, la vista de specs lo dice y el resto del studio sigue
-funcionando; para crearlas, ejecutá la skill `create-specs` desde el panel (o
-usá `/create-specs`).
+sólo escribe cuando se lo pedís: instalar copia archivos del bundle, ejecutar
+lanza el agente que elegiste —que hace lo que la skill diga— y cada ejecución
+deja su registro en `.fwinit/studio/runs/` para que el historial sobreviva a una
+recarga o a un reinicio. Si el proyecto todavía no tiene `specs/`, la vista de
+specs lo dice y el resto del studio sigue funcionando; para crearlas, ejecutá la
+skill `create-specs` desde el panel (o usá `/create-specs`).
 
 La interfaz usa los mismos tokens de diseño que la landing page (`--accent`
 #8aa2ff, esquinas rectas, separadores hairline) con tema claro y oscuro
