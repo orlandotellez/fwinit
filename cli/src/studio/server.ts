@@ -154,17 +154,40 @@ class RequestError extends Error {
  * `true` only for a request the studio's own document made.
  *
  * A page on any other origin can still POST to a loopback port, so `Origin`
- * must be this exact server, or — when the browser sends no `Origin` — its
- * `Sec-Fetch-Site` must say same-origin. Neither header can be forged by a
- * remote page.
+ * must be [scheme `http`, one of the loopback hostnames the server answers on,
+ * and our exact port] — and the accepted hostnames are the same set
+ * `isAllowedHost` allows, so opening the studio as `http://localhost:<port>`
+ * works exactly like `http://127.0.0.1:<port>`. When the browser sends no
+ * `Origin`, its `Sec-Fetch-Site` must say same-origin. Neither header can be
+ * forged by a remote page.
  */
 function isSameOrigin(request: IncomingMessage, port: number): boolean {
   const origin = request.headers.origin;
   if (typeof origin === "string" && origin.trim() !== "") {
-    return origin.trim().toLowerCase() === `http://${HOST}:${port}`;
+    let parsed: URL;
+    try {
+      parsed = new URL(origin.trim());
+    } catch {
+      return false;
+    }
+    if (parsed.protocol !== "http:") return false;
+    // El puerto tiene que ser el nuestro: `http://localhost` a secas no es
+    // este servidor, aunque el nombre sea loopback.
+    const host = parsed.host.toLowerCase();
+    return isOurLoopbackHost(host, port);
   }
   const site = request.headers["sec-fetch-site"];
   return typeof site === "string" && site.trim().toLowerCase() === "same-origin";
+}
+
+/** `127.0.0.1:<port>` (and its loopback aliases) for the port we listen on. */
+function isOurLoopbackHost(host: string, port: number): boolean {
+  if (port <= 0) return false;
+  return (
+    host === `127.0.0.1:${port}` ||
+    host === `localhost:${port}` ||
+    host === `[::1]:${port}`
+  );
 }
 
 /**
