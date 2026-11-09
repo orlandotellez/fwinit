@@ -217,6 +217,59 @@ export interface InstallResult {
   results: InstallTargetResult[];
 }
 
+/**
+ * Estado de una ejecución de skill (`run.ts`).
+ *
+ * `running` es el único estado que admite una segunda consulta con líneas
+ * nuevas; los otros tres son finales y el panel deja de pedir.
+ */
+export type StudioRunState = "running" | "done" | "failed" | "cancelled";
+
+/**
+ * Cómo se presenta una línea de la salida del agente.
+ *
+ * `text` es prosa del modelo, `tool` es actividad de herramienta, `status` es
+ * un evento del protocolo que el studio sí entiende, y `raw` es una línea que
+ * no se reconoció: se muestra tal cual en vez de descartarla (spec S11).
+ */
+export type StudioRunLineKind = "text" | "tool" | "status" | "raw";
+
+export interface StudioRunLine {
+  /** Número de línea, desde 1; es el cursor que el panel pasa como `since`. */
+  n: number;
+  kind: StudioRunLineKind;
+  text: string;
+}
+
+/** El comando exacto que se ejecutó: sin shell, binario y argumentos. */
+export interface StudioRunCommand {
+  binary: string;
+  args: string[];
+}
+
+/** Lo que devuelve `GET /api/skills/run` y también el inicio y la cancelación. */
+export interface StudioRunStatus {
+  id: string;
+  agent: SkillTargetId;
+  /** La skill que el usuario tenía abierta, resuelta en el server. */
+  skill: SkillFileRef;
+  command: StudioRunCommand;
+  state: StudioRunState;
+  /** Código de salida del proceso, o null mientras corre o si lo mató una señal. */
+  exitCode: number | null;
+  startedAt: string;
+  endedAt: string | null;
+  durationMs: number;
+  /** Sólo las líneas nuevas respecto del `since` pedido. */
+  lines: StudioRunLine[];
+  /** Número de la última línea emitida: el próximo `since`. */
+  next: number;
+  /** True cuando se alcanzó el tope de salida y el resto se descartó. */
+  truncated: boolean;
+  /** Avisos para el panel antes o después de ejecutar (p. ej. el límite de opencode). */
+  notes: string[];
+}
+
 export interface StudioOpenOptions {
   /** 0 (default) lets the OS pick a free port. */
   port?: number;
@@ -230,6 +283,16 @@ export interface StudioOpenOptions {
   open?: boolean;
   /** Bundle root override, used by tests and by `FWINIT_BUNDLE_ROOT`. */
   bundleRoot?: string;
+  /**
+   * Binario por agente, para tests: apuntan a un script fixture en un
+   * directorio temporal en vez del agente real. Sin esto se usa el nombre del
+   * comando (`pi`, `opencode`, `gentle-shell`) o su variable de entorno.
+   */
+  agentBinaries?: Partial<Record<SkillTargetId, string>>;
+  /** Tope de salida acumulada por ejecución; por defecto 2 MB (spec S12). */
+  runMaxOutputBytes?: number;
+  /** Espera entre SIGTERM y SIGKILL al cancelar; por defecto 5 s (spec S12). */
+  runCancelGraceMs?: number;
 }
 
 export interface StudioAddress {

@@ -270,6 +270,31 @@ button {
   background: var(--surface-elevated);
 }
 
+/* El atributo hidden no gana contra el display: inline-flex de .btn. */
+.btn[hidden] {
+  display: none;
+}
+
+/* Ejecutar es la acción principal del panel; instalar queda como secundaria. */
+.btn--primary {
+  color: var(--on-accent);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.btn--primary:hover {
+  color: var(--on-accent);
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+.btn--primary:disabled {
+  color: var(--text-muted);
+  background: var(--surface);
+  border-color: var(--border);
+  cursor: not-allowed;
+}
+
 .btn--icon {
   width: 34px;
   height: 34px;
@@ -459,6 +484,11 @@ button {
 .segmented button[aria-pressed='true'] {
   color: var(--accent);
   background: var(--accent-soft);
+}
+
+/* El selector de agente tiene tres opciones, no dos. */
+.segmented--three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 /* ── Rail groups and rows ────────────────────────────────────────────────── */
@@ -709,6 +739,116 @@ button {
   margin: var(--space-2xs) 0 0;
   color: var(--error);
   font-size: 0.82rem;
+}
+
+/* ── Ejecutar skill ──────────────────────────────────────────────────────── */
+.install--run {
+  background: var(--surface);
+}
+
+.run__field {
+  display: grid;
+  gap: var(--space-3xs);
+  margin-top: var(--space-2xs);
+}
+
+.run__input {
+  width: 100%;
+  min-height: 4.5rem;
+  padding: var(--space-2xs);
+  resize: vertical;
+  color: var(--text);
+  background: var(--base);
+  border: 1px solid var(--border-input);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-sans);
+  font-size: var(--text-small);
+  line-height: var(--leading-body);
+}
+
+.run__input:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+
+.run__input:disabled {
+  color: var(--text-muted);
+  background: var(--surface);
+}
+
+.run__row {
+  margin-top: var(--space-2xs);
+}
+
+.run__row .segmented {
+  max-width: 420px;
+}
+
+.run__timer {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+}
+
+/* La salida es un log con scroll propio: crece la ventana, nunca el panel. */
+.run__output {
+  max-height: 280px;
+  margin-top: var(--space-2xs);
+  padding: var(--space-2xs);
+  overflow-y: auto;
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--text-caption);
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+.run__placeholder {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.run__line {
+  display: grid;
+  grid-template-columns: 2.5rem minmax(0, 1fr);
+  gap: var(--space-2xs);
+  padding: 0.125rem 0;
+}
+
+.run__line + .run__line {
+  border-top: 1px dashed var(--border);
+}
+
+.run__n {
+  color: var(--text-muted);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+}
+
+.run__text {
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.run__line[data-kind='text'] .run__text {
+  color: var(--text);
+}
+
+.run__line[data-kind='tool'] .run__text {
+  color: var(--syn-function);
+}
+
+.run__line[data-kind='status'] .run__text {
+  color: var(--text-muted);
+}
+
+.run__line[data-kind='raw'] .run__text {
+  color: var(--syn-comment);
 }
 
 /* ── Contenido de la skill ───────────────────────────────────────────────── */

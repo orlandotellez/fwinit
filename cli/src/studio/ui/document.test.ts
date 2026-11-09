@@ -36,8 +36,7 @@ describe("studio document", () => {
     expect(CLIENT_JS).toContain("function setScope(");
   });
 
-  test("the install action depends on the server-resolved bundle and token", () => {
-    expect(CLIENT_JS).toContain("function canInstall(");
+  test("the install action depends on the server-resolved bundle and token", () => {    expect(CLIENT_JS).toContain("function canInstall(");
     expect(CLIENT_JS).toContain("meta.installToken");
     const withInstall = renderStudioHtml({
       version: "1.2.3",
@@ -47,5 +46,26 @@ describe("studio document", () => {
     });
     expect(withInstall).toContain('\"installToken\":\"abc123\"');
     expect(withInstall).toContain('\"skills\":[\"create-specs\"]');
+  });
+
+  test("el detalle ejecuta la skill: input, selector de agente, stream y cancelar", () => {
+    // Ejecutar es la acción principal (S9): el input, los tres agentes y la
+    // salida viva existen, y la instalación queda como acción secundaria.
+    expect(CLIENT_JS).toContain("function renderRunBlock(");
+    expect(CLIENT_JS).toContain("data-run-prompt");
+    expect(CLIENT_JS).toContain("data-run-agent");
+    expect(CLIENT_JS).toContain("text: 'Ejecutar skill'");
+    expect(CLIENT_JS).toContain("data-run-cancel");
+    expect(CLIENT_JS).toContain("text: 'Instalar en los agentes'");
+    expect(CLIENT_JS).toContain("'gentle-shell', label: 'Gentle Shell'");
+  });
+
+  test("el panel consulta por cursor, sin inventar líneas", () => {
+    expect(CLIENT_JS).toContain("'/api/skills/run?id='");
+    expect(CLIENT_JS).toContain("'&since=' + run.next");
+    expect(CLIENT_JS).toContain("/api/skills/run/cancel");
+    // El polling se detiene solo y refresca los reportes al terminar.
+    expect(CLIENT_JS).toContain("function refreshReports(");
+    expect(CLIENT_JS).toContain("state.specs = null;");
   });
 });

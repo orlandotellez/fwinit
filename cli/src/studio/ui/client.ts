@@ -37,7 +37,17 @@ export const CLIENT_JS = `
     drawerOpen: false,
     tocLinks: [],
     /** Estado del diálogo de instalación: { name, plan, result, error, busy }. */
-    install: null
+    install: null,
+    /** Texto escrito por skill, para que un repintado no borre lo que el usuario escribió. */
+    prompts: {},
+    /** Agente elegido por skill; por defecto el agente propio del usuario. */
+    agents: {},
+    /**
+     * La ejecución en curso (o la última de esta pestaña):
+     * { skillKey, id, agent, prompt, phase, lines, next, exitCode, error, ... }.
+     * Sólo hay una a la vez en todo el studio, igual que en el server.
+     */
+    run: null
   };
 
   function q(sel, root) {
@@ -211,6 +221,22 @@ export const CLIENT_JS = `
     return fetchJson('/api/skills').then(function (data) {
       state.skills = data;
       return data;
+    });
+  }
+
+  /** POST con token: el server exige mismo origen, JSON y el token del documento. */
+  function postJson(url, body) {
+    return fetch(url, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', accept: 'application/json' },
+      body: JSON.stringify(body)
+    }).then(function (response) {
+      return response.json().catch(function () { return {}; }).then(function (payload) {
+        if (response.ok) return payload;
+        var failure = new Error(payload.error || 'La solicitud falló (' + response.status + ')');
+        failure.status = response.status;
+        throw failure;
+      });
     });
   }
 
@@ -499,7 +525,7 @@ export const CLIENT_JS = `
           class: 'btn',
           'aria-expanded': state.install && state.install.name === skill.name ? 'true' : 'false',
           'aria-controls': 'install-panel',
-          text: 'Implementar skill',
+          text: 'Instalar en los agentes',
           onclick: function () { openInstall(skill); }
         }) : null,
         copyButton('Copiar ruta', skill.path),
@@ -510,8 +536,10 @@ export const CLIENT_JS = `
       ])
     ]));
 
-    // El diálogo de instalación vive entre las acciones y el contenido: es una
-    // decisión que se toma antes de leer, no después.
+    // Ejecutar es la acción principal (S9): input, agente, botón y salida viva.
+    container.appendChild(renderRunBlock(skill));
+
+    // Instalar en los tres agentes queda como acción secundaria del mismo panel.
     var installPanel = renderInstall(skill);
     if (installPanel) container.appendChild(installPanel);
 
@@ -540,9 +568,392 @@ export const CLIENT_JS = `
         ]);
       })));
     }
+
+    // El panel ya está en el documento: recién ahora la salida puede medir scroll.
+    paintRun(skill);
   }
 
-  /* ── Implementar skill ─────────────────────────────────────────────────── */
+  /* ── Ejecutar skill ─────────────────────────────────────────────────────── */
+
+  var RUN_AGENTS = [
+    { id: 'opencode', label: 'opencode' },
+    { id: 'pi', label: 'Pi' },
+    { id: 'gentle-shell', label: 'Gentle Shell' }
+  ];
+  /** Cada cuánto se pide el estado mientras corre (S11). */
+  var RUN_POLL_MS = 900;
+  /** Un solo timer de polling por pestaña; el server admite un run a la vez. */
+  var runPoll = null;
+
+  function runAgentLabel(id) {
+    for (var i = 0; i < RUN_AGENTS.length; i++) {
+      if (RUN_AGENTS[i].id === id) return RUN_AGENTS[i].label;
+    }
+    return id;
+  }
+
+  /** La ejecución de esta skill, si la hay: la identidad incluye el alcance. */
+  function runFor(skill) {
+    return state.run && state.run.skillKey === skillKeyOf(skill) ? state.run : null;
+  }
+
+  function agentFor(skill) {
+    var key = skillKeyOf(skill);
+    if (state.run && state.run.skillKey === key) return state.run.agent;
+    // Gentle Shell es el agente propio del usuario; los otros dos quedan a un click.
+    return state.agents[key] || 'gentle-shell';
+  }
+
+  function runIsActive(run) {
+    return run.phase === 'starting' || run.phase === 'running';
+  }
+
+  /** True cuando otra skill tiene una ejecución viva: sólo puede haber una. */
+  function runBusyElsewhere(key) {
+    return !!(state.run && runIsActive(state.run) && state.run.skillKey !== key);
+  }
+
+  function runElapsedText(run) {
+    var ms = runIsActive(run) ? Date.now() - run.startedAtMs : run.durationMs;
+    var seconds = Math.max(0, Math.round((ms || 0) / 1000));
+    if (seconds < 60) return seconds + ' s';
+    return Math.floor(seconds / 60) + ' min ' + (seconds % 60) + ' s';
+  }
+
+  function runStatusText(run) {
+    if (run.phase === 'starting') return 'Preparando la ejecución con ' + runAgentLabel(run.agent) + '…';
+    if (run.phase === 'running') return 'Ejecutando con ' + runAgentLabel(run.agent) + '…';
+    if (run.phase === 'done') return 'Listo: terminó con código ' + (run.exitCode === null ? '—' : run.exitCode) + ' en ' + runElapsedText(run) + '.';
+    if (run.phase === 'cancelled') return 'Cancelada después de ' + runElapsedText(run) + '.';
+    return 'La ejecución falló' + (run.exitCode === null ? '' : ' con código ' + run.exitCode) + '.';
+  }
+
+  function runNoteFor(agent) {
+    if (agent === 'opencode') {
+      return 'opencode no tiene flag de skill: sólo usa las que descubre en ~/.config/opencode/skills o .opencode/skills.';
+    }
+    return 'A la skill abierta se la pasa como --skill <directorio>, con la raíz del proyecto como cwd.';
+  }
+
+  function emptyRun(skill, extra) {
+    var key = skillKeyOf(skill);
+    var base = {
+      skillKey: key,
+      id: null,
+      agent: agentFor(skill),
+      prompt: '',
+      phase: 'starting',
+      lines: [],
+      next: 0,
+      exitCode: null,
+      durationMs: 0,
+      error: null,
+      truncated: false,
+      notes: [],
+      command: null,
+      startedAtMs: Date.now()
+    };
+    Object.keys(extra || {}).forEach(function (name) { base[name] = extra[name]; });
+    return base;
+  }
+
+  /** El bloque de ejecución: input, agente, ejecutar / cancelar y salida viva. */
+  function renderRunBlock(skill) {
+    var key = skillKeyOf(skill);
+    var run = runFor(skill);
+    var agent = agentFor(skill);
+    var active = run ? runIsActive(run) : false;
+    // Un solo run a la vez: si corre en otra skill, Ejecutar queda apagado.
+    var busyElsewhere = runBusyElsewhere(key);
+
+    var section = el('section', {
+      class: 'install install--run',
+      id: 'run-panel',
+      dataset: { runPanel: '', runFor: key }
+    }, [
+      el('h2', { class: 'install__title', text: 'Ejecutar skill' }),
+      el('p', { class: 'install__note', text: 'La skill hace su trabajo con el agente que elijas, en la raíz del proyecto y con permiso para escribir archivos.' }),
+      el('label', { class: 'run__field' }, [
+        el('span', { class: 'meta__key', text: 'Qué querés que haga' }),
+        el('textarea', {
+          class: 'run__input',
+          rows: '3',
+          'data-run-prompt': '',
+          placeholder: 'Ej.: creá las specs de este proyecto para una app de turnos',
+          spellcheck: 'false',
+          disabled: active,
+          oninput: function (event) { state.prompts[key] = event.target.value; }
+        })
+      ]),
+      el('div', { class: 'run__row' }, [
+        el('div', { class: 'segmented segmented--three', role: 'group', 'aria-label': 'Agente' }, RUN_AGENTS.map(function (option) {
+          return el('button', {
+            type: 'button',
+            'data-run-agent': option.id,
+            'aria-pressed': option.id === agent ? 'true' : 'false',
+            disabled: active,
+            text: option.label,
+            onclick: function () { setRunAgent(skill, option.id); }
+          });
+        }))
+      ]),
+      el('p', { class: 'install__note', dataset: { runNote: '' }, text: runNoteFor(agent) }),
+      el('div', { class: 'detail__actions' }, [
+        el('button', {
+          type: 'button',
+          class: 'btn btn--primary',
+          'data-run-start': '',
+          disabled: active || busyElsewhere,
+          text: 'Ejecutar skill',
+          onclick: function () { startRun(skill); }
+        }),
+        el('button', {
+          type: 'button',
+          class: 'btn',
+          'data-run-cancel': '',
+          hidden: !active,
+          text: 'Cancelar',
+          onclick: function () { cancelRun(skill); }
+        }),
+        el('span', { class: 'run__timer', dataset: { runTimer: '' } })
+      ]),
+      el('p', { class: 'install__status', dataset: { runState: '' }, 'aria-live': 'polite' }),
+      el('p', { class: 'install__error', dataset: { runError: '' } }),
+      el('p', { class: 'install__note', dataset: { runCommand: '' } }),
+      el('div', { class: 'run__output', dataset: { runOutput: '' }, tabindex: '0', role: 'log', 'aria-live': 'polite' })
+    ]);
+
+    var area = q('[data-run-prompt]', section);
+    if (area) area.value = run ? run.prompt : (state.prompts[key] || '');
+    return section;
+  }
+
+  function setRunAgent(skill, agent) {
+    state.agents[skillKeyOf(skill)] = agent;
+    renderSkillDetail();
+  }
+
+  /** Repinta la salida completa: se usa cuando el panel se vuelve a dibujar. */
+  function paintRun(skill) {
+    var out = q('[data-run-output]');
+    var panel = q('[data-run-panel]');
+    if (!out) return;
+    out.textContent = '';
+    var run = runFor(skill);
+    if (!panel || panel.dataset.runFor !== skillKeyOf(skill)) {
+      syncRunPanel();
+      return;
+    }
+    if (run && run.lines.length) appendRunLines(run.lines);
+    else {
+      out.appendChild(el('p', { class: 'run__placeholder', dataset: { runPlaceholder: '' }, text: 'Acá va la salida del agente, línea por línea.' }));
+    }
+    syncRunPanel();
+    // Al repintar se muestra lo último: el usuario acaba de llegar al panel.
+    var scroll = function () { out.scrollTop = out.scrollHeight; };
+    if (window.requestAnimationFrame) window.requestAnimationFrame(scroll);
+    else scroll();
+  }
+
+  /**
+   * Agrega líneas nuevas sin mover al lector: sólo se pega al fondo si ya
+   * estaba abajo, y nunca escribe en el panel de otra skill.
+   */
+  function appendRunLines(lines) {
+    var out = q('[data-run-output]');
+    var panel = q('[data-run-panel]');
+    if (!out || !panel || !state.run || panel.dataset.runFor !== state.run.skillKey) return;
+    if (!lines || !lines.length) return;
+    var placeholder = q('[data-run-placeholder]', out);
+    if (placeholder) out.removeChild(placeholder);
+    var atBottom = out.scrollTop + out.clientHeight >= out.scrollHeight - 8;
+    lines.forEach(function (line) {
+      out.appendChild(el('div', { class: 'run__line', dataset: { kind: line.kind } }, [
+        el('span', { class: 'run__n', text: String(line.n) }),
+        el('span', { class: 'run__text', text: line.text })
+      ]));
+    });
+    if (atBottom) out.scrollTop = out.scrollHeight;
+  }
+
+  /** Refresca los textos y botones del panel sin redibujar el detalle entero. */
+  function syncRunPanel() {
+    var panel = q('[data-run-panel]');
+    var stateEl = q('[data-run-state]');
+    var errorEl = q('[data-run-error]');
+    var timerEl = q('[data-run-timer]');
+    var commandEl = q('[data-run-command]');
+    var startBtn = q('[data-run-start]');
+    var cancelBtn = q('[data-run-cancel]');
+    var run = state.run;
+
+    if (!run || !panel || panel.dataset.runFor !== run.skillKey) {
+      if (stateEl) stateEl.textContent = '';
+      if (errorEl) errorEl.textContent = '';
+      if (timerEl) timerEl.textContent = '';
+      if (commandEl) commandEl.textContent = '';
+      if (startBtn) startBtn.disabled = runBusyElsewhere(panel ? panel.dataset.runFor : '');
+      if (cancelBtn) cancelBtn.hidden = true;
+      return;
+    }
+
+    var active = runIsActive(run);
+    if (stateEl) stateEl.textContent = runStatusText(run);
+    if (errorEl) errorEl.textContent = run.error ? '\u2716 ' + run.error : '';
+    if (timerEl) timerEl.textContent = active ? runElapsedText(run) : '';
+    if (commandEl) {
+      commandEl.textContent = run.command
+        ? 'Comando: ' + run.command.binary + ' ' + run.command.args.slice(0, -1).join(' ') + ' "…"'
+        : '';
+    }
+    if (startBtn) startBtn.disabled = active;
+    if (cancelBtn) cancelBtn.hidden = !active;
+  }
+
+  function stopRunPolling() {
+    if (!runPoll) return;
+    clearInterval(runPoll);
+    runPoll = null;
+  }
+
+  /** Pide el estado con el cursor since y sigue hasta que el run termina. */
+  function pollRun() {
+    var run = state.run;
+    if (!run || !run.id || run.phase !== 'running') {
+      stopRunPolling();
+      return;
+    }
+    var id = run.id;
+    fetchJson('/api/skills/run?id=' + encodeURIComponent(id) + '&since=' + run.next).then(function (status) {
+      if (!state.run || state.run.id !== id) {
+        stopRunPolling();
+        return;
+      }
+      applyRunStatus(status);
+    }, function (error) {
+      if (!state.run || state.run.id !== id) {
+        stopRunPolling();
+        return;
+      }
+      state.run.phase = 'failed';
+      state.run.error = error && error.message ? error.message : 'Se cortó la consulta de la ejecución.';
+      stopRunPolling();
+      syncRunPanel();
+    });
+  }
+
+  function ensureRunPolling() {
+    if (runPoll) return;
+    runPoll = setInterval(pollRun, RUN_POLL_MS);
+    pollRun();
+  }
+
+  /**
+   * Aplica un estado del server: agrega sólo las líneas que el panel no tiene
+   * y, cuando el run termina, refresca los reportes (una skill puede haber
+   * creado specs/ o archivos nuevos).
+   */
+  function applyRunStatus(status) {
+    var run = state.run;
+    if (!run || (run.id && run.id !== status.id)) return;
+    var cursor = run.next || 0;
+    run.id = status.id;
+    var fresh = (status.lines || []).filter(function (line) { return line.n > cursor; });
+    if (fresh.length) {
+      fresh.forEach(function (line) { run.lines.push(line); });
+      appendRunLines(fresh);
+    }
+    run.next = status.next;
+    run.phase = status.state;
+    run.exitCode = status.exitCode;
+    run.durationMs = status.durationMs;
+    run.truncated = status.truncated === true;
+    if (status.notes && status.notes.length) run.notes = status.notes;
+    if (status.command) run.command = status.command;
+    syncRunPanel();
+    if (run.phase !== 'running') finishRun();
+  }
+
+  function finishRun() {
+    stopRunPolling();
+    refreshReports();
+  }
+
+  /**
+   * Vuelve a pedir skills y specs sin redibujar el detalle: así un specs/
+   * recién creado por la skill aparece en la otra vista y en los contadores.
+   */
+  function refreshReports() {
+    state.skills = null;
+    state.specs = null;
+    Promise.all([loadSkills(), loadSpecs()]).then(function () {
+      renderSkillList();
+      renderSpecTree();
+      syncShell();
+      syncRunPanel();
+    }, function () {
+      // El reporte se reintenta solo en el próximo cambio de vista.
+    });
+  }
+
+  function startRun(skill) {
+    var key = skillKeyOf(skill);
+    var area = q('[data-run-prompt]');
+    var prompt = (area ? area.value : state.prompts[key] || '').trim();
+    var agent = agentFor(skill);
+    if (!prompt) {
+      state.run = emptyRun(skill, {
+        agent: agent,
+        phase: 'failed',
+        error: 'Escribí qué querés que haga la skill antes de ejecutar.'
+      });
+      syncRunPanel();
+      if (area) area.focus();
+      return;
+    }
+
+    state.prompts[key] = prompt;
+    state.run = emptyRun(skill, { agent: agent, prompt: prompt });
+    renderSkillDetail();
+
+    postJson('/api/skills/run', {
+      target: skill.target,
+      scope: skill.scope,
+      name: skill.name,
+      agent: agent,
+      prompt: prompt,
+      token: meta.installToken
+    }).then(function (status) {
+      if (!state.run) return;
+      state.run.id = status.id;
+      state.run.startedAtMs = Date.parse(status.startedAt) || state.run.startedAtMs;
+      state.run.notes = status.notes || [];
+      applyRunStatus(status);
+      if (state.run && state.run.phase === 'running') ensureRunPolling();
+    }, function (error) {
+      if (!state.run) return;
+      state.run.phase = 'failed';
+      state.run.error = error && error.message ? error.message : 'No se pudo ejecutar la skill.';
+      syncRunPanel();
+    });
+  }
+
+  function cancelRun(skill) {
+    var run = runFor(skill);
+    if (!run || !run.id) return;
+    var cancelBtn = q('[data-run-cancel]');
+    if (cancelBtn) cancelBtn.disabled = true;
+    postJson('/api/skills/run/cancel', { id: run.id, token: meta.installToken }).then(function (status) {
+      if (cancelBtn) cancelBtn.disabled = false;
+      applyRunStatus(status);
+    }, function (error) {
+      if (cancelBtn) cancelBtn.disabled = false;
+      if (state.run) state.run.error = error && error.message ? error.message : 'No se pudo cancelar.';
+      syncRunPanel();
+    });
+  }
+
+  /* ── Instalar skill (acción secundaria) ─────────────────────────────────── */
 
   /** Lo que el server resolvió al arrancar: qué bundle hay y qué skills trae. */
   function installInfo() {
@@ -612,18 +1023,7 @@ export const CLIENT_JS = `
     current.error = null;
     renderSkillDetail();
 
-    fetch('/api/skills/install', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', accept: 'application/json' },
-      body: JSON.stringify({ name: skill.name, token: meta.installToken })
-    }).then(function (response) {
-      return response.json().catch(function () { return {}; }).then(function (body) {
-        if (response.ok) return body;
-        var failure = new Error(body.error || 'La instalación falló (' + response.status + ')');
-        failure.status = response.status;
-        throw failure;
-      });
-    }).then(function (result) {
+    postJson('/api/skills/install', { name: skill.name, token: meta.installToken }).then(function (result) {
       current.plan = null;
       current.busy = false;
       current.result = result;
@@ -642,7 +1042,7 @@ export const CLIENT_JS = `
     if (!current) return null;
 
     var section = el('section', { class: 'install', id: 'install-panel', dataset: { install: skill.name } }, [
-      el('h2', { class: 'install__title', text: 'Implementar en opencode, Pi y Gentle Shell' })
+      el('h2', { class: 'install__title', text: 'Instalar en opencode, Pi y Gentle Shell' })
     ]);
 
     var status = installStatusText(current);
