@@ -54,9 +54,10 @@ fwinit skills --remove
 fwinit skills --global all --remove
 fwinit skills --global pi --remove --only design
 
-# Ver en el navegador las skills instaladas, ejecutar una skill con el agente
-# que elijas —la ejecución deja una sesión retomable en ese agente— y consultar
-# el historial de ejecuciones del proyecto
+# Ver en el navegador las skills instaladas (el contenido de cada SKILL.md se
+# lee en su propia página), ejecutar una skill con el agente que elijas —la
+# ejecución deja una sesión retomable en ese agente— y consultar el historial de
+# ejecuciones del proyecto
 fwinit studio
 
 # Ayuda

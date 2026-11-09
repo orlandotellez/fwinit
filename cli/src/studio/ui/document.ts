@@ -151,6 +151,14 @@ export function renderStudioHtml(options: StudioDocumentOptions): string {
       <p class="loading">Leyendo las skills instaladas…</p>
     </section>
   </section>
+
+  <!-- La lectura de la skill es una página del router por hash, no un modal:
+       ocupa todo el marco y sólo su contenido scrollea (S19). -->
+  <section class="view view--reader" data-view-panel="reader" data-active="false" aria-label="Lectura de la skill">
+    <div class="reader" data-reader>
+      <p class="loading">Leyendo la skill…</p>
+    </div>
+  </section>
 </main>
 
 <footer class="statusbar">

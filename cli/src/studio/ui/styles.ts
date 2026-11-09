@@ -870,11 +870,19 @@ button {
 .pane[data-detail='skills'] {
   container-type: inline-size;
   container-name: studio-pane;
-  padding-top: 0;
-  padding-inline: 0;
+  /* Puesto de trabajo, no página: el panel ocupa el alto del marco y no
+     scrollea. Los únicos scroll propios son la salida del agente y los raíles
+     (S19). Columna flexible: el panel se queda con el alto que sobra después
+     del aviso de skill ausente y del plan de instalación. */
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  padding: 0;
 }
 
 .pane[data-detail='skills'] > * {
+  flex: none;
   max-width: 880px;
   margin-inline: auto;
   padding-inline: var(--space-lg);
@@ -887,6 +895,20 @@ button {
   padding-inline: 0;
 }
 
+/* El panel se queda con el alto que sobra: es el puesto de trabajo (S19). */
+.pane[data-detail='skills'] > .run-panel {
+  flex: 1 1 auto;
+}
+
+/* La instalación es una acción secundaria y sólo aparece cuando su plan está
+   abierto: se acota para que no empuje el panel fuera del marco. */
+.pane[data-detail='skills'] > .install {
+  max-height: 45vh;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+
 .pane[data-detail='skills'] > .run-panel + * {
   margin-top: var(--space-lg);
 }
@@ -894,7 +916,10 @@ button {
 .run-panel {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  height: clamp(28rem, 66vh, 46rem);
+  /* Ocupa el alto del marco que le da el pane: no hay alto fijo ni scroll de
+     página (S19). */
+  height: 100%;
+  min-height: 0;
   border-bottom: var(--hairline-strong);
   background: var(--base);
 }
@@ -1408,10 +1433,6 @@ button {
    tira de estado arriba de la columna. El estado y Cancelar viven en el header,
    que es la primera fila del panel, así que no se pierden al plegar. */
 @container studio-pane (max-width: 1099px) {
-  .run-panel {
-    height: auto;
-  }
-
   .run-body {
     grid-template-columns: minmax(0, 1fr);
     grid-template-areas: 'rail' 'stream';
@@ -1419,13 +1440,9 @@ button {
   }
 
   .run-rail {
-    max-height: 38vh;
+    max-height: 34vh;
     border-bottom: 1px solid var(--border);
     border-left: 0;
-  }
-
-  .run-stream {
-    height: clamp(24rem, 62vh, 40rem);
   }
 
   .run-head__facts {
@@ -1437,13 +1454,88 @@ button {
   }
 }
 
-/* ── Contenido de la skill ───────────────────────────────────────────────── */
-.skill-doc {
-  margin-top: var(--space-lg);
-  padding-top: var(--space-sm);
-  border-top: var(--hairline-strong);
+/* ── Lectura de la skill: página propia (S19) ────────────────────────────── */
+.view--reader {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
 }
 
+/* Ocupa todo el ancho y el alto del marco; sólo el cuerpo de la lectura
+   scrollea. */
+.reader {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--base);
+}
+
+.reader__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2xs) var(--space-md);
+  padding: var(--space-2xs) var(--space-md);
+  background: var(--surface);
+  border-bottom: var(--hairline-strong);
+}
+
+/* Regresar es la primera parada del teclado en esta página. */
+.reader__back {
+  flex: none;
+}
+
+.reader__id {
+  display: grid;
+  gap: var(--space-3xs);
+  min-width: 0;
+}
+
+.reader__title {
+  color: var(--text);
+  font-size: var(--text-h3);
+  font-weight: 600;
+  line-height: var(--leading-h3);
+  letter-spacing: -0.015em;
+  overflow-wrap: anywhere;
+}
+
+.reader__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2xs);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-caption);
+}
+
+.reader__body {
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-lg) var(--space-xl) var(--space-2xl);
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+/* La página es full width, el texto no: se lee a medida de lectura. */
+.reader__inner {
+  max-width: 76ch;
+  margin-inline: auto;
+}
+
+.reader__doc {
+  border-bottom: var(--hairline-strong);
+  padding-bottom: var(--space-lg);
+}
+
+@media (max-width: 820px) {
+  .reader__body {
+    padding: var(--space-md) var(--space-sm) var(--space-xl);
+  }
+}
+
+/* ── Contenido de la skill ───────────────────────────────────────────────── */
 .filelist {
   display: flex;
   flex-wrap: wrap;

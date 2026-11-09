@@ -93,10 +93,11 @@ fwinit --no-color    # menú sin color (también vale NO_COLOR=1)
 
 Abre una vista en el navegador con dos cosas: las skills que ya tenés
 instaladas para **OpenCode, Pi y Gentle Shell** (globales y del proyecto)
-—con el contenido de cada `SKILL.md` y sus archivos de texto—, y el árbol de
-`specs/` del directorio donde corrés el comando, renderizado como documentación
-navegable. Desde el detalle de una skill también podés **ejecutarla** con el
-agente que elijas, sin salir del navegador.
+—con el contenido de cada `SKILL.md` y sus archivos de texto, que se lee en su
+propia página con el botón **Leer skill**—, y el árbol de `specs/` del directorio
+donde corrés el comando, renderizado como documentación navegable. Desde el
+detalle de una skill también podés **ejecutarla** con el agente que elijas, sin
+salir del navegador.
 
 La vista de skills arranca en el **alcance del proyecto**, porque eso es lo que
 estás trabajando; el control `Globales` muestra todo lo instalado a nivel
@@ -166,6 +167,32 @@ a una tira de estado arriba de la columna y el panel pasa a una sola columna: el
 estado y **Cancelar** siguen en el header, así que no se pierden al plegar. El orden
 del DOM es el orden de lectura (header, columna, raíl) y el estado se anuncia con
 `aria-live`.
+
+El panel de trabajo **ocupa el alto de la ventana y no scrollea como página**: los
+únicos contenedores con scroll propio son la salida del agente y el raíl de skills
+de la izquierda (con su historial). El contenido de la skill ya no se apila abajo
+del panel: se lee en su propia página.
+
+#### Leer la skill en su propia página
+
+El header del panel tiene un botón **Leer skill**. Abre una **página** —una ruta del
+mismo router por hash, no un modal— con el `SKILL.md` de la skill, sus archivos en
+pestañas y sus metadatos (directorio, archivo, destino, alcance, versión, licencia,
+autor, archivos, tamaño y fecha). La página ocupa todo el ancho y el alto y sólo su
+contenido interno scrollea; el texto mantiene medida de lectura aunque la página sea
+full width.
+
+- **← Regresar** —primera parada del teclado— vuelve exactamente al punto de trabajo
+  anterior: misma skill elegida, mismo panel de ejecución y la salida del agente
+  donde estaba (no salta al fondo). El foco entra al título al abrir la lectura y
+  vuelve al botón **Leer skill** al regresar.
+- `Escape` hace lo mismo que **← Regresar**, y **atrás/adelante** del navegador
+  funcionan porque la lectura es una ruta (`#/leer/<alcance>/<agente>/<skill>`).
+- Entrar directo a esa ruta, sin historial previo, cae en el panel de esa skill.
+- Si el agente está corriendo mientras leés, la ejecución **no se interrumpe**: el
+  streaming sigue y al volver está la salida acumulada.
+- Una skill que ya no está instalada no ofrece **Leer skill**: su salida guardada se
+  sigue leyendo en el panel, pero su contenido no existe en el disco.
 
 #### Sesiones: retomar la ejecución en el agente
 

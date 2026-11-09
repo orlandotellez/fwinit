@@ -24,12 +24,26 @@ export const CLIENT_JS = `
 
   var state = {
     view: 'specs',
+    /**
+     * True cuando la ruta abierta es la página de lectura de la skill (S19).
+     * Es un estado del documento, no un modal: el panel de trabajo sigue vivo
+     * detrás (y el run sigue corriendo) y se vuelve con el router.
+     */
+    reader: false,
+    /** Posición de la salida del agente por skill, para volver donde estaba (S19). */
+    outputScroll: {},
+    /** La vuelta desde la lectura restaura ese scroll una sola vez (S19). */
+    pendingScrollOutput: false,
+    /** La vuelta desde la lectura devuelve el foco al botón Leer skill (S19). */
+    returnFromReader: false,
     // Arranca en el proyecto: lo instalado acá es lo que el usuario vino a ver,
     // y lo global queda a un click en el control de alcance.
     scope: 'project',
     skillKey: null,
     specPath: null,
     loadedSkillKey: null,
+    /** Skill cuyo listado de archivos se está pidiendo, para no pedirlo dos veces. */
+    skillDocLoading: null,
     skillFiles: null,
     skillFile: null,
     skillFileError: null,
@@ -297,7 +311,25 @@ export const CLIENT_JS = `
     var parts = raw.split('/').map(function (part) {
       try { return decodeURIComponent(part); } catch (error) { return part; }
     });
-    state.view = parts[0] === 'specs' ? 'specs' : 'skills';
+    // #/leer/<alcance>/<agente>/<skill> es la página de lectura de la skill:
+    // otra página del mismo router, así atrás y adelante del navegador andan (S19).
+    var reading = parts[0] === 'leer';
+    if (reading && !state.reader) captureOutputScroll();
+    if (!reading && state.reader) {
+      state.pendingScrollOutput = true;
+      state.returnFromReader = true;
+    }
+    state.reader = reading;
+    state.view = !reading && parts[0] === 'specs' ? 'specs' : 'skills';
+    if (reading) {
+      if (parts.length >= 4) {
+        state.scope = parts[1] === 'project' ? 'project' : 'global';
+        state.skillKey = parts.slice(2).join('/');
+        state.restoreDismissed = {};
+      }
+      render();
+      return;
+    }
     if (state.view === 'skills') {
       if (parts.length >= 4) {
         state.scope = parts[1] === 'project' ? 'project' : 'global';
@@ -315,6 +347,8 @@ export const CLIENT_JS = `
     // Cambiar de ruta tiene que pedir el documento: render() sólo dibuja el
     // estado que ya tiene en memoria.
     if (state.view === 'specs') loadSpecDoc();
+    // Al volver de la lectura el foco regresa al botón que la abrió (S19).
+    restoreReaderFocus();
   }
 
   function navigate(hash) {
@@ -329,6 +363,11 @@ export const CLIENT_JS = `
     return '#/skills/' + state.scope + '/' + encodeURIComponent(target) + '/' + encodeURIComponent(name);
   }
 
+  /** La ruta de la página de lectura de la skill (S19). */
+  function readerHash(target, scope, name) {
+    return '#/leer/' + scope + '/' + encodeURIComponent(target) + '/' + encodeURIComponent(name);
+  }
+
   function specHash(path) {
     return '#/specs/' + path.split('/').map(encodeURIComponent).join('/');
   }
@@ -340,7 +379,12 @@ export const CLIENT_JS = `
       tab.setAttribute('aria-selected', tab.dataset.view === state.view ? 'true' : 'false');
     });
     qa('[data-view-panel]').forEach(function (panel) {
-      panel.dataset.active = panel.dataset.viewPanel === state.view ? 'true' : 'false';
+      // La lectura es un panel más de la misma vista: se activa sola y deja el
+      // de skills tal como estaba, con su run y su scroll (S19).
+      var active = state.reader
+        ? panel.dataset.viewPanel === 'reader'
+        : panel.dataset.viewPanel === state.view;
+      panel.dataset.active = active ? 'true' : 'false';
     });
     var skillsCount = q('[data-count="skills"]');
     var specsCount = q('[data-count="specs"]');
@@ -598,10 +642,6 @@ export const CLIENT_JS = `
       }));
       return;
     }
-    var report = null;
-    (state.skills.targets || []).forEach(function (entry) {
-      if (entry.id === skill.target) report = entry;
-    });
 
     // Restaurar antes de dibujar el panel: el último run de la skill aparece de
     // una, terminado o no, sin buscarlo en el raíl (S16).
@@ -617,31 +657,10 @@ export const CLIENT_JS = `
     var installPanel = renderInstall(skill);
     if (installPanel) container.appendChild(installPanel);
 
-    // Primero el contenido (es lo que se viene a leer); los metadatos, después.
-    container.appendChild(el('section', { class: 'skill-doc', dataset: { skillDoc: '' } }));
-    ensureSkillDoc(skill);
-
-    container.appendChild(el('div', { class: 'meta' }, [
-      metaRow('Directorio', shortPath(skill.dir), true),
-      metaRow('Archivo', skill.path.replace(meta.projectRoot || '', '')),
-      metaRow('Destino', report ? report.label : skill.target),
-      metaRow('Alcance', skill.scope === 'global' ? 'instalación global del usuario' : 'este proyecto'),
-      metaRow('Versión', skill.version),
-      metaRow('Licencia', skill.license),
-      metaRow('Autor', skill.author),
-      metaRow('Archivos', String(skill.files)),
-      metaRow('Tamaño', fmtBytes(skill.bytes)),
-      metaRow('Modificado', fmtDate(skill.modified))
-    ]));
-
-    if (skill.warnings && skill.warnings.length) {
-      container.appendChild(el('div', { class: 'meta' }, skill.warnings.map(function (warning) {
-        return el('div', { class: 'meta__row' }, [
-          el('span', { class: 'meta__key', text: 'Aviso' }),
-          el('span', { class: 'meta__value', text: warning })
-        ]);
-      })));
-    }
+    // El contenido de la skill —su SKILL.md, sus archivos y sus metadatos— ya
+    // no vive en el panel de trabajo: se lee en su propia página (S19). Acá
+    // queda sólo la ejecución: header, columna del agente y raíl.
+    resetSkillDoc(skill);
 
     // El panel ya está en el documento: recién ahora la salida puede medir scroll.
     paintRun(skill);
@@ -870,6 +889,15 @@ export const CLIENT_JS = `
         runFact('Líneas', run ? String(runLineCount(run)) : '—', 'data-run-fact-lines')
       ]),
       el('div', { class: 'run-head__actions' }, [
+        // La descripción de la skill no se apila abajo del panel: se lee en su
+        // propia página, que abre este botón (S19).
+        skill.missing === true ? null : el('button', {
+          type: 'button',
+          class: 'btn',
+          'data-skill-read': '',
+          text: 'Leer skill',
+          onclick: function () { openReader(skill); }
+        }),
         el('button', {
           type: 'button',
           class: 'btn',
@@ -1487,9 +1515,16 @@ export const CLIENT_JS = `
     // El panel ya está en el documento: recién ahora se puede pedir el catálogo.
     var modelField = q('[data-run-model]');
     if (modelField && modelField.dataset.modelAgent) ensureModelList(modelField.dataset.modelAgent);
-    // Al repintar se muestra lo último: el usuario acaba de llegar al panel.
     if (!out || out.hidden) return;
-    var scroll = function () { out.scrollTop = out.scrollHeight; };
+    // Al repintar se muestra lo último, salvo que se vuelva de la lectura de la
+    // skill: ahí manda la posición que la salida tenía antes de entrar (S19).
+    var saved = state.outputScroll[skillKeyOf(skill)];
+    var restoring = state.pendingScrollOutput;
+    if (restoring) state.pendingScrollOutput = false;
+    var scroll = function () {
+      if (restoring && typeof saved === 'number') out.scrollTop = saved;
+      else out.scrollTop = out.scrollHeight;
+    };
     if (window.requestAnimationFrame) window.requestAnimationFrame(scroll);
     else scroll();
   }
@@ -2267,25 +2302,35 @@ export const CLIENT_JS = `
       '&name=' + encodeURIComponent(skill.name);
   }
 
-  /** Carga el contenido una vez por skill: al cambiar de selección se reinicia. */
-  function ensureSkillDoc(skill) {
+  /**
+   * Al cambiar de skill el contenido cacheado deja de valer (S19). El panel de
+   * trabajo sólo reinicia la caché; el que la usa es la página de lectura.
+   */
+  function resetSkillDoc(skill) {
     var key = skillKeyOf(skill);
-    if (state.loadedSkillKey === key) {
-      renderSkillDoc(skill);
-      return;
-    }
+    if (state.loadedSkillKey === key) return;
     state.loadedSkillKey = key;
     state.skillFiles = null;
     state.skillFile = null;
     state.skillFileError = null;
+    state.skillDocLoading = null;
+  }
+
+  /** Carga el contenido una vez por skill y lo repinta en la página de lectura. */
+  function ensureSkillDoc(skill) {
+    resetSkillDoc(skill);
     renderSkillDoc(skill);
+    if (state.skillFiles || state.skillFile || state.skillFileError) return;
     loadSkillFiles(skill);
   }
 
   function loadSkillFiles(skill) {
     var key = skillKeyOf(skill);
+    if (state.skillDocLoading === key) return;
+    state.skillDocLoading = key;
     fetchJson('/api/skills/files?' + skillQuery(skill)).then(function (list) {
       if (state.loadedSkillKey !== key) return;
+      state.skillDocLoading = null;
       state.skillFiles = list;
       var files = list.files || [];
       var preferred = null;
@@ -2297,6 +2342,7 @@ export const CLIENT_JS = `
       else renderSkillDoc(skill);
     }, function (error) {
       if (state.loadedSkillKey !== key) return;
+      state.skillDocLoading = null;
       state.skillFileError = error;
       renderSkillDoc(skill);
     });
@@ -2398,6 +2444,162 @@ export const CLIENT_JS = `
       }));
       host.appendChild(warnings);
     }
+  }
+
+  /* ── Lectura de la skill: página propia (S19) ─────────────────────────── */
+
+  /** La skill que la ruta de lectura pide, aunque el reporte ya no la tenga. */
+  function readerSkillRef() {
+    if (!state.skillKey) return null;
+    var parts = state.skillKey.split('/');
+    if (parts.length < 2) return null;
+    return { target: parts[0], scope: state.scope, name: parts.slice(1).join('/') };
+  }
+
+  /** Abre la página de lectura sin perder el punto de trabajo (S19). */
+  function openReader(skill) {
+    captureOutputScroll();
+    navigate(readerHash(skill.target, skill.scope, skill.name));
+  }
+
+  /**
+   * Guarda dónde estaba la salida del agente antes de salir del panel: al
+   * volver se restaura esa posición y no el fondo (S19).
+   */
+  function captureOutputScroll() {
+    var out = q('[data-run-output]');
+    var panel = q('[data-run-panel]');
+    if (!out || !panel || !panel.dataset.runFor) return;
+    state.outputScroll[panel.dataset.runFor] = out.scrollTop || 0;
+  }
+
+  /**
+   * Vuelve exactamente al panel de esa skill: misma skill elegida, mismo run
+   * abierto y la salida donde estaba. Sin historial previo cae en el panel de
+   * la misma skill, que es el punto de trabajo que le corresponde (S19).
+   */
+  function leaveReader() {
+    state.returnFromReader = true;
+    state.pendingScrollOutput = true;
+    var skill = selectedSkill();
+    if (skill) {
+      navigate(skillHash(skill.target, skill.name));
+      return;
+    }
+    var ref = readerSkillRef();
+    if (ref) {
+      navigate('#/skills/' + ref.scope + '/' + encodeURIComponent(ref.target) + '/' + encodeURIComponent(ref.name));
+      return;
+    }
+    navigate('#/skills');
+  }
+
+  /** Al volver, el foco regresa al botón que abrió la lectura (S19). */
+  function restoreReaderFocus() {
+    if (!state.returnFromReader) return;
+    state.returnFromReader = false;
+    var button = q('[data-skill-read]');
+    if (button && button.focus) button.focus();
+  }
+
+  /** La línea de metadatos del encabezado de la lectura, sin prosa. */
+  function readerMetaLine(skill, report) {
+    var bits = [];
+    bits.push(report ? report.label : skill.target);
+    bits.push(skill.scope === 'global' ? 'global' : 'proyecto');
+    if (skill.version) bits.push('v' + skill.version);
+    bits.push(skill.files + (skill.files === 1 ? ' archivo' : ' archivos'));
+    return bits.join(' \u00b7 ');
+  }
+
+  /**
+   * La página de lectura (S19): ocupa todo el ancho y el alto del marco y sólo
+   * su contenido scrollea. ← Regresar es la primera parada del teclado y el
+   * título recibe el foco al entrar, así la página se anuncia como página y no
+   * como un diálogo.
+   */
+  function renderReader() {
+    var host = q('[data-reader]');
+    if (!host) return;
+    host.textContent = '';
+    if (!state.skills) {
+      host.appendChild(el('p', { class: 'loading', text: 'Leyendo las skills instaladas\u2026' }));
+      return;
+    }
+
+    var head = el('header', { class: 'reader__head' }, [
+      el('button', {
+        type: 'button',
+        class: 'btn reader__back',
+        'data-reader-back': '',
+        text: '\u2190 Regresar',
+        onclick: function () { leaveReader(); }
+      })
+    ]);
+
+    var skill = selectedSkill();
+    if (!skill) {
+      // Sin skill en el reporte no se inventa contenido: se puede volver y el
+      // panel explica por qué no hay nada que leer (S16/S19).
+      var ref = readerSkillRef();
+      head.appendChild(el('div', { class: 'reader__id' }, [
+        el('h1', { class: 'reader__title', tabindex: '-1', text: ref ? ref.name : 'Skill' }),
+        el('p', { class: 'reader__meta', text: 'esta skill ya no está instalada: no hay contenido para leer' })
+      ]));
+      host.appendChild(head);
+      host.appendChild(el('div', { class: 'reader__body' }, [
+        el('div', { class: 'reader__inner' }, [
+          emptyState({
+            title: 'La skill no está instalada',
+            text: 'Su contenido no está en este destino, así que no hay archivos que leer.',
+            hint: 'Volvé con Regresar para ver la salida guardada de esa skill.'
+          })
+        ])
+      ]));
+      return;
+    }
+
+    var report = null;
+    (state.skills.targets || []).forEach(function (entry) {
+      if (entry.id === skill.target) report = entry;
+    });
+
+    var title = el('h1', { class: 'reader__title', tabindex: '-1', text: skill.name });
+    head.appendChild(el('div', { class: 'reader__id' }, [
+      title,
+      el('p', { class: 'reader__meta', text: readerMetaLine(skill, report) })
+    ]));
+
+    var inner = el('div', { class: 'reader__inner' }, [
+      el('section', { class: 'reader__doc', dataset: { skillDoc: '' } }),
+      el('div', { class: 'meta' }, [
+        metaRow('Directorio', shortPath(skill.dir), true),
+        metaRow('Archivo', skill.path.replace(meta.projectRoot || '', '')),
+        metaRow('Destino', report ? report.label : skill.target),
+        metaRow('Alcance', skill.scope === 'global' ? 'instalación global del usuario' : 'este proyecto'),
+        metaRow('Versión', skill.version),
+        metaRow('Licencia', skill.license),
+        metaRow('Autor', skill.author),
+        metaRow('Archivos', String(skill.files)),
+        metaRow('Tamaño', fmtBytes(skill.bytes)),
+        metaRow('Modificado', fmtDate(skill.modified))
+      ])
+    ]);
+    if (skill.warnings && skill.warnings.length) {
+      inner.appendChild(el('div', { class: 'meta' }, skill.warnings.map(function (warning) {
+        return el('div', { class: 'meta__row' }, [
+          el('span', { class: 'meta__key', text: 'Aviso' }),
+          el('span', { class: 'meta__value', text: warning })
+        ]);
+      })));
+    }
+
+    host.appendChild(head);
+    host.appendChild(el('div', { class: 'reader__body' }, [inner]));
+
+    // El contenido de la skill se carga acá: el panel de trabajo ya no lo tiene.
+    ensureSkillDoc(skill);
+    if (title.focus) title.focus();
   }
 
   /* ── Specs view ────────────────────────────────────────────────────────── */
@@ -2680,6 +2882,12 @@ export const CLIENT_JS = `
 
   function render() {
     syncShell();
+    if (state.reader) {
+      // La lectura es una página propia: el panel de trabajo no se redibuja, así
+      // el run sigue llegando a su DOM y se vuelve tal como estaba (S19).
+      renderReader();
+      return;
+    }
     if (state.view === 'skills') {
       renderSkillList();
       renderSkillDetail();
@@ -2705,11 +2913,15 @@ export const CLIENT_JS = `
       // El historial filtra las skills que existen: recién ahora se sabe.
       renderRunHistory();
       syncShell();
+      // Entrar directo a la lectura (deep link) encuentra el reporte al llegar.
+      if (state.reader) renderReader();
     }, function (error) {
       var list = q('[data-list="skills"]');
       var detail = q('[data-detail="skills"]');
       if (list) { list.textContent = ''; renderError(list, error); }
       if (detail) { detail.textContent = ''; renderError(detail, error); }
+      var readerHost = q('[data-reader]');
+      if (readerHost && state.reader) { readerHost.textContent = ''; renderError(readerHost, error); }
     });
   }
 
@@ -2789,6 +3001,12 @@ export const CLIENT_JS = `
     document.addEventListener('keydown', function (event) {
       var target = event.target;
       var typing = target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
+      // Escape en la página de lectura vuelve al panel, igual que ← Regresar (S19).
+      if (event.key === 'Escape' && state.reader) {
+        event.preventDefault();
+        leaveReader();
+        return;
+      }
       if (event.key === '/' && !typing) {
         event.preventDefault();
         var input = q('[data-search="' + state.view + '"]');
