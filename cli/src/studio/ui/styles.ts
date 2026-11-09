@@ -677,6 +677,40 @@ button {
   color: var(--text);
 }
 
+/* ── Implementar skill ───────────────────────────────────────────────────── */
+.install {
+  margin-top: var(--space-lg);
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--accent-soft);
+}
+
+.install__title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.install__status {
+  margin: var(--space-2xs) 0 0;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+}
+
+.install__note {
+  margin: var(--space-3xs) 0 0;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.install__error {
+  margin: var(--space-2xs) 0 0;
+  color: var(--error);
+  font-size: 0.82rem;
+}
+
 /* ── Contenido de la skill ───────────────────────────────────────────────── */
 .skill-doc {
   margin-top: var(--space-lg);

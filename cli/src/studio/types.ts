@@ -1,13 +1,16 @@
 /**
  * Shared contract for `fwinit studio`.
  *
- * The studio is a loopback HTTP server that renders two read-only views over the
- * local filesystem: the agent skills installed for opencode / pi / gentle-shell,
- * and the `specs/` tree of the project the command was run in.
+ * The studio is a loopback HTTP server that renders views over the local
+ * filesystem: the agent skills installed for opencode / pi / gentle-shell, and
+ * the `specs/` tree of the project the command was run in.
+ *
+ * It reads everything it shows, and writes in exactly one place: installing a
+ * bundle skill into the three agent homes (`install.ts`).
  *
  * Everything here is data only: the modules that produce it (`skills.ts`,
- * `specs.ts`) and the modules that serve it (`server.ts`, `ui/*`) agree on these
- * shapes so the browser client has one stable API.
+ * `specs.ts`, `install.ts`) and the modules that serve it (`server.ts`, `ui/*`)
+ * agree on these shapes so the browser client has one stable API.
  */
 
 /** Agent tools whose installed skills the studio reports. */
@@ -159,6 +162,61 @@ export interface SpecsRoots {
   projectRoot: string;
 }
 
+/**
+ * What the studio can offer the `Implementar skill` action.
+ *
+ * `skills` holds the bundle directory names (`create-specs`, `design`, …) whose
+ * source is present, so the client shows the button only where it would work.
+ * When `available` is false nothing can be installed and `reason` says why, in
+ * the product's language: a local tool that silently disappears is worse than
+ * one that explains the one command that does the job.
+ */
+export interface StudioInstallInfo {
+  available: boolean;
+  reason?: string;
+  /** Absolute root the bundle is copied from, or null when it was not found. */
+  source: string | null;
+  /** Bundle directory names that can be installed right now. */
+  skills: string[];
+}
+
+/** One agent home that would receive the skill. */
+export interface InstallDestination {
+  target: SkillTargetId;
+  label: string;
+  /** Absolute skill directory that would be created or replaced. */
+  dir: string;
+  /** True when a skill of the same name is already there and would be replaced. */
+  replaces: boolean;
+}
+
+/** What a confirmation dialog needs to show before anything is written. */
+export interface InstallPlan {
+  /** Bundle directory name, e.g. `create-specs`. */
+  name: string;
+  /** Absolute root the skill is copied from. */
+  source: string;
+  destinations: InstallDestination[];
+  warnings: string[];
+}
+
+/** Outcome of writing one skill into one agent home. */
+export interface InstallTargetResult {
+  target: SkillTargetId;
+  label: string;
+  dir: string;
+  /** Files and folders copied; zero when the write failed. */
+  copied: number;
+  error?: string;
+}
+
+/** Outcome of the whole install; `ok` is false when any destination failed. */
+export interface InstallResult {
+  name: string;
+  ok: boolean;
+  results: InstallTargetResult[];
+}
+
 export interface StudioOpenOptions {
   /** 0 (default) lets the OS pick a free port. */
   port?: number;
@@ -170,6 +228,8 @@ export interface StudioOpenOptions {
   home?: string;
   /** Whether to launch the default browser once listening. */
   open?: boolean;
+  /** Bundle root override, used by tests and by `FWINIT_BUNDLE_ROOT`. */
+  bundleRoot?: string;
 }
 
 export interface StudioAddress {

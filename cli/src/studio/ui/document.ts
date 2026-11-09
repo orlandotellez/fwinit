@@ -1,12 +1,21 @@
 import { CLIENT_JS } from './client.js';
 import { STUDIO_CSS } from './styles.js';
 import { TOKENS_CSS } from './tokens.js';
+import type { StudioInstallInfo } from '../types.js';
 
 export interface StudioDocumentOptions {
   version: string;
   projectRoot: string;
   /** Home directory, so the client can shorten absolute paths to `~/…`. */
   home?: string;
+  /** What the install action can offer, resolved by the server at start. */
+  install?: StudioInstallInfo;
+  /**
+   * Token the client must echo on `POST /api/skills/install`. It travels in the
+   * document on purpose: a page from another origin can reach loopback, but it
+   * cannot read this HTML, so it cannot obtain the token.
+   */
+  installToken?: string;
 }
 
 /**
@@ -42,6 +51,8 @@ export function renderStudioHtml(options: StudioDocumentOptions): string {
     version: options.version,
     projectRoot: options.projectRoot,
     home: options.home ?? '',
+    install: options.install,
+    installToken: options.installToken
   }).replace(/</g, '\\u003c');
 
   return `<!doctype html>

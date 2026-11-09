@@ -1,15 +1,26 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { randomBytes, timingSafeEqual } from "node:crypto";
 import type { AddressInfo } from "node:net";
 import { join, resolve } from "node:path";
+import { applyInstall, buildInstallPlan, InstallError, resolveInstallInfo } from "./install.js";
 import { listSkillFiles, readSkillFile, SkillFileError } from "./skill-files.js";
 import { buildSpecsTree, readSpecFile, SpecPathError } from "./specs.js";
 import { discoverSkills } from "./skills.js";
-import type { SkillFileRef, StudioOpenOptions, StudioServer } from "./types.js";
+import type { SkillFileRef, StudioInstallInfo, StudioOpenOptions, StudioServer } from "./types.js";
 import { renderStudioHtml } from "./ui/document.js";
 import { openBrowser } from "./open-browser.js";
 
 /** Loopback only: the studio exposes local files and must never leave the host. */
 const HOST = "127.0.0.1";
+
+/** The one route that writes. Everything else stays read-only. */
+const INSTALL_PATH = "/api/skills/install";
+
+/**
+ * Largest body the install route accepts. The payload is `{name, token}`; a
+ * bigger body is not a bigger install, it is someone else talking.
+ */
+const MAX_BODY_BYTES = 4096;
 
 /**
  * Nombres que puede decir el header `Host` (con o sin puerto).
@@ -108,16 +119,75 @@ function sendText(response: ServerResponse, status: number, text: string): void 
   response.end(text);
 }
 
+/** Reads the request body as JSON, bounded by `MAX_BODY_BYTES`. */
+async function readJsonBody(request: IncomingMessage): Promise<unknown> {
+  const chunks: Buffer[] = [];
+  let size = 0;
+  for await (const chunk of request) {
+    const buffer = chunk as Buffer;
+    size += buffer.length;
+    if (size > MAX_BODY_BYTES) {
+      throw new RequestError(413, "Cuerpo demasiado grande.");
+    }
+    chunks.push(buffer);
+  }
+  if (size === 0) return null;
+  try {
+    return JSON.parse(Buffer.concat(chunks).toString("utf-8"));
+  } catch {
+    throw new RequestError(400, "JSON inválido.");
+  }
+}
+
+/** A request problem that maps straight to a status code. */
+class RequestError extends Error {
+  readonly status: number;
+
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = "RequestError";
+    this.status = status;
+  }
+}
+
+/**
+ * `true` only for a request the studio's own document made.
+ *
+ * A page on any other origin can still POST to a loopback port, so `Origin`
+ * must be this exact server, or — when the browser sends no `Origin` — its
+ * `Sec-Fetch-Site` must say same-origin. Neither header can be forged by a
+ * remote page.
+ */
+function isSameOrigin(request: IncomingMessage, port: number): boolean {
+  const origin = request.headers.origin;
+  if (typeof origin === "string" && origin.trim() !== "") {
+    return origin.trim().toLowerCase() === `http://${HOST}:${port}`;
+  }
+  const site = request.headers["sec-fetch-site"];
+  return typeof site === "string" && site.trim().toLowerCase() === "same-origin";
+}
+
 /**
  * Starts the studio HTTP server on loopback.
  *
- * Every route is read-only and derived from disk on each request, so installing
- * a skill or editing a spec is visible on reload without restarting the CLI.
+ * Reads are derived from disk on each request, so installing a skill or editing
+ * a spec is visible on reload without restarting the CLI. The single write —
+ * `POST /api/skills/install` — requires the token rendered into the document
+ * plus a same-origin request, and it only ever copies bundle skills into the
+ * three agent homes.
  */
 export async function startStudio(options: StudioOpenOptions = {}): Promise<StudioServer> {
   const projectRoot = resolve(options.projectRoot ?? process.cwd());
   const version = options.version ?? "0.0.0";
   const home = options.home;
+  // El bundle y sus skills se resuelven una vez: son del paquete que corre el
+  // studio, no del proyecto abierto, y no cambian mientras el server vive.
+  const install: StudioInstallInfo = await resolveInstallInfo(options.bundleRoot);
+  const installContext = { projectRoot, home, bundleRoot: options.bundleRoot };
+  // Token por arranque: lo lleva el documento y sólo con él se puede escribir.
+  // Una página de otro origen puede postear a loopback, pero no leer este token.
+  const installToken = randomBytes(16).toString("hex");
+  const expectToken = Buffer.from(installToken);
   // El puerto sólo se conoce después de `listen`; el handler lo lee de acá (con
   // `request.socket.localPort` como respaldo) para validar el header `Host`.
   let listeningPort = options.port ?? 0;
@@ -134,13 +204,76 @@ export async function startStudio(options: StudioOpenOptions = {}): Promise<Stud
     });
   });
 
-  async function handle(request: IncomingMessage, response: ServerResponse): Promise<void> {
-    const method = request.method ?? "GET";
-    if (method !== "GET" && method !== "HEAD") {
-      response.setHeader("Allow", "GET, HEAD");
-      sendJson(response, 405, { error: "Método no permitido." });
+  /** `true` when `value` is the token issued for this server start. */
+  function tokenMatches(value: unknown): boolean {
+    if (typeof value !== "string" || value.length !== installToken.length) return false;
+    try {
+      return timingSafeEqual(Buffer.from(value), expectToken);
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * The only write in the studio.
+   *
+   * Four gates run before the filesystem is touched: same origin, JSON content
+   * type, the per-start token, and a name inside the bundle. A request that
+   * fails any of them is rejected with nothing written.
+   */
+  async function handleInstallPost(
+    request: IncomingMessage,
+    response: ServerResponse,
+    hostPort: number
+  ): Promise<void> {
+    if (!isSameOrigin(request, hostPort)) {
+      sendJson(response, 403, { error: "Origen no permitido." });
       return;
     }
+    const contentType = String(request.headers["content-type"] ?? "");
+    if (!/^application\/json\b/i.test(contentType)) {
+      sendJson(response, 415, { error: "Se esperaba un cuerpo application/json." });
+      return;
+    }
+
+    let body: unknown;
+    try {
+      body = await readJsonBody(request);
+    } catch (error) {
+      if (error instanceof RequestError) {
+        sendJson(response, error.status, { error: error.message });
+        return;
+      }
+      throw error;
+    }
+
+    const payload = (body ?? {}) as { name?: unknown; token?: unknown };
+    if (!tokenMatches(payload.token)) {
+      sendJson(response, 403, { error: "Token inválido." });
+      return;
+    }
+    if (typeof payload.name !== "string" || payload.name.trim() === "") {
+      sendJson(response, 400, { error: "Falta el parámetro name." });
+      return;
+    }
+
+    try {
+      const result = await applyInstall(installContext, payload.name.trim());
+      sendJson(response, 200, result);
+    } catch (error) {
+      if (error instanceof InstallError) {
+        sendJson(response, error.code === "unknown" ? 400 : 409, {
+          error: error.message,
+          code: error.code,
+        });
+        return;
+      }
+      throw error;
+    }
+  }
+
+  async function handle(request: IncomingMessage, response: ServerResponse): Promise<void> {
+    const method = request.method ?? "GET";
 
     const hostPort = listeningPort || request.socket.localPort || 0;
     if (!isAllowedHost(request.headers.host, hostPort)) {
@@ -158,6 +291,14 @@ export async function startStudio(options: StudioOpenOptions = {}): Promise<Stud
       return;
     }
 
+    const isRead = method === "GET" || method === "HEAD";
+    const isInstallRoute = pathname === INSTALL_PATH;
+    if (!isRead && !(isInstallRoute && method === "POST")) {
+      response.setHeader("Allow", isInstallRoute ? "GET, HEAD, POST" : "GET, HEAD");
+      sendJson(response, 405, { error: "Método no permitido." });
+      return;
+    }
+
     if (pathname === "/" || pathname === "/index.html") {
       sendHtml(
         response,
@@ -165,6 +306,8 @@ export async function startStudio(options: StudioOpenOptions = {}): Promise<Stud
           version,
           projectRoot,
           home: home ?? process.env.HOME ?? "",
+          install,
+          installToken,
         })
       );
       return;
@@ -181,7 +324,34 @@ export async function startStudio(options: StudioOpenOptions = {}): Promise<Stud
         projectRoot,
         home: home ?? process.env.HOME ?? "",
         platform: process.platform,
+        // Sin token: el token viaja en el documento, no en un GET reutilizable.
+        install,
       });
+      return;
+    }
+
+    if (pathname === INSTALL_PATH) {
+      if (method === "POST") {
+        await handleInstallPost(request, response, hostPort);
+        return;
+      }
+      const name = url.searchParams.get("name");
+      if (!name) {
+        sendJson(response, 400, { error: "Falta el parámetro name." });
+        return;
+      }
+      try {
+        sendJson(response, 200, await buildInstallPlan(installContext, name));
+      } catch (error) {
+        if (error instanceof InstallError) {
+          sendJson(response, error.code === "unknown" ? 400 : 409, {
+            error: error.message,
+            code: error.code,
+          });
+          return;
+        }
+        throw error;
+      }
       return;
     }
 
