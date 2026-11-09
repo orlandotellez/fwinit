@@ -48,6 +48,12 @@ const FAST_OUTPUT = [
 
 const SLOW_OUTPUT = [`printf '%s\\n' '{"type":"agent_start"}'`, `exec sleep 30`].join("\n");
 
+/**
+ * Salida rápida pero con vida observable: duerme antes de imprimir, así un test
+ * puede ver el run `running` sin depender de ganar una carrera contra el fixture.
+ */
+const LINGERING_OUTPUT = [`sleep 0.7`, FAST_OUTPUT].join("\n");
+
 async function seedSkill(root: string, name: string): Promise<void> {
   await mkdir(join(root, name), { recursive: true });
   await writeFile(join(root, name, "SKILL.md"), `---\nname: ${name}\n---\n`, "utf8");
@@ -157,14 +163,14 @@ beforeEach(async () => {
  * Se puede volver a llamar dentro de un test: es la forma de simular un
  * reinicio del server conservando el disco del proyecto.
  */
-async function openStudio(): Promise<StudioServer> {
+async function openStudio(overrides: { piBinary?: string } = {}): Promise<StudioServer> {
   const server = await startStudio({
     projectRoot,
     home,
     bundleRoot,
     open: false,
     agentBinaries: {
-      pi: piBinary,
+      pi: overrides.piBinary ?? piBinary,
       opencode: opencodeBinary,
       "gentle-shell": gentleBinary,
     },
@@ -385,6 +391,12 @@ describe("studio run route", () => {
   });
 
   test("el historial lista el run en curso y después su resumen (S13)", async () => {
+    // El fixture rápido termina antes de que se pueda consultar: este test
+    // necesita ver el estado `running`, así que usa uno que respira.
+    const lingering = await script("pi-lingering.sh", LINGERING_OUTPUT);
+    await studio?.close();
+    await openStudio({ piBinary: lingering });
+
     const started = (await (
       await startRun({ ...piSkill, agent: "pi", prompt: "hola", token, model: "anthropic/claude-sonnet-5" })
     ).json()) as StudioRunStatus;
@@ -534,6 +546,34 @@ describe("studio run route", () => {
     expect(opencode.models).toEqual([]);
     expect(opencode.error).toContain("proveedores");
     expect(bad.status).toBe(400);
+  });
+
+  test("el modelo activo viaja en el catálogo y refleja un cambio por fuera (S15)", async () => {
+    const piSettings = join(home, ".pi", "agent", "settings.json");
+    await writeFile(
+      piSettings,
+      JSON.stringify({ defaultModel: "anthropic/claude-sonnet-5", apiKey: "sk-no-sale" }),
+      "utf8"
+    );
+
+    const pi = (await (await readModels("pi")).json()) as StudioModelList;
+    const gentle = (await (await readModels("gentle-shell")).json()) as StudioModelList;
+    const opencode = (await (await readModels("opencode")).json()) as StudioModelList;
+
+    expect(pi.current).toBe("anthropic/claude-sonnet-5");
+    expect(pi.currentSource).toBe(piSettings);
+    // Del settings sólo sale la clave del modelo, nunca el resto del archivo.
+    expect(JSON.stringify(pi)).not.toContain("sk-no-sale");
+    // gentle-shell tiene su propio home (GENTLE_SHELL_HOME) y ahí no hay modelo.
+    expect(gentle.current).toBeNull();
+    // opencode no declara modelo por defecto: desconocido, sin romper la ruta.
+    expect(opencode.current).toBeNull();
+
+    // El catálogo se cachea, pero el activo se relee en cada request.
+    await writeFile(piSettings, JSON.stringify({ defaultModel: "opencode-go/beam-free" }), "utf8");
+    const again = (await (await readModels("pi")).json()) as StudioModelList;
+    expect(again.current).toBe("opencode-go/beam-free");
+    expect(again.models).toEqual(pi.models);
   });
 
   test("el historial y el catálogo son de lectura; un id con ruta se rechaza", async () => {
