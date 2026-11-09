@@ -28,4 +28,24 @@ describe("studio document", () => {
     expect(CLIENT_JS).toContain("closeDrawer();");
     expect(CLIENT_JS).toContain("body.dataset.drawer = 'open'");
   });
+
+  test("starts the skills view on the project scope, with globals one click away", () => {
+    expect(html).toContain('data-scope="project" aria-pressed="true"');
+    expect(html).toContain('data-scope="global" aria-pressed="false"');
+    expect(CLIENT_JS).toContain("scope: 'project'");
+    expect(CLIENT_JS).toContain("function setScope(");
+  });
+
+  test("the install action depends on the server-resolved bundle and token", () => {
+    expect(CLIENT_JS).toContain("function canInstall(");
+    expect(CLIENT_JS).toContain("meta.installToken");
+    const withInstall = renderStudioHtml({
+      version: "1.2.3",
+      projectRoot: "/tmp/demo",
+      install: { available: true, source: "/repo", skills: ["create-specs"] },
+      installToken: "abc123",
+    });
+    expect(withInstall).toContain('\"installToken\":\"abc123\"');
+    expect(withInstall).toContain('\"skills\":[\"create-specs\"]');
+  });
 });

@@ -136,8 +136,8 @@ export function renderStudioHtml(options: StudioDocumentOptions): string {
           <kbd>/</kbd>
         </div>
         <div class="segmented" role="group" aria-label="Alcance">
-          <button type="button" data-scope="global" aria-pressed="true">Globales</button>
-          <button type="button" data-scope="project" aria-pressed="false">Proyecto</button>
+          <button type="button" data-scope="project" aria-pressed="true">Proyecto</button>
+          <button type="button" data-scope="global" aria-pressed="false">Globales</button>
         </div>
       </div>
       <div class="rail__body" data-list="skills">

@@ -19,7 +19,9 @@ export const CLIENT_JS = `
 
   var state = {
     view: 'specs',
-    scope: 'global',
+    // Arranca en el proyecto: lo instalado acá es lo que el usuario vino a ver,
+    // y lo global queda a un click en el control de alcance.
+    scope: 'project',
     skillKey: null,
     specPath: null,
     loadedSkillKey: null,
@@ -33,7 +35,9 @@ export const CLIENT_JS = `
     collapsed: {},
     expanded: {},
     drawerOpen: false,
-    tocLinks: []
+    tocLinks: [],
+    /** Estado del diálogo de instalación: { name, plan, result, error, busy }. */
+    install: null
   };
 
   function q(sel, root) {
@@ -310,6 +314,24 @@ export const CLIENT_JS = `
 
   /* ── Skills view ───────────────────────────────────────────────────────── */
 
+  /** Cambia el alcance visible y elige la primera skill del alcance nuevo. */
+  function setScope(scope) {
+    state.scope = scope === 'project' ? 'project' : 'global';
+    state.skillKey = null;
+    state.install = null;
+    qa('[data-scope]').forEach(function (button) {
+      button.setAttribute('aria-pressed', button.dataset.scope === state.scope ? 'true' : 'false');
+    });
+    var first = state.skills ? visibleSkills(state.skills, state.scope)[0] : null;
+    if (first) {
+      state.skillKey = first.target + '/' + first.name;
+      history.replaceState(null, '', skillHash(first.target, first.name));
+    }
+    renderSkillList();
+    renderSkillDetail();
+    syncShell();
+  }
+
   function visibleSkills(report, scope) {
     var filter = state.filter.skills.trim().toLowerCase();
     var out = [];
@@ -349,9 +371,21 @@ export const CLIENT_JS = `
         title: state.filter.skills ? 'Ninguna skill coincide con el filtro' : 'No hay skills en este alcance',
         text: state.filter.skills
           ? 'Limpiá el filtro para ver todo lo instalado.'
-          : 'Instalalas con: fwinit skills --global ' + state.scope,
+          : state.scope === 'project'
+            ? 'Este proyecto todavía no tiene skills propias. Las globales siguen disponibles.'
+            : 'Instalalas con: fwinit skills --global opencode,pi,gentle-shell',
         hint: String(shown.length) + ' de ' + String(report.totals[state.scope]) + ' en este alcance'
       }));
+      // Prioridad al proyecto sin esconder lo global: si hay globales, el botón
+      // que las muestra vive justo donde el usuario se quedó sin lista.
+      if (state.scope === 'project' && !state.filter.skills && report.totals.global > 0) {
+        container.appendChild(el('button', {
+          type: 'button',
+          class: 'btn',
+          text: 'Ver las ' + report.totals.global + ' skills globales',
+          onclick: function () { setScope('global'); }
+        }));
+      }
     }
     (report.targets || []).forEach(function (target) {
       var skills = (target.skills || []).filter(function (skill) {
@@ -460,6 +494,14 @@ export const CLIENT_JS = `
       el('h1', { class: 'detail__title', text: skill.name }),
       el('p', { class: 'detail__lede', text: skill.description || 'Esta skill no tiene descripción en su frontmatter.' }),
       el('div', { class: 'detail__actions' }, [
+        canInstall(skill) ? el('button', {
+          type: 'button',
+          class: 'btn',
+          'aria-expanded': state.install && state.install.name === skill.name ? 'true' : 'false',
+          'aria-controls': 'install-panel',
+          text: 'Implementar skill',
+          onclick: function () { openInstall(skill); }
+        }) : null,
         copyButton('Copiar ruta', skill.path),
         copyButton('Copiar nombre', skill.name),
         skill.version ? el('span', { class: 'badge badge--accent', text: 'v' + skill.version }) : null,
@@ -467,6 +509,11 @@ export const CLIENT_JS = `
         skill.hasCommand ? el('span', { class: 'badge badge--muted', text: 'command.md' }) : null
       ])
     ]));
+
+    // El diálogo de instalación vive entre las acciones y el contenido: es una
+    // decisión que se toma antes de leer, no después.
+    var installPanel = renderInstall(skill);
+    if (installPanel) container.appendChild(installPanel);
 
     // Primero el contenido (es lo que se viene a leer); los metadatos, después.
     container.appendChild(el('section', { class: 'skill-doc', dataset: { skillDoc: '' } }));
@@ -493,6 +540,164 @@ export const CLIENT_JS = `
         ]);
       })));
     }
+  }
+
+  /* ── Implementar skill ─────────────────────────────────────────────────── */
+
+  /** Lo que el server resolvió al arrancar: qué bundle hay y qué skills trae. */
+  function installInfo() {
+    return meta.install && typeof meta.install === 'object' ? meta.install : null;
+  }
+
+  /**
+   * El botón sólo existe cuando el click puede funcionar: hay bundle, hay
+   * token y esta skill está en el registro del bundle.
+   */
+  function canInstall(skill) {
+    var info = installInfo();
+    if (!info || !info.available || !meta.installToken) return false;
+    return (info.skills || []).indexOf(skill.name) !== -1;
+  }
+
+  function installStateFor(name) {
+    if (!state.install || state.install.name !== name) {
+      state.install = { name: name, plan: null, result: null, error: null, busy: false };
+    }
+    return state.install;
+  }
+
+  function installStatusText(current) {
+    if (current.result) {
+      var failed = current.result.results.filter(function (item) { return item.error; }).length;
+      var total = current.result.results.length;
+      if (!failed) return 'Listo: la skill quedó copiada en ' + total + ' destinos.';
+      if (failed === total) return 'Falló en los ' + total + ' destinos. No se copió nada.';
+      return 'Falló en ' + failed + ' de ' + total + ' destinos. Revisá el detalle antes de darlo por hecho.';
+    }
+    if (current.plan) return 'Nada se escribió todavía. Confirmá para copiar la skill en los tres destinos.';
+    if (current.busy) return 'Preparando la instalación…';
+    return '';
+  }
+
+  function openInstall(skill) {
+    var current = installStateFor(skill.name);
+    if (current.plan || current.result || current.error) {
+      // Un segundo click sobre una instalación ya resuelta la reinicia.
+      state.install = { name: skill.name, plan: null, result: null, error: null, busy: false };
+      current = state.install;
+    }
+    current.busy = true;
+    current.error = null;
+    renderSkillDetail();
+
+    fetchJson('/api/skills/install?name=' + encodeURIComponent(skill.name)).then(function (plan) {
+      current.plan = plan;
+      current.busy = false;
+      renderSkillDetail();
+    }, function (error) {
+      current.busy = false;
+      current.error = error && error.message ? error.message : 'No se pudo preparar la instalación.';
+      renderSkillDetail();
+    });
+  }
+
+  function cancelInstall() {
+    state.install = null;
+    renderSkillDetail();
+  }
+
+  function confirmInstall(skill) {
+    var current = installStateFor(skill.name);
+    current.busy = true;
+    current.error = null;
+    renderSkillDetail();
+
+    fetch('/api/skills/install', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', accept: 'application/json' },
+      body: JSON.stringify({ name: skill.name, token: meta.installToken })
+    }).then(function (response) {
+      return response.json().catch(function () { return {}; }).then(function (body) {
+        if (response.ok) return body;
+        var failure = new Error(body.error || 'La instalación falló (' + response.status + ')');
+        failure.status = response.status;
+        throw failure;
+      });
+    }).then(function (result) {
+      current.plan = null;
+      current.busy = false;
+      current.result = result;
+      // Los conteos por destino cambian: el reporte cacheado ya no es cierto.
+      state.skills = null;
+      loadSkills().then(render, function () { render(); });
+    }, function (error) {
+      current.busy = false;
+      current.error = error && error.message ? error.message : 'La instalación falló.';
+      renderSkillDetail();
+    });
+  }
+
+  function renderInstall(skill) {
+    var current = state.install && state.install.name === skill.name ? state.install : null;
+    if (!current) return null;
+
+    var section = el('section', { class: 'install', id: 'install-panel', dataset: { install: skill.name } }, [
+      el('h2', { class: 'install__title', text: 'Implementar en opencode, Pi y Gentle Shell' })
+    ]);
+
+    var status = installStatusText(current);
+    if (status) {
+      section.appendChild(el('p', { class: 'install__status', 'aria-live': 'polite', text: status }));
+    }
+    if (current.error) {
+      section.appendChild(el('p', { class: 'install__error', text: '\u2716 ' + current.error }));
+    }
+
+    if (current.plan) {
+      section.appendChild(el('div', { class: 'meta' }, (current.plan.destinations || []).map(function (destination) {
+        return el('div', { class: 'meta__row', dataset: { destination: destination.target } }, [
+          el('span', { class: 'meta__key', text: destination.label }),
+          el('span', {
+            class: 'meta__value',
+            text: shortPath(destination.dir) + (destination.replaces ? ' · reemplaza la que ya está' : ' · nueva')
+          })
+        ]);
+      })));
+      (current.plan.warnings || []).forEach(function (warning) {
+        section.appendChild(el('p', { class: 'install__note', text: 'Aviso: ' + warning }));
+      });
+    }
+
+    if (current.result) {
+      section.appendChild(el('div', { class: 'meta' }, (current.result.results || []).map(function (item) {
+        return el('div', { class: 'meta__row', dataset: { result: item.target } }, [
+          el('span', { class: 'meta__key', text: item.label }),
+          el('span', {
+            class: 'meta__value',
+            text: item.error ? '\u2716 ' + item.error : '\u2714 ' + item.copied + ' copiados · ' + shortPath(item.dir)
+          })
+        ]);
+      })));
+    }
+
+    if (current.plan) {
+      section.appendChild(el('div', { class: 'detail__actions' }, [
+        el('button', {
+          type: 'button',
+          class: 'btn',
+          disabled: current.busy,
+          text: 'Confirmar instalación',
+          onclick: function () { confirmInstall(skill); }
+        }),
+        el('button', { type: 'button', class: 'btn', text: 'Cancelar', onclick: cancelInstall })
+      ]));
+    } else if (current.result || current.error) {
+      section.appendChild(el('div', { class: 'detail__actions' }, [
+        el('button', { type: 'button', class: 'btn', text: 'Cerrar', onclick: cancelInstall })
+      ]));
+    }
+
+    return section;
   }
 
   /* ── Contenido de la skill ─────────────────────────────────────────────── */
@@ -1009,21 +1214,7 @@ export const CLIENT_JS = `
     });
 
     qa('[data-scope]').forEach(function (button) {
-      button.addEventListener('click', function () {
-        state.scope = button.dataset.scope;
-        state.skillKey = null;
-        qa('[data-scope]').forEach(function (other) {
-          other.setAttribute('aria-pressed', other.dataset.scope === state.scope ? 'true' : 'false');
-        });
-        var first = state.skills ? visibleSkills(state.skills, state.scope)[0] : null;
-        if (first) {
-          state.skillKey = first.target + '/' + first.name;
-          history.replaceState(null, '', skillHash(first.target, first.name));
-        }
-        renderSkillList();
-        renderSkillDetail();
-        syncShell();
-      });
+      button.addEventListener('click', function () { setScope(button.dataset.scope); });
     });
 
     qa('[data-search]').forEach(function (input) {
