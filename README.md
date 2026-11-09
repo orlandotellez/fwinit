@@ -191,8 +191,17 @@ se toca y el repo no se ensucia.
 - Al recargar la página, el raíl **Ejecuciones** se llena con el historial
   (el más nuevo primero) y, si había un run corriendo, el studio se reengancha
   solo: abre esa skill y sigue el streaming desde `since=0` sin duplicar líneas.
+- Recargar no pierde el resultado: el panel restaura el último run de la skill
+  que estás mirando **aunque ya haya terminado**, con su salida y su estado
+  final. También lo restaura cuando elegís esa skill más tarde en la sesión.
+  Restaurar es sólo lectura: no arranca el agente, no escribe en `.fwinit` y no
+  cambia la URL. Si ya cerraste ese historial a mano, no se vuelve a abrir solo.
+- El panel muestra las ejecuciones **de esa skill** ahí mismo, con estado, modelo
+  y fecha, y abre cualquiera al tocarla. El raíl sigue siendo el historial global.
 - Elegir un run del historial muestra su salida completa y su estado final,
   aunque el studio se haya reiniciado. Leerlo no arranca nada.
+- Un run cuya skill ya no está instalada se abre igual, con el aviso de que la
+  skill no está: los archivos guardados no dependen del reporte de skills.
 - Un archivo con `meta` y sin `end` se reporta como **interrumpida**: el proceso
   murió con el server anterior y no sigue corriendo.
 - Se conservan los últimos 50 runs y 20 MB en total; al pasarse, se borran los

@@ -10,6 +10,7 @@
  * touches the DOM.
  */
 import { MODEL_CHOICE_SOURCE } from './model-select.js';
+import { RUN_RESTORE_SOURCE } from './run-restore.js';
 
 export const CLIENT_JS = `
 (function () {
@@ -57,6 +58,11 @@ export const CLIENT_JS = `
     selection: null,
     /** Skill del run en curso, para reabrirla sola al recargar la página. */
     reattachKey: null,
+    /**
+     * Runs cuyo historial el usuario cerró a mano: no se vuelven a abrir solos
+     * mientras siga en esa skill (S16). Se limpia al volver a elegir la skill.
+     */
+    restoreDismissed: {},
     /** Catálogo de modelos por agente, cacheado en la pestaña (S14). */
     models: {},
     modelLoading: {},
@@ -274,6 +280,9 @@ export const CLIENT_JS = `
       if (parts.length >= 4) {
         state.scope = parts[1] === 'project' ? 'project' : 'global';
         state.skillKey = parts.slice(2).join('/');
+        // Volver a elegir la skill en la navegación vuelve a ofrecer su último
+        // run guardado, aunque antes se haya cerrado el historial (S16).
+        state.restoreDismissed = {};
       }
     } else {
       var nextPath = parts.slice(1).join('/') || null;
@@ -509,6 +518,42 @@ export const CLIENT_JS = `
     ]);
   }
 
+  /**
+   * La skill de la selección cuando ya no está instalada (S16): se puede leer
+   * igual, porque el run guardado no depende del reporte de skills.
+   */
+  function orphanRunSkill() {
+    if (!state.selection || !state.selection.skillKey || !state.skillKey) return null;
+    var parts = state.selection.skillKey.split('/');
+    var target = parts[0];
+    var scope = parts[1];
+    var name = parts.slice(2).join('/');
+    if (scope !== state.scope) return null;
+    if (target + '/' + name !== state.skillKey) return null;
+    return { target: target, scope: scope, name: name, dir: '', path: '', files: 0, missing: true };
+  }
+
+  /**
+   * Detalle mínimo de un run cuya skill ya no está instalada (S16): la salida
+   * guardada se ve igual y se avisa que no está, en vez de quedar como texto
+   * muerto en el raíl.
+   */
+  function renderOrphanRunDetail(container, skill) {
+    container.appendChild(el('header', null, [
+      el('p', { class: 'eyebrow', text: skill.target + ' · ' + skill.scope }),
+      el('h1', { class: 'detail__title', text: skill.name }),
+      el('p', { class: 'detail__lede', text: 'Esta skill ya no está instalada en este destino. La ejecución guardada se puede leer igual.' })
+    ]));
+    container.appendChild(el('p', {
+      class: 'install__note',
+      dataset: { runOrphan: '' },
+      text: 'La skill ' + skill.name + ' ya no está instalada: se muestra la salida guardada en .fwinit/studio/runs y no se puede volver a ejecutar desde acá.'
+    }));
+    container.appendChild(renderRunBlock(skill));
+    container.appendChild(renderSkillRunHistory(skill));
+    paintRun(skill);
+  }
+
   function renderSkillDetail() {
     var container = q('[data-detail="skills"]');
     if (!container) return;
@@ -519,6 +564,13 @@ export const CLIENT_JS = `
     }
     var skill = selectedSkill();
     if (!skill) {
+      // Un run huérfano sigue siendo legible: su skill ya no está en el reporte,
+      // pero la salida guardada existe y no depende de él (S16).
+      var orphan = orphanRunSkill();
+      if (orphan) {
+        renderOrphanRunDetail(container, orphan);
+        return;
+      }
       var target = (state.skills.targets || [])[0] || null;
       var dir = target ? (state.scope === 'global' ? target.globalDir : target.projectDir) : '';
       container.appendChild(emptyState({
@@ -555,8 +607,15 @@ export const CLIENT_JS = `
       ])
     ]));
 
+    // Restaurar antes de dibujar el panel: el último run de la skill aparece de
+    // una, terminado o no, sin buscarlo en el raíl (S16).
+    restoreHistoricalRun(skill);
+
     // Ejecutar es la acción principal (S9): input, agente, botón y salida viva.
     container.appendChild(renderRunBlock(skill));
+
+    // Las ejecuciones de esta skill, ahí mismo y clicables (S16).
+    container.appendChild(renderSkillRunHistory(skill));
 
     // Instalar en los tres agentes queda como acción secundaria del mismo panel.
     var installPanel = renderInstall(skill);
@@ -714,6 +773,8 @@ export const CLIENT_JS = `
     var agent = run ? run.agent : agentFor(skill);
     var active = run ? runIsActive(run) : false;
     var historical = !!(state.selection && state.selection.skillKey === key);
+    // Una skill desinstalada deja leer su run guardado, pero no volver a ejecutarla.
+    var missing = skill.missing === true;
     // Un solo run a la vez: si corre en otra skill, Ejecutar queda apagado.
     var busyElsewhere = runBusyElsewhere(key);
 
@@ -776,12 +837,13 @@ export const CLIENT_JS = `
       ]),
       el('p', { class: 'install__note', dataset: { modelNote: '' } }),
       el('p', { class: 'install__note', dataset: { runNote: '' }, text: runNoteFor(agent) }),
+      missing ? el('p', { class: 'install__note', text: 'La skill ya no está instalada: el run guardado se puede leer, pero no volver a ejecutar desde acá.' }) : null,
       el('div', { class: 'detail__actions' }, [
         el('button', {
           type: 'button',
           class: 'btn btn--primary',
           'data-run-start': '',
-          disabled: active || busyElsewhere,
+          disabled: active || busyElsewhere || missing,
           text: 'Ejecutar skill',
           onclick: function () { startRun(skill); }
         }),
@@ -1176,14 +1238,12 @@ export const CLIENT_JS = `
     });
   }
 
-  /* ── Historial de ejecuciones (S13) ─────────────────────────────────────── */
+  /* ── Historial de ejecuciones (S13/S16) ─────────────────────────────────── */
 
   /** Cuántos runs del historial se listan; el resto sigue en disco. */
   var HISTORY_LIMIT = 20;
 
-  function skillKeyFromRef(ref) {
-    return ref.target + '/' + ref.scope + '/' + ref.name;
-  }
+  ${RUN_RESTORE_SOURCE}
 
   /** True cuando la skill del run sigue instalada en el reporte actual. */
   function skillExistsInReport(ref) {
@@ -1208,6 +1268,10 @@ export const CLIENT_JS = `
       state.historyError = null;
       renderRunHistory();
       if (data.inFlight) reattachRun(data);
+      // Un run terminado también se restaura: recargar no puede dejar el panel
+      // vacío cuando la persistencia ya tiene la salida guardada (S16).
+      restoreCurrentSkillRun();
+      syncSkillRunHistory();
     }, function (error) {
       state.historyError = error;
       renderRunHistory();
@@ -1220,9 +1284,60 @@ export const CLIENT_JS = `
       state.history = data;
       state.historyError = null;
       renderRunHistory();
+      syncSkillRunHistory();
     }, function () {
       // Se reintenta solo al recargar: el historial no es crítico para ejecutar.
     });
+  }
+
+  /**
+   * Restaura el último run de la skill que se está mirando, aunque ya haya
+   * terminado (S16). Sólo arma la selección y pide el run guardado con since=0:
+   * no arranca proceso, no escribe y no cambia el hash.
+   */
+  function restoreHistoricalRun(skill) {
+    if (!skill) return false;
+    var key = skillKeyOf(skill);
+    var run = restoreCandidate(state.history, skill, {
+      dismissed: state.restoreDismissed[key] === true,
+      selected: !!(state.selection && state.selection.skillKey === key),
+      live: !!(state.run && state.run.skillKey === key)
+    });
+    if (!run) return false;
+    state.selection = selectionForRun(run);
+    state.prompts[key] = run.prompt || '';
+    if (run.model) state.modelText[key] = run.model;
+    loadHistoricalRun(run);
+    return true;
+  }
+
+  /** Restaura en el panel ya dibujado cuando el historial llega después (S16). */
+  function restoreCurrentSkillRun() {
+    if (state.view !== 'skills' || !state.skills || !state.skillKey) return false;
+    var skill = selectedSkill();
+    if (!restoreHistoricalRun(skill)) return false;
+    renderSkillDetail();
+    renderRunHistory();
+    return true;
+  }
+
+  /** La forma de un run del historial que el panel pinta igual que uno vivo. */
+  function selectionForRun(summary) {
+    var ref = summary.skill;
+    var selection = emptyRunFor(
+      runRefKey(ref),
+      summary.agent,
+      summary.model,
+      summary.prompt,
+      summary.startedAt,
+      summary.state
+    );
+    selection.id = summary.id;
+    selection.exitCode = summary.exitCode;
+    selection.truncated = summary.truncated === true;
+    selection.summary = summary;
+    selection.skillRef = ref;
+    return selection;
   }
 
   /**
@@ -1237,7 +1352,7 @@ export const CLIENT_JS = `
       if (run.id === list.inFlight) summary = run;
     });
     if (!summary) return;
-    var key = skillKeyFromRef(summary.skill);
+    var key = runRefKey(summary.skill);
     state.run = emptyRunFor(
       key,
       summary.agent,
@@ -1289,22 +1404,20 @@ export const CLIENT_JS = `
       return;
     }
     runs.forEach(function (run) {
+      var installed = skillExistsInReport(run.skill);
       var meta = runStateLabel(run.state) + ' · ' + run.agent + ' · ' + fmtDate(run.startedAt);
-      if (!skillExistsInReport(run.skill)) {
-        // Una skill desinstalada no se puede abrir: se dice, no se esconde.
-        host.appendChild(el('p', { class: 'row--empty', text: run.skill.name + ' (ya no está instalada) · ' + meta }));
-        return;
-      }
       var selected = state.selection && state.selection.id === run.id;
+      // Un run de una skill desinstalada se abre igual: los archivos no dependen
+      // del reporte. El aviso va en el nombre, no en un renglón muerto (S16).
       host.appendChild(el('button', {
         type: 'button',
         class: 'row row--run',
         'aria-current': selected ? 'true' : 'false',
         title: run.prompt || run.skill.name,
-        dataset: { runId: run.id },
+        dataset: { runId: run.id, runMissing: installed ? null : 'true' },
         onclick: function () { openHistoricalRun(run); }
       }, [
-        el('span', { class: 'row__name', text: run.skill.name }),
+        el('span', { class: 'row__name', text: run.skill.name + (installed ? '' : ' · no instalada') }),
         el('span', { class: 'row__meta', text: meta })
       ]));
     });
@@ -1313,20 +1426,8 @@ export const CLIENT_JS = `
   /** Abre un run del historial: su salida completa y su estado final. */
   function openHistoricalRun(summary) {
     var ref = summary.skill;
-    var key = skillKeyFromRef(ref);
-    var selection = emptyRunFor(
-      key,
-      summary.agent,
-      summary.model,
-      summary.prompt,
-      summary.startedAt,
-      summary.state
-    );
-    selection.id = summary.id;
-    selection.exitCode = summary.exitCode;
-    selection.truncated = summary.truncated === true;
-    selection.summary = summary;
-    state.selection = selection;
+    var key = runRefKey(ref);
+    state.selection = selectionForRun(summary);
     state.prompts[key] = summary.prompt || '';
     state.modelText[key] = summary.model || '';
     state.scope = ref.scope === 'global' ? 'global' : 'project';
@@ -1353,9 +1454,65 @@ export const CLIENT_JS = `
 
   /** Vuelve del historial a la ejecución viva (o al panel vacío). */
   function closeHistoricalRun() {
+    // Cerrar es una decisión del usuario: no reabrir solo en el próximo repintado.
+    if (state.selection) state.restoreDismissed[state.selection.skillKey] = true;
     state.selection = null;
     renderSkillDetail();
     renderRunHistory();
+  }
+
+  /**
+   * Las ejecuciones de esta skill, en el panel (S16). El raíl sigue mostrando el
+   * historial global; acá estado, modelo y fecha de esta skill, y se abre cualquiera.
+   */
+  function renderSkillRunHistory(skill) {
+    var ref = { target: skill.target, scope: skill.scope, name: skill.name };
+    var section = el('section', {
+      class: 'install install--run',
+      id: 'skill-run-history',
+      dataset: { skillRuns: runRefKey(ref) }
+    }, [el('h2', { class: 'install__title', text: 'Ejecuciones de esta skill' })]);
+
+    if (state.historyError) {
+      section.appendChild(el('p', { class: 'install__error', text: 'No se pudo leer el historial.' }));
+      return section;
+    }
+    if (!state.history) {
+      section.appendChild(el('p', { class: 'loading', text: 'Leyendo el historial…' }));
+      return section;
+    }
+    var runs = runsForSkill(state.history.runs, ref);
+    if (!runs.length) {
+      section.appendChild(el('p', { class: 'install__note', text: 'Esta skill todavía no tiene ejecuciones guardadas.' }));
+      return section;
+    }
+    var list = el('div', { class: 'run__history-list' });
+    runs.forEach(function (run) {
+      var selected = !!(state.selection && state.selection.id === run.id);
+      list.appendChild(el('button', {
+        type: 'button',
+        class: 'row row--run',
+        'aria-current': selected ? 'true' : 'false',
+        title: run.prompt || run.skill.name,
+        dataset: { runId: run.id },
+        onclick: function () { openHistoricalRun(run); }
+      }, [
+        el('span', { class: 'row__name', text: runStateLabel(run.state) }),
+        el('span', { class: 'row__meta', text: (run.model || 'modelo por defecto') + ' · ' + fmtDate(run.startedAt) })
+      ]));
+    });
+    section.appendChild(list);
+    return section;
+  }
+
+  /** Reemplaza la lista del panel cuando el historial se refresca (S16). */
+  function syncSkillRunHistory() {
+    var current = q('[data-skill-runs]');
+    if (!current || !current.parentNode) return;
+    var skill = selectedSkill() || orphanRunSkill();
+    if (!skill) return;
+    var next = renderSkillRunHistory(skill);
+    current.parentNode.replaceChild(next, current);
   }
 
   /** Un run del disco se pinta con la misma forma que uno vivo. */

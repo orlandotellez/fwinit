@@ -819,6 +819,23 @@ button {
   margin-top: var(--space-2xs);
 }
 
+/* Historial de la skill dentro del panel (S16): misma fila que el raíl. */
+.run__history-list {
+  display: grid;
+  gap: var(--space-3xs);
+  margin-top: var(--space-2xs);
+}
+
+.run__history-list .row {
+  padding: var(--space-3xs);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.run__history-list .row[aria-current='true'] {
+  border-color: var(--accent);
+}
+
 .run__row .segmented {
   max-width: 420px;
 }

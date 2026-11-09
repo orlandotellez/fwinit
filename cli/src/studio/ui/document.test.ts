@@ -94,6 +94,37 @@ describe("studio document", () => {
     expect(CLIENT_JS).toContain("(actual)");
   });
 
+  test("el panel restaura el último run de la skill aunque ya haya terminado (S16)", () => {
+    // Recargar después de que la ejecución terminó no puede dejar el panel vacío:
+    // se restaura el run más reciente de la skill que se está mirando.
+    expect(CLIENT_JS).toContain("function restoreHistoricalRun(");
+    expect(CLIENT_JS).toContain("function restoreCurrentSkillRun(");
+    expect(CLIENT_JS).toContain("function latestRunForSkill(");
+    expect(CLIENT_JS).toContain("function runsForSkill(");
+    expect(CLIENT_JS).toContain("restoreCandidate(");
+    expect(CLIENT_JS).toContain("state.restoreDismissed");
+    // Restaurar es sólo lectura: pide el run guardado con since=0, sin POST.
+    expect(CLIENT_JS).toContain("loadHistoricalRun(");
+    expect(CLIENT_JS).toContain("'&since=0'");
+  });
+
+  test("el panel lista las ejecuciones de la skill ahí mismo (S16)", () => {
+    // El raíl sigue siendo el historial global; el panel muestra las de la skill.
+    expect(CLIENT_JS).toContain("function renderSkillRunHistory(");
+    expect(CLIENT_JS).toContain("Ejecuciones de esta skill");
+    expect(CLIENT_JS).toContain("openHistoricalRun(");
+  });
+
+  test("un run de una skill desinstalada se abre igual, con su aviso (S16)", () => {
+    // Antes se dibujaba como texto muerto; ahora es un botón y el panel avisa
+    // que la skill no está instalada sin ocultar la salida guardada.
+    expect(CLIENT_JS).toContain("function orphanRunSkill(");
+    expect(CLIENT_JS).toContain("function renderOrphanRunDetail(");
+    expect(CLIENT_JS).toContain("ya no está instalada");
+    expect(CLIENT_JS).not.toContain("(ya no está instalada) · '" );
+    expect(CLIENT_JS).not.toContain("no se puede abrir");
+  });
+
   test("el panel dice cuál es el modelo activo y que elegir no toca la config (S15)", () => {
     // El activo se anuncia con su origen, y si no se pudo leer se dice, en vez
     // de inventar un modelo.
