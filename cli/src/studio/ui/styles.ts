@@ -658,37 +658,6 @@ button {
   border: 3px solid var(--base);
 }
 
-.eyebrow {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-3xs);
-  margin-bottom: var(--space-2xs);
-  padding: 0.125rem var(--space-2xs);
-  background: var(--accent-soft);
-  border: 1px solid var(--accent-border);
-  color: var(--accent);
-  font-family: var(--font-mono);
-  font-size: var(--text-caption);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.detail__title {
-  font-family: var(--font-mono);
-  font-size: clamp(1.5rem, 2.6vw, var(--text-h2));
-  font-weight: 600;
-  line-height: var(--leading-h2);
-  letter-spacing: -0.02em;
-  overflow-wrap: anywhere;
-}
-
-.detail__lede {
-  max-width: 68ch;
-  margin-top: var(--space-2xs);
-  color: var(--text-secondary);
-  font-size: var(--text-body);
-}
-
 .detail__actions {
   display: flex;
   flex-wrap: wrap;
@@ -766,16 +735,6 @@ button {
 }
 
 /* ── Ejecutar skill ──────────────────────────────────────────────────────── */
-.install--run {
-  background: var(--surface);
-}
-
-.run__field {
-  display: grid;
-  gap: var(--space-3xs);
-  margin-top: var(--space-2xs);
-}
-
 .run__input {
   width: 100%;
   min-height: 4.5rem;
@@ -808,18 +767,7 @@ button {
   resize: none;
 }
 
-.run__history {
-  display: grid;
-  justify-items: start;
-  gap: var(--space-3xs);
-  margin-top: var(--space-2xs);
-}
-
-.run__row {
-  margin-top: var(--space-2xs);
-}
-
-/* Historial de la skill dentro del panel (S16): misma fila que el raíl. */
+/* Historial de la skill dentro del raíl (S16): misma fila que la navegación. */
 .run__history-list {
   display: grid;
   gap: var(--space-3xs);
@@ -836,21 +784,7 @@ button {
   border-color: var(--accent);
 }
 
-.run__row .segmented {
-  max-width: 420px;
-}
-
-/* La sesión del agente con el comando exacto para retomarla (S17). */
-.run__session {
-  margin-top: var(--space-2xs);
-}
-
-.run__session .detail__actions {
-  margin-top: var(--space-3xs);
-}
-
-/* Sin sesión no hay botones: el bloque no deja un hueco vacío. */
-.run__session .detail__actions:empty {
+.run-block__actions:empty {
   display: none;
 }
 
@@ -866,13 +800,6 @@ button {
   margin-right: var(--space-3xs);
   font-family: var(--font-mono);
   font-size: var(--text-caption);
-}
-
-.run__timer {
-  color: var(--text-muted);
-  font-family: var(--font-mono);
-  font-size: var(--text-caption);
-  font-variant-numeric: tabular-nums;
 }
 
 /* La salida es un log con scroll propio: crece la ventana, nunca el panel. */
@@ -935,6 +862,581 @@ button {
   color: var(--syn-comment);
 }
 
+/* ── Panel de ejecución: tres regiones (S18) ─────────────────────────────── */
+/* El detalle de una skill es un puesto de trabajo: el panel ocupa el ancho
+   completo y el resto del contenido conserva su columna de lectura. Se mide el
+   panel, no la ventana: el raíl de 320px pide 1100px de ancho real, y el raíl de
+   navegación de la izquierda no cuenta para eso. */
+.pane[data-detail='skills'] {
+  container-type: inline-size;
+  container-name: studio-pane;
+  padding-top: 0;
+  padding-inline: 0;
+}
+
+.pane[data-detail='skills'] > * {
+  max-width: 880px;
+  margin-inline: auto;
+  padding-inline: var(--space-lg);
+}
+
+.pane[data-detail='skills'] > .run-panel,
+.pane[data-detail='skills'] > .run-orphan {
+  max-width: none;
+  margin-inline: 0;
+  padding-inline: 0;
+}
+
+.pane[data-detail='skills'] > .run-panel + * {
+  margin-top: var(--space-lg);
+}
+
+.run-panel {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  height: clamp(28rem, 66vh, 46rem);
+  border-bottom: var(--hairline-strong);
+  background: var(--base);
+}
+
+/* Región 1 — header: una sola fila, sin prosa. */
+.run-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2xs) var(--space-md);
+  padding: var(--space-2xs) var(--space-md);
+  background: var(--surface);
+  border-bottom: var(--hairline-strong);
+}
+
+.run-head__id {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2xs);
+  min-width: 0;
+}
+
+.run-head__skill {
+  margin: 0;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: var(--text-h4);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.run-head__sep {
+  color: var(--border-strong);
+}
+
+.run-head__agent {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-caption);
+}
+
+/* El estado se lee con texto además del color: nunca depende sólo del tono. */
+.run-badge {
+  padding: 0.125rem var(--space-2xs);
+  border: 1px solid var(--border-strong);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--text-caption);
+  white-space: nowrap;
+}
+
+.run-badge[data-tone='run'] {
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-color: var(--accent-border);
+}
+
+.run-badge[data-tone='ok'] {
+  color: var(--success);
+}
+
+.run-badge[data-tone='warn'] {
+  color: var(--warning);
+}
+
+.run-badge[data-tone='bad'] {
+  color: var(--error);
+}
+
+.run-head__facts {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  margin-left: auto;
+}
+
+.run-fact {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+.run-fact__k {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-caption);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.run-fact__v {
+  max-width: 20ch;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.run-head__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+}
+
+/* ── Regiones 2 y 3: columna del agente + raíl de estado ─────────────────── */
+.run-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  grid-template-areas: 'stream rail';
+  min-height: 0;
+}
+
+.run-stream {
+  grid-area: stream;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+.run-stream__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: var(--space-2xs) var(--space-md);
+  border-bottom: var(--hairline);
+}
+
+.run-stream__kicker {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-caption);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.run-stream__body {
+  display: grid;
+  align-content: start;
+  gap: var(--space-sm);
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-md);
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+.run-stream__body:focus-visible,
+.run-stream__raw:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+.run-prompt {
+  padding-left: var(--space-xs);
+  border-left: 2px solid var(--accent);
+}
+
+.run-prompt__k {
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: var(--text-caption);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.run-prompt__v {
+  color: var(--text);
+  font-size: var(--text-body);
+  line-height: var(--leading-body);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.run-flow {
+  display: grid;
+  align-content: start;
+  gap: var(--space-2xs);
+}
+
+.run-prose {
+  max-width: 74ch;
+  color: var(--text-secondary);
+  font-size: var(--text-small);
+  line-height: var(--leading-body);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Una fila por línea: verbo · destino · resultado · tiempo. */
+.run-step {
+  display: grid;
+  grid-template-columns: minmax(5rem, max-content) minmax(0, 1fr) auto;
+  gap: var(--space-2xs);
+  align-items: baseline;
+  padding-top: var(--space-3xs);
+  border-top: var(--hairline);
+  font-family: var(--font-mono);
+  font-size: var(--text-code);
+}
+
+.run-step__verb {
+  color: var(--accent);
+}
+
+.run-step[data-kind='status'] .run-step__verb,
+.run-step[data-kind='raw'] .run-step__verb {
+  color: var(--text-muted);
+}
+
+.run-step__text {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2xs);
+  min-width: 0;
+}
+
+.run-step__target {
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.run-step__result {
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.run-step[data-kind='raw'] .run-step__result {
+  color: var(--syn-comment);
+}
+
+.run-step__tail {
+  color: var(--text-muted);
+  font-size: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.run-placeholder {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-caption);
+}
+
+.run-stream__raw {
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--code-bg);
+  border-top: var(--hairline);
+  font-family: var(--font-mono);
+  font-size: var(--text-caption);
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+/* El composer vive al pie de la columna, donde se lee la salida. */
+.run-composer {
+  display: grid;
+  gap: var(--space-2xs);
+  padding: var(--space-xs) var(--space-md) var(--space-sm);
+  background: var(--surface);
+  border-top: 1px solid var(--border-strong);
+}
+
+.run-composer__row {
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-2xs);
+}
+
+.run-composer__label {
+  display: grid;
+  flex: 1;
+  gap: var(--space-3xs);
+  min-width: 0;
+}
+
+.run-composer__k {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-caption);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.run-composer__input {
+  min-height: 3.25rem;
+}
+
+.run-composer__go {
+  min-width: 9rem;
+}
+
+.run-composer__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-sm);
+}
+
+.run-composer__field {
+  display: grid;
+  gap: var(--space-3xs);
+}
+
+.run-composer__note {
+  max-width: 74ch;
+  color: var(--text-muted);
+  font-size: var(--text-caption);
+}
+
+.run-rail {
+  grid-area: rail;
+  min-height: 0;
+  overflow-y: auto;
+  background: var(--surface);
+  border-left: var(--hairline-strong);
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+.run-block {
+  padding: var(--space-xs) var(--space-sm) var(--space-sm);
+  border-bottom: var(--hairline-strong);
+}
+
+.run-block:last-child {
+  border-bottom: 0;
+}
+
+.run-block__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2xs);
+  margin-bottom: var(--space-2xs);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-caption);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.run-block__meta {
+  color: var(--text-secondary);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.run-block__text {
+  color: var(--text-secondary);
+  font-size: var(--text-caption);
+  line-height: var(--leading-body);
+}
+
+.run-block__note {
+  margin-top: var(--space-3xs);
+  color: var(--text-muted);
+  font-size: var(--text-caption);
+  line-height: 1.5;
+}
+
+.run-block__note--warn {
+  color: var(--warning);
+}
+
+.run-block__error {
+  margin-top: var(--space-3xs);
+  color: var(--error);
+  font-size: var(--text-caption);
+  overflow-wrap: anywhere;
+}
+
+.run-block__error:empty,
+.run-block__command:empty {
+  display: none;
+}
+
+.run-block__command {
+  margin-top: var(--space-3xs);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-caption);
+  overflow-wrap: anywhere;
+}
+
+.run-block__now {
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: var(--text-code);
+  overflow-wrap: anywhere;
+}
+
+/* El comando exacto queda plegado: diagnóstico, no lectura principal. */
+.run-block__details {
+  margin-top: var(--space-3xs);
+}
+
+.run-block__summary {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-caption);
+  cursor: pointer;
+}
+
+.run-block__summary:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.run-block__details:has(.run-block__command:empty) {
+  display: none;
+}
+
+.run-block__history {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-3xs);
+  margin-top: var(--space-2xs);
+}
+
+.run-block__list {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.run-block__item {
+  display: grid;
+  grid-template-columns: 1.25rem minmax(0, 1fr);
+  gap: var(--space-3xs);
+  align-items: baseline;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--text-caption);
+}
+
+.run-block__mark {
+  color: var(--text-muted);
+}
+
+.run-block__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.run-block__item[data-state='active'] {
+  color: var(--text);
+}
+
+.run-block__item[data-state='active'] .run-block__mark {
+  color: var(--accent);
+}
+
+.run-block__badges,
+.run-block__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3xs);
+  margin-top: var(--space-2xs);
+}
+
+.run-metrics {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2xs) var(--space-sm);
+}
+
+.run-metric {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+.run-metric__k {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-caption);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.run-metric__v {
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Aviso de una skill desinstalada: explica por qué Ejecutar está apagado. */
+.run-orphan {
+  padding: var(--space-2xs) var(--space-md);
+  border-left: 2px solid var(--warning);
+  background: var(--surface);
+  color: var(--text-secondary);
+  font-size: var(--text-small);
+}
+
+/* Por debajo de 1100px las tres columnas no entran: el raíl se pliega a una
+   tira de estado arriba de la columna. El estado y Cancelar viven en el header,
+   que es la primera fila del panel, así que no se pierden al plegar. */
+@container studio-pane (max-width: 1099px) {
+  .run-panel {
+    height: auto;
+  }
+
+  .run-body {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: 'rail' 'stream';
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .run-rail {
+    max-height: 38vh;
+    border-bottom: 1px solid var(--border);
+    border-left: 0;
+  }
+
+  .run-stream {
+    height: clamp(24rem, 62vh, 40rem);
+  }
+
+  .run-head__facts {
+    gap: var(--space-sm);
+  }
+
+  .run-head__actions {
+    margin-left: auto;
+  }
+}
+
 /* ── Contenido de la skill ───────────────────────────────────────────────── */
 .skill-doc {
   margin-top: var(--space-lg);
@@ -991,12 +1493,6 @@ button {
 }
 
 /* ── Document ────────────────────────────────────────────────────────────── */
-/* El centrado va en la columna de lectura, no en el panel: con margin auto en
-   el panel, el panel se encoge a su contenido y deja de ocupar su columna. */
-.pane[data-detail='skills'] > * {
-  max-width: 880px;
-  margin-inline: auto;
-}
 
 .doc-head {
   max-width: 880px;

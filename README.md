@@ -116,8 +116,8 @@ escribís en el input qué querés que haga (el pedido de la spec, el prompt del
 proyecto, lo que sea), elegís el agente —`opencode`, `Pi` o `Gentle Shell`— y el
 studio la ejecuta con esa entrada tal cual, en la raíz del proyecto y con
 autonomía para escribir archivos. La salida aparece en el panel a medida que
-llega, línea por línea con su número y con el tiempo transcurrido; mientras
-corre hay un botón **Cancelar**.
+llega, como pasos legibles y con las líneas numeradas a un click; mientras corre
+hay un botón **Cancelar** en el header del panel.
 
 - `pi` y `Gentle Shell` reciben la skill por ruta:
   `--print --mode json --skill <directorio> -a --name "fwinit studio · <skill>" "<tu pedido>"`.
@@ -138,6 +138,34 @@ corre hay un botón **Cancelar**.
 - Al terminar, el panel dice el estado y el código de salida, y el studio vuelve
   a leer las skills y las specs, así que un `specs/` recién creado por la skill
   aparece en la otra vista sin recargar la página.
+
+#### El panel de ejecución
+
+El detalle de una skill se lee en tres regiones, no en una columna de texto corrida:
+
+- **Header**: nombre de la skill, agente, estado, modelo, tiempo, pasos, líneas y las
+  dos acciones —**Historial** y **Cancelar**— en una sola fila. Si no hay ninguna
+  ejecución abierta el header lo dice (`sin ejecución`) y deja el tiempo, los pasos
+  y las líneas en `—`, en vez de mostrar ceros o datos del último run.
+- **Columna del agente**: arriba, lo que pediste; después la salida como filas
+  `verbo · destino · resultado · tiempo` (los pasos de herramienta y los eventos de
+  estado), con la prosa del agente como párrafo y el resto tal cual. El botón
+  **Líneas crudas**, en la barra de la columna, muestra las mismas líneas numeradas
+  y sin interpretar: nada de lo que dijo el agente se descarta. El composer —pedido,
+  agente, modelo y **Ejecutar skill**— vive al pie de esta columna.
+- **Raíl de estado (320px)**: estado completo del run —con el comando exacto
+  plegado—, progreso con los pasos de herramienta, qué está haciendo ahora, consumo,
+  el modelo y el estado de su catálogo, la sesión del agente con su comando para
+  retomarla, las acciones de la skill (instalar, copiar) y el historial de esa skill. Sale de lo que el run ya expone (`GET /api/skills/runs` y
+  `GET /api/skills/run`); el studio no inventa tokens, costo ni caché: si el agente
+  no los informa, el bloque de consumo lo dice y sólo muestra líneas, pasos,
+  caracteres de salida y el código de salida.
+
+Las tres columnas piden unos 1100px de ancho del panel. Por debajo, el raíl se pliega
+a una tira de estado arriba de la columna y el panel pasa a una sola columna: el
+estado y **Cancelar** siguen en el header, así que no se pierden al plegar. El orden
+del DOM es el orden de lectura (header, columna, raíl) y el estado se anuncia con
+`aria-live`.
 
 #### Sesiones: retomar la ejecución en el agente
 

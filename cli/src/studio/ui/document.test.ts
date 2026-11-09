@@ -110,8 +110,10 @@ describe("studio document", () => {
 
   test("el panel lista las ejecuciones de la skill ahí mismo (S16)", () => {
     // El raíl sigue siendo el historial global; el panel muestra las de la skill.
+    // Con el panel en tres regiones (S18) esas ejecuciones viven en el bloque
+    // Historial del raíl de estado, no en una sección aparte bajo la salida.
     expect(CLIENT_JS).toContain("function renderSkillRunHistory(");
-    expect(CLIENT_JS).toContain("Ejecuciones de esta skill");
+    expect(CLIENT_JS).toContain("runBlock('Historial'");
     expect(CLIENT_JS).toContain("openHistoricalRun(");
   });
 

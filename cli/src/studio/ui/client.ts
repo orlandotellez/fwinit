@@ -12,6 +12,7 @@
 import { MODEL_CHOICE_SOURCE } from './model-select.js';
 import { RUN_RESTORE_SOURCE } from './run-restore.js';
 import { RUN_SESSION_SOURCE } from './run-session.js';
+import { RUN_STEPS_SOURCE } from './run-steps.js';
 
 export const CLIENT_JS = `
 (function () {
@@ -68,7 +69,12 @@ export const CLIENT_JS = `
     models: {},
     modelLoading: {},
     /** Modelo elegido por skill; la clave ausente significa "todavía no eligió". */
-    modelText: {}
+    modelText: {},
+    /**
+     * Qué muestra la columna del agente: los pasos legibles o las líneas
+     * crudas numeradas (S18). Las dos vistas leen las mismas líneas.
+     */
+    rawView: false
   };
 
   function q(sel, root) {
@@ -552,21 +558,16 @@ export const CLIENT_JS = `
   /**
    * Detalle mínimo de un run cuya skill ya no está instalada (S16): la salida
    * guardada se ve igual y se avisa que no está, en vez de quedar como texto
-   * muerto en el raíl.
+   * muerto en el raíl. El aviso va antes del panel, porque explica por qué el
+   * botón de ejecutar está apagado (S18).
    */
   function renderOrphanRunDetail(container, skill) {
-    container.appendChild(el('header', null, [
-      el('p', { class: 'eyebrow', text: skill.target + ' · ' + skill.scope }),
-      el('h1', { class: 'detail__title', text: skill.name }),
-      el('p', { class: 'detail__lede', text: 'Esta skill ya no está instalada en este destino. La ejecución guardada se puede leer igual.' })
-    ]));
     container.appendChild(el('p', {
-      class: 'install__note',
+      class: 'run-orphan',
       dataset: { runOrphan: '' },
       text: 'La skill ' + skill.name + ' ya no está instalada: se muestra la salida guardada en .fwinit/studio/runs y no se puede volver a ejecutar desde acá.'
     }));
     container.appendChild(renderRunBlock(skill));
-    container.appendChild(renderSkillRunHistory(skill));
     paintRun(skill);
   }
 
@@ -602,36 +603,15 @@ export const CLIENT_JS = `
       if (entry.id === skill.target) report = entry;
     });
 
-    container.appendChild(el('header', null, [
-      el('p', { class: 'eyebrow', text: (report ? report.label : skill.target) + ' · ' + skill.scope }),
-      el('h1', { class: 'detail__title', text: skill.name }),
-      el('p', { class: 'detail__lede', text: skill.description || 'Esta skill no tiene descripción en su frontmatter.' }),
-      el('div', { class: 'detail__actions' }, [
-        canInstall(skill) ? el('button', {
-          type: 'button',
-          class: 'btn',
-          'aria-expanded': state.install && state.install.name === skill.name ? 'true' : 'false',
-          'aria-controls': 'install-panel',
-          text: 'Instalar en los agentes',
-          onclick: function () { openInstall(skill); }
-        }) : null,
-        copyButton('Copiar ruta', skill.path),
-        copyButton('Copiar nombre', skill.name),
-        skill.version ? el('span', { class: 'badge badge--accent', text: 'v' + skill.version }) : null,
-        el('span', { class: 'badge badge--muted', text: skill.files + (skill.files === 1 ? ' archivo' : ' archivos') }),
-        skill.hasCommand ? el('span', { class: 'badge badge--muted', text: 'command.md' }) : null
-      ])
-    ]));
-
     // Restaurar antes de dibujar el panel: el último run de la skill aparece de
     // una, terminado o no, sin buscarlo en el raíl (S16).
     restoreHistoricalRun(skill);
 
-    // Ejecutar es la acción principal (S9): input, agente, botón y salida viva.
+    // El panel de ejecución en tres regiones: header, columna del agente con el
+    // composer al pie y raíl de estado con el historial de la skill (S18).
+    // El nombre de la skill, el agente y el estado viven en su header; la
+    // descripción y las acciones secundarias, en el bloque Skill del raíl.
     container.appendChild(renderRunBlock(skill));
-
-    // Las ejecuciones de esta skill, ahí mismo y clicables (S16).
-    container.appendChild(renderSkillRunHistory(skill));
 
     // Instalar en los tres agentes queda como acción secundaria del mismo panel.
     var installPanel = renderInstall(skill);
@@ -783,27 +763,378 @@ export const CLIENT_JS = `
     return base;
   }
 
-  /** El bloque de ejecución: input, agente, modelo, ejecutar / cancelar y salida viva. */
-  function renderRunBlock(skill) {
+  /* ── Panel de ejecución: header, columna del agente y raíl (S18) ─────────── */
+
+  ${RUN_STEPS_SOURCE}
+
+  /** Un dato del header: etiqueta chica arriba, valor mono abajo. */
+  function runFact(label, value, attribute) {
+    var node = el('span', { class: 'run-fact__v', text: value });
+    if (attribute) node.setAttribute(attribute, '');
+    return el('div', { class: 'run-fact' }, [
+      el('span', { class: 'run-fact__k', text: label }),
+      node
+    ]);
+  }
+
+  /** Nombre corto del estado: lo que dice la etiqueta del header. */
+  function runStateShort(phase) {
+    if (!phase) return 'sin ejecución';
+    if (phase === 'starting' || phase === 'running') return 'ejecutando';
+    if (phase === 'done') return 'lista';
+    if (phase === 'cancelled') return 'cancelada';
+    if (phase === 'interrupted') return 'interrumpida';
+    if (phase === 'failed') return 'falló';
+    return String(phase);
+  }
+
+  /** Tono del estado: siempre acompaña a un texto, nunca va solo. */
+  function runStateTone(phase) {
+    if (phase === 'starting' || phase === 'running') return 'run';
+    if (phase === 'done') return 'ok';
+    if (phase === 'cancelled' || phase === 'interrupted') return 'warn';
+    if (phase === 'failed') return 'bad';
+    return 'idle';
+  }
+
+  /** Una duración en el formato corto del header y de las filas. */
+  function runOffsetText(ms) {
+    var seconds = Math.max(0, Math.round((ms || 0) / 1000));
+    if (seconds < 60) return seconds + ' s';
+    return Math.floor(seconds / 60) + ' min ' + (seconds % 60) + ' s';
+  }
+
+  /** El modelo que se va a usar cuando no hay ninguna ejecución abierta. */
+  function idleModelText(agent) {
+    var field = q('[data-run-model]');
+    var chosen = field && typeof field.value === 'string' ? field.value : '';
+    if (chosen) return chosen;
+    var report = state.models[agent];
+    if (report && report.current) return report.current;
+    return '—';
+  }
+
+  /**
+   * Líneas del run: las que el panel ya tiene o el conteo que informó el
+   * historial. Un run recién reenganchado no dice "0 líneas" mientras llega su
+   * salida: informa lo que el server ya sabe (S18).
+   */
+  function runLineCount(run) {
+    if (!run) return 0;
+    var known = typeof run.lineCount === 'number' ? run.lineCount : 0;
+    var loaded = run.lines ? run.lines.length : 0;
+    return Math.max(loaded, known);
+  }
+
+  /** Caracteres de salida: el único consumo que la salida expone hoy. */
+  function runCharCount(lines) {
+    var total = 0;
+    (lines || []).forEach(function (line) {
+      if (line && typeof line.text === 'string') total += line.text.length;
+    });
+    return total;
+  }
+
+  function setText(node, value) {
+    if (!node) return;
+    var next = value === undefined || value === null ? '' : String(value);
+    if (node.textContent === next) return;
+    node.textContent = next;
+  }
+
+  /**
+   * Región 1 — header: skill, agente, estado, modelo, tiempo, pasos, líneas y
+   * las dos acciones, en una fila y sin prosa (S18).
+   */
+  function renderRunHead(skill, run) {
+    var agent = run ? run.agent : agentFor(skill);
+    var phase = run ? run.phase : null;
+    var badge = el('span', {
+      class: 'run-badge',
+      'data-run-badge': '',
+      'data-tone': runStateTone(phase),
+      'aria-live': 'polite',
+      text: runStateShort(phase)
+    });
+    return el('header', { class: 'run-head', 'data-run-head': '' }, [
+      el('div', { class: 'run-head__id' }, [
+        el('h1', { class: 'run-head__skill', title: skill.name, text: skill.name }),
+        el('span', { class: 'run-head__sep', 'aria-hidden': 'true', text: '/' }),
+        el('span', { class: 'run-head__agent', 'data-run-agent-name': '', text: runAgentLabel(agent) }),
+        badge
+      ]),
+      el('div', { class: 'run-head__facts' }, [
+        runFact('Modelo', run ? (run.model || 'default del agente') : idleModelText(agent), 'data-run-fact-model'),
+        runFact('Tiempo', run ? runElapsedText(run) : '—', 'data-run-timer'),
+        runFact('Pasos', run ? String(stepCount(run.lines)) : '—', 'data-run-fact-steps'),
+        runFact('Líneas', run ? String(runLineCount(run)) : '—', 'data-run-fact-lines')
+      ]),
+      el('div', { class: 'run-head__actions' }, [
+        el('button', {
+          type: 'button',
+          class: 'btn',
+          'data-run-history-action': '',
+          'aria-controls': 'skill-run-history',
+          text: 'Historial',
+          onclick: function () { focusRunHistory(); }
+        }),
+        el('button', {
+          type: 'button',
+          class: 'btn',
+          'data-run-cancel': '',
+          hidden: !(run && runIsActive(run)),
+          text: 'Cancelar',
+          onclick: function () { cancelRun(skill); }
+        })
+      ])
+    ]);
+  }
+
+  /**
+   * Una línea del flujo: la prosa va como párrafo y el resto como fila
+   * verbo · destino · resultado · tiempo. La fila cruda conserva el texto tal
+   * cual lo informó el agente: nada se recorta para que entre.
+   */
+  function flowNode(line, startMs) {
+    var step = stepOfLine(line);
+    if (!step) {
+      return el('p', { class: 'run-prose', dataset: { kind: 'text' }, text: line.text });
+    }
+    var tail = '#' + line.n;
+    if (line.at && startMs) tail += ' · ' + runOffsetText(line.at - startMs);
+    return el('div', { class: 'run-step', dataset: { kind: step.kind } }, [
+      el('span', { class: 'run-step__verb', text: step.verb }),
+      el('span', { class: 'run-step__text' }, [
+        step.target ? el('span', { class: 'run-step__target', title: step.target, text: step.target }) : null,
+        step.body ? el('span', { class: 'run-step__result', text: step.body }) : null
+      ]),
+      el('span', { class: 'run-step__tail', text: tail })
+    ]);
+  }
+
+  function paintFlow(host, lines, startMs) {
+    if (!host || !lines || !lines.length) return;
+    lines.forEach(function (line) { host.appendChild(flowNode(line, startMs)); });
+  }
+
+  /** Alterna entre los pasos legibles y las líneas crudas numeradas (S18). */
+  function toggleRunView() {
+    state.rawView = !state.rawView;
+    var body = q('[data-run-output]');
+    var raw = q('[data-run-raw]');
+    var toggle = q('[data-run-view-toggle]');
+    if (body) body.hidden = state.rawView;
+    if (raw) raw.hidden = !state.rawView;
+    if (toggle) {
+      toggle.setAttribute('aria-pressed', state.rawView ? 'true' : 'false');
+      toggle.textContent = state.rawView ? 'Ver pasos' : 'Líneas crudas';
+    }
+    var skill = selectedSkill() || orphanRunSkill();
+    if (skill) paintRun(skill);
+  }
+
+  /** La acción Historial del header lleva al historial de la skill en el raíl. */
+  function focusRunHistory() {
+    var block = q('#skill-run-history');
+    if (!block) return;
+    if (block.scrollIntoView) block.scrollIntoView({ block: 'nearest' });
+    var first = q('button', block);
+    if (first) {
+      first.focus();
+      return;
+    }
+    block.setAttribute('tabindex', '-1');
+    block.focus();
+  }
+
+  /** El composer vive al pie de la columna, donde se lee la salida (S18). */
+  function renderRunComposer(skill, run) {
     var key = skillKeyOf(skill);
-    var run = viewedRun(skill);
     var agent = run ? run.agent : agentFor(skill);
     var active = run ? runIsActive(run) : false;
-    var historical = !!(state.selection && state.selection.skillKey === key);
-    // Una skill desinstalada deja leer su run guardado, pero no volver a ejecutarla.
     var missing = skill.missing === true;
-    // Un solo run a la vez: si corre en otra skill, Ejecutar queda apagado.
     var busyElsewhere = runBusyElsewhere(key);
 
-    var section = el('section', {
-      class: 'install install--run',
-      id: 'run-panel',
-      dataset: { runPanel: '', runFor: key }
+    var form = el('form', {
+      class: 'run-composer',
+      'data-run-composer': '',
+      onsubmit: function (event) { event.preventDefault(); }
     }, [
-      el('h2', { class: 'install__title', text: 'Ejecutar skill' }),
-      el('p', { class: 'install__note', text: 'La skill hace su trabajo con el agente que elijas, en la raíz del proyecto y con permiso para escribir archivos.' }),
-      historical ? el('div', { class: 'run__history' }, [
-        el('p', { class: 'install__note', text: 'Mostrando una ejecución del historial: ' + runStateLabel(run ? run.phase : '') + '. Quedó guardada en .fwinit/studio/runs.' }),
+      el('div', { class: 'run-composer__row' }, [
+        el('label', { class: 'run-composer__label' }, [
+          el('span', { class: 'run-composer__k', text: 'Qué querés que haga la skill' }),
+          el('textarea', {
+            class: 'run__input run-composer__input',
+            rows: '2',
+            'data-run-prompt': '',
+            placeholder: 'Ej.: creá las specs de este proyecto para una app de turnos',
+            spellcheck: 'false',
+            disabled: active,
+            oninput: function (event) {
+              state.prompts[key] = event.target.value;
+              // El pedido de arriba sigue lo que se está escribiendo: es el
+              // mismo dato que va a viajar al run.
+              setText(q('[data-run-prompt-text]'), event.target.value ||
+                'Todavía no hay pedido: escribí abajo qué querés que haga la skill.');
+            }
+          })
+        ]),
+        el('button', {
+          type: 'button',
+          class: 'btn btn--primary run-composer__go',
+          'data-run-start': '',
+          disabled: active || busyElsewhere || missing,
+          text: 'Ejecutar skill',
+          onclick: function () { startRun(skill); }
+        })
+      ]),
+      el('div', { class: 'run-composer__meta' }, [
+        el('div', { class: 'run-composer__field' }, [
+          el('span', { class: 'run-composer__k', text: 'Agente' }),
+          el('div', { class: 'segmented segmented--three', role: 'group', 'aria-label': 'Agente' }, RUN_AGENTS.map(function (option) {
+            return el('button', {
+              type: 'button',
+              'data-run-agent': option.id,
+              'aria-pressed': option.id === agent ? 'true' : 'false',
+              disabled: active,
+              text: option.label,
+              onclick: function () { setRunAgent(skill, option.id); }
+            });
+          }))
+        ]),
+        // El modelo se elige con un select alimentado por el catálogo real del
+        // agente (S14/S15): la primera opción es su default y significa "sin
+        // --model". Elegir otro aplica sólo a esta ejecución (S15).
+        el('label', { class: 'run-composer__field' }, [
+          el('span', { class: 'run-composer__k', text: 'Modelo' }),
+          el('select', {
+            class: 'run__input run__input--model',
+            'data-run-model': '',
+            'data-model-agent': agent,
+            'aria-label': 'Modelo',
+            disabled: active,
+            onchange: function (event) {
+              state.modelText[key] = event.target.value;
+              syncModelNote(agent, q('[data-run-panel]'));
+              syncRunPanel();
+            }
+          })
+        ])
+      ]),
+      // El composer se queda con lo que hace falta para ejecutar; el detalle
+      // del catálogo y del comando vive en el raíl (S18).
+      el('p', { class: 'run-composer__note', dataset: { runNote: '' }, text: runNoteFor(agent) }),
+      el('p', { class: 'run-composer__note', text: 'Un run a la vez · cancelar manda SIGTERM y escala a SIGKILL a los 5 s.' }),
+      missing ? el('p', { class: 'run-composer__note', text: 'La skill ya no está instalada: el run guardado se puede leer, pero no volver a ejecutar desde acá.' }) : null
+    ]);
+
+    var area = q('[data-run-prompt]', form);
+    if (area) area.value = run ? run.prompt : (state.prompts[key] || '');
+    fillModelField(q('[data-run-model]', form), agent, desiredModelFor(key));
+    return form;
+  }
+
+  /**
+   * Región 2 — columna del agente: el pedido, la salida como filas y el
+   * composer al pie. Las líneas crudas quedan a un click, no se descartan.
+   */
+  function renderRunStream(skill, run) {
+    var key = skillKeyOf(skill);
+    var promptText = run && run.prompt ? run.prompt : (state.prompts[key] || '');
+
+    var body = el('div', {
+      class: 'run-stream__body',
+      'data-run-output': '',
+      hidden: state.rawView,
+      role: 'log',
+      'aria-live': 'polite',
+      'aria-label': 'Salida del agente',
+      tabindex: '0'
+    }, [
+      el('div', { class: 'run-prompt', 'data-run-prompt-block': '' }, [
+        el('p', { class: 'run-prompt__k', text: 'Lo que pediste' }),
+        el('p', {
+          class: 'run-prompt__v',
+          'data-run-prompt-text': '',
+          text: promptText || 'Todavía no hay pedido: escribí abajo qué querés que haga la skill.'
+        })
+      ]),
+      el('div', { class: 'run-flow', 'data-run-flow': '' })
+    ]);
+
+    var raw = el('div', {
+      class: 'run-stream__raw',
+      'data-run-raw': '',
+      hidden: !state.rawView,
+      tabindex: '0',
+      role: 'log',
+      'aria-label': 'Líneas crudas de la salida'
+    });
+
+    return el('section', { class: 'run-stream', 'data-run-stream': '', 'aria-label': 'Columna del agente' }, [
+      el('div', { class: 'run-stream__head' }, [
+        el('span', { class: 'run-stream__kicker', text: 'Salida del agente' }),
+        el('button', {
+          type: 'button',
+          class: 'btn',
+          'data-run-view-toggle': '',
+          'aria-pressed': state.rawView ? 'true' : 'false',
+          text: state.rawView ? 'Ver pasos' : 'Líneas crudas',
+          onclick: function () { toggleRunView(); }
+        })
+      ]),
+      body,
+      raw,
+      renderRunComposer(skill, run)
+    ]);
+  }
+
+  /** Un bloque del raíl, con su encabezado y su dato al costado. */
+  function runBlock(title, meta, children, attribute) {
+    var node = el('section', { class: 'run-block' }, [
+      el('div', { class: 'run-block__head' }, [
+        el('span', { class: 'run-block__title', text: title }),
+        meta ? el('span', { class: 'run-block__meta', text: meta }) : null
+      ])
+    ]);
+    (children || []).forEach(function (child) {
+      if (child === null || child === undefined || child === false) return;
+      node.appendChild(child);
+    });
+    if (attribute) node.setAttribute(attribute, '');
+    return node;
+  }
+
+  /** El id corto del run: el nombre del archivo en .fwinit/studio/runs. */
+  function runShortId(run) {
+    if (!run || !run.id) return '—';
+    var id = String(run.id);
+    return id.length > 8 ? id.slice(0, 8) : id;
+  }
+
+  /** Estado de la ejecución: la frase completa, el error y el comando exacto. */
+  function renderRailStatus(skill, run) {
+    var key = skillKeyOf(skill);
+    var selecting = !!(state.selection && state.selection.skillKey === key);
+    var children = [
+      el('p', {
+        class: 'run-block__text',
+        dataset: { runState: '' },
+        text: run ? runStatusText(run) : 'Nada corriendo: escribí el pedido y ejecutá la skill.'
+      }),
+      el('p', { class: 'run-block__error', dataset: { runError: '' } }),
+      // El comando exacto queda plegado: es diagnóstico, no lo primero que se lee.
+      el('details', { class: 'run-block__details' }, [
+        el('summary', { class: 'run-block__summary', text: 'Comando exacto' }),
+        el('p', { class: 'run-block__command', dataset: { runCommand: '' } })
+      ])
+    ];
+    if (selecting) {
+      children.push(el('div', { class: 'run-block__history' }, [
+        el('p', {
+          class: 'run-block__note',
+          text: 'Mostrando una ejecución del historial: ' + runStateLabel(run ? run.phase : '') + '. Quedó guardada en .fwinit/studio/runs.'
+        }),
         el('button', {
           type: 'button',
           class: 'btn',
@@ -811,85 +1142,193 @@ export const CLIENT_JS = `
           text: state.run && state.run.skillKey === key ? 'Ver la ejecución en curso' : 'Volver al panel',
           onclick: function () { closeHistoricalRun(); }
         })
-      ]) : null,
-      el('label', { class: 'run__field' }, [
-        el('span', { class: 'meta__key', text: 'Qué querés que haga' }),
-        el('textarea', {
-          class: 'run__input',
-          rows: '3',
-          'data-run-prompt': '',
-          placeholder: 'Ej.: creá las specs de este proyecto para una app de turnos',
-          spellcheck: 'false',
-          disabled: active,
-          oninput: function (event) { state.prompts[key] = event.target.value; }
-        })
-      ]),
-      el('div', { class: 'run__row' }, [
-        el('div', { class: 'segmented segmented--three', role: 'group', 'aria-label': 'Agente' }, RUN_AGENTS.map(function (option) {
-          return el('button', {
-            type: 'button',
-            'data-run-agent': option.id,
-            'aria-pressed': option.id === agent ? 'true' : 'false',
-            disabled: active,
-            text: option.label,
-            onclick: function () { setRunAgent(skill, option.id); }
-          });
-        }))
-      ]),
-      // El modelo se elige con un select alimentado por el catálogo real del
-      // agente (S14/S15): la primera opción es su default y significa "sin
-      // --model". Elegir otro aplica sólo a esta ejecución (S15).
-      el('label', { class: 'run__field' }, [
-        el('span', { class: 'meta__key', text: 'Modelo' }),
-        el('select', {
-          class: 'run__input run__input--model',
-          'data-run-model': '',
-          'data-model-agent': agent,
-          disabled: active,
-          onchange: function (event) {
-            state.modelText[key] = event.target.value;
-            syncModelNote(agent, section);
-          }
-        })
-      ]),
-      el('p', { class: 'install__note', dataset: { modelNote: '' } }),
-      el('p', { class: 'install__note', dataset: { runNote: '' }, text: runNoteFor(agent) }),
-      missing ? el('p', { class: 'install__note', text: 'La skill ya no está instalada: el run guardado se puede leer, pero no volver a ejecutar desde acá.' }) : null,
-      el('div', { class: 'detail__actions' }, [
-        el('button', {
-          type: 'button',
-          class: 'btn btn--primary',
-          'data-run-start': '',
-          disabled: active || busyElsewhere || missing,
-          text: 'Ejecutar skill',
-          onclick: function () { startRun(skill); }
-        }),
-        el('button', {
-          type: 'button',
-          class: 'btn',
-          'data-run-cancel': '',
-          hidden: !active,
-          text: 'Cancelar',
-          onclick: function () { cancelRun(skill); }
-        }),
-        el('span', { class: 'run__timer', dataset: { runTimer: '' } })
-      ]),
-      el('p', { class: 'install__status', dataset: { runState: '' }, 'aria-live': 'polite' }),
-      el('p', { class: 'install__error', dataset: { runError: '' } }),
-      el('p', { class: 'install__note', dataset: { runCommand: '' } }),
-      // La sesión del agente: su id y el comando exacto para retomarla (S17).
-      el('div', { class: 'run__session', dataset: { runSession: '' } }, [
-        el('p', { class: 'install__note', dataset: { runSessionNote: '' } }),
-        el('div', { class: 'detail__actions', dataset: { runSessionActions: '' } })
-      ]),
-      el('div', { class: 'run__output', dataset: { runOutput: '' }, tabindex: '0', role: 'log', 'aria-live': 'polite' })
-    ]);
+      ]));
+    }
+    return runBlock('Estado', run ? runShortId(run) : '—', children);
+  }
 
-    var area = q('[data-run-prompt]', section);
-    if (area) area.value = run ? run.prompt : (state.prompts[key] || '');
-    fillModelField(q('[data-run-model]', section), agent, desiredModelFor(key));
-    syncModelNote(agent, section);
-    return section;
+  /**
+   * Los pasos de herramienta en orden. Se marca cuál es el actual: de los
+   * anteriores sólo se sabe que ya pasaron, así que no se los da por hechos.
+   */
+  function progressSteps(run) {
+    if (!run) return [];
+    var items = [];
+    var lastTool = -1;
+    var i;
+    for (i = 0; i < run.lines.length; i++) {
+      if (run.lines[i].kind === 'tool') lastTool = i;
+    }
+    for (i = 0; i < run.lines.length; i++) {
+      if (run.lines[i].kind !== 'tool') continue;
+      var step = stepOfLine(run.lines[i]);
+      if (!step) continue;
+      items.push({
+        label: stepLabel(step),
+        state: i === lastTool && runIsActive(run) ? 'active' : 'past'
+      });
+    }
+    return items;
+  }
+
+  function renderRailProgress(run) {
+    var items = progressSteps(run);
+    var children = [];
+    if (!items.length) {
+      children.push(el('p', { class: 'run-block__text', text: run ? 'Todavía no hay pasos de herramienta.' : 'Sin ejecución.' }));
+    } else {
+      var list = el('ul', { class: 'run-block__list' });
+      // El raíl resume: los últimos pasos, no la salida entera.
+      var shown = items.slice(-6);
+      shown.forEach(function (item) {
+        list.appendChild(el('li', { class: 'run-block__item', dataset: { state: item.state } }, [
+          el('span', { class: 'run-block__mark', 'aria-hidden': 'true', text: item.state === 'active' ? '▸' : '·' }),
+          el('span', { class: 'run-block__label', text: item.label })
+        ]));
+      });
+      children.push(list);
+      if (items.length > shown.length) {
+        children.push(el('p', { class: 'run-block__note', text: 'Se muestran los últimos ' + shown.length + ' de ' + items.length + ' pasos.' }));
+      }
+    }
+    var meta = run ? items.length + (items.length === 1 ? ' paso' : ' pasos') : '—';
+    return runBlock('Progreso', meta, children, 'data-run-progress');
+  }
+
+  function renderRailNow(run) {
+    var active = run ? runIsActive(run) : false;
+    var activity = run ? currentActivity(run.lines) : '';
+    var children = [
+      el('p', {
+        class: 'run-block__now',
+        text: activity || (run ? 'Sin actividad de herramientas todavía.' : 'Sin ejecución.')
+      })
+    ];
+    if (run) {
+      children.push(el('p', {
+        class: 'run-block__note',
+        text: runLineCount(run) + (runLineCount(run) === 1 ? ' línea' : ' líneas') + ' de salida · ' +
+          stepCount(run.lines) + (stepCount(run.lines) === 1 ? ' paso' : ' pasos')
+      }));
+    }
+    return runBlock(active ? 'Qué está haciendo ahora' : 'Último paso', run ? runStateShort(run.phase) : '—', children, 'data-run-now');
+  }
+
+  function runMetric(label, value) {
+    return el('div', { class: 'run-metric' }, [
+      el('span', { class: 'run-metric__k', text: label }),
+      el('span', { class: 'run-metric__v', text: value })
+    ]);
+  }
+
+  /**
+   * Consumo con lo que el run expone de verdad (S18): líneas, pasos, caracteres
+   * de salida y estado. Tokens, costo y caché no tienen fuente acá: se omiten y
+   * se dice por qué, en vez de mostrar un número de mentira.
+   */
+  function renderRailConsumo(run) {
+    var children = [
+      el('div', { class: 'run-metrics' }, [
+        runMetric('Líneas', run ? String(runLineCount(run)) : '—'),
+        runMetric('Pasos', run ? String(stepCount(run.lines)) : '—'),
+        runMetric('Salida', run ? String(runCharCount(run.lines)) + ' car.' : '—'),
+        runMetric('Estado', run ? runStateLabel(run.phase) : '—')
+      ])
+    ];
+    if (run && run.truncated) {
+      children.push(el('p', { class: 'run-block__note run-block__note--warn', text: 'Salida truncada: se alcanzó el tope de 2 MB.' }));
+    }
+    if (run && run.exitCode !== null && run.exitCode !== undefined) {
+      children.push(el('p', { class: 'run-block__note', text: 'Código de salida: ' + run.exitCode + '.' }));
+    }
+    children.push(el('p', { class: 'run-block__note', text: 'El agente no informa tokens ni costo: el studio muestra sólo lo que la salida expone.' }));
+    return runBlock('Consumo', run ? runAgentLabel(run.agent) : '—', children, 'data-run-consumo');
+  }
+
+  /**
+   * El modelo de la ejecución y el estado del catálogo (S15): qué modelo está
+   * activo, de dónde salió y que elegir acá no toca la configuración del agente.
+   */
+  function renderRailModel(run) {
+    return runBlock('Modelo', run ? (run.model || 'default') : '—', [
+      el('p', { class: 'run-block__text', 'data-model-note': '' })
+    ], 'data-run-model-block');
+  }
+
+  /** La sesión del run: el id y el comando exacto para retomarla (S17). */
+  function renderRailSession() {
+    return runBlock('Sesión del agente', null, [
+      el('p', { class: 'run-block__text', 'data-run-session-note': '' }),
+      el('div', { class: 'run-block__actions', 'data-run-session-actions': '' })
+    ], 'data-run-session');
+  }
+
+  /** La skill abierta: qué es y las acciones secundarias (instalar, copiar). */
+  function renderRailSkill(skill) {
+    var actions = el('div', { class: 'run-block__actions' }, [
+      canInstall(skill) ? el('button', {
+        type: 'button',
+        class: 'btn',
+        'aria-expanded': state.install && state.install.name === skill.name ? 'true' : 'false',
+        'aria-controls': 'install-panel',
+        text: 'Instalar en los agentes',
+        onclick: function () { openInstall(skill); }
+      }) : null,
+      skill.path ? copyButton('Copiar ruta', skill.path) : null,
+      copyButton('Copiar nombre', skill.name)
+    ]);
+    return runBlock('Skill', skill.scope === 'global' ? 'global' : 'proyecto', [
+      el('p', { class: 'run-block__text', text: skill.description || 'Esta skill no tiene descripción en su frontmatter.' }),
+      el('div', { class: 'run-block__badges' }, [
+        skill.version ? el('span', { class: 'badge badge--accent', text: 'v' + skill.version }) : null,
+        el('span', { class: 'badge badge--muted', text: skill.files + (skill.files === 1 ? ' archivo' : ' archivos') }),
+        skill.hasCommand ? el('span', { class: 'badge badge--muted', text: 'command.md' }) : null,
+        skill.missing ? el('span', { class: 'badge badge--muted', text: 'no instalada' }) : null
+      ]),
+      actions
+    ], 'data-run-skill');
+  }
+
+  /**
+   * Región 3 — raíl de estado: progreso, qué está haciendo ahora, consumo,
+   * sesión e historial de la skill, todo leído de lo que el run ya expone.
+   */
+  function renderRunRail(skill, run) {
+    return el('aside', {
+      class: 'run-rail',
+      'data-run-rail': '',
+      'aria-label': 'Estado de la ejecución'
+    }, [
+      renderRailStatus(skill, run),
+      renderRailProgress(run),
+      renderRailNow(run),
+      renderRailConsumo(run),
+      renderRailModel(run),
+      renderRailSession(),
+      renderRailSkill(skill),
+      renderSkillRunHistory(skill)
+    ]);
+  }
+
+  /**
+   * El panel de ejecución en tres regiones (S18). El orden del DOM es el orden
+   * de lectura —header, columna del agente, raíl— y no se reordena por CSS.
+   */
+  function renderRunBlock(skill) {
+    var key = skillKeyOf(skill);
+    var run = viewedRun(skill);
+    var dataset = { runPanel: '', runFor: key };
+    if (skill.missing === true) dataset.runMissing = 'true';
+    var panel = el('div', { class: 'run-panel', id: 'run-panel', dataset: dataset }, [
+      renderRunHead(skill, run),
+      el('div', { class: 'run-body' }, [
+        renderRunStream(skill, run),
+        renderRunRail(skill, run)
+      ])
+    ]);
+    // El aviso del catálogo vive en el raíl: se completa cuando llega.
+    syncModelNote(run ? run.agent : agentFor(skill), panel);
+    return panel;
   }
 
   /* ── Modelo del agente (S14/S15) ────────────────────────────────────────── */
@@ -961,6 +1400,8 @@ export const CLIENT_JS = `
       fillModelField(field, agent, desiredModelFor(panel.dataset.runFor || ''));
     }
     syncModelNote(agent, panel);
+    // El catálogo también decide qué modelo muestra el header cuando no hay run.
+    syncRunPanel();
   }
 
   /** True cuando el catálogo trae ese id; el resto se ofrece como opción suelta. */
@@ -1012,26 +1453,42 @@ export const CLIENT_JS = `
     renderSkillDetail();
   }
 
-  /** Repinta la salida completa: se usa cuando el panel se vuelve a dibujar. */
+  /** Repinta el flujo de pasos y las líneas crudas: se usa al redibujar. */
   function paintRun(skill) {
-    var out = q('[data-run-output]');
     var panel = q('[data-run-panel]');
-    if (!out) return;
-    out.textContent = '';
-    var run = viewedRun(skill);
     if (!panel || panel.dataset.runFor !== skillKeyOf(skill)) {
       syncRunPanel();
       return;
     }
-    if (run && run.lines.length) paintLines(out, run.lines);
-    else {
-      out.appendChild(el('p', { class: 'run__placeholder', dataset: { runPlaceholder: '' }, text: 'Acá va la salida del agente, línea por línea.' }));
+    var run = viewedRun(skill);
+    var startMs = run ? run.startedAtMs : 0;
+    var out = q('[data-run-output]');
+    var flow = q('[data-run-flow]');
+    var raw = q('[data-run-raw]');
+
+    if (flow) {
+      flow.textContent = '';
+      if (run && run.lines.length) paintFlow(flow, run.lines, startMs);
+      else {
+        flow.appendChild(el('p', {
+          class: 'run-placeholder',
+          dataset: { runPlaceholder: '' },
+          text: 'Acá va la salida del agente, paso por paso.'
+        }));
+      }
     }
+    if (raw) {
+      raw.textContent = '';
+      if (run && run.lines.length) paintLines(raw, run.lines);
+      else raw.appendChild(el('p', { class: 'run__placeholder', text: 'Todavía no hay líneas.' }));
+    }
+
     syncRunPanel();
     // El panel ya está en el documento: recién ahora se puede pedir el catálogo.
     var modelField = q('[data-run-model]');
     if (modelField && modelField.dataset.modelAgent) ensureModelList(modelField.dataset.modelAgent);
     // Al repintar se muestra lo último: el usuario acaba de llegar al panel.
+    if (!out || out.hidden) return;
     var scroll = function () { out.scrollTop = out.scrollHeight; };
     if (window.requestAnimationFrame) window.requestAnimationFrame(scroll);
     else scroll();
@@ -1043,13 +1500,26 @@ export const CLIENT_JS = `
    * salida viva con la de un run del historial.
    */
   function appendRunLines(lines, key) {
-    var out = q('[data-run-output]');
     var panel = q('[data-run-panel]');
-    if (!out || !panel || !key || panel.dataset.runFor !== key) return;
+    if (!panel || !key || panel.dataset.runFor !== key) return;
     if (state.selection && state.selection.skillKey === key) return;
-    paintLines(out, lines);
+    var run = runByKey(key);
+    var startMs = run ? run.startedAtMs : 0;
+    var flow = q('[data-run-flow]');
+    if (flow && lines && lines.length) {
+      var out = q('[data-run-output]');
+      var atBottom = out ? out.scrollTop + out.clientHeight >= out.scrollHeight - 8 : false;
+      var placeholder = q('[data-run-placeholder]', flow);
+      if (placeholder) flow.removeChild(placeholder);
+      lines.forEach(function (line) { flow.appendChild(flowNode(line, startMs)); });
+      if (out && atBottom && !out.hidden) out.scrollTop = out.scrollHeight;
+    }
+    // La vista cruda ya trae las líneas anteriores: sólo se le agregan las nuevas.
+    var raw = q('[data-run-raw]');
+    if (raw && !raw.hidden) paintLines(raw, lines);
   }
 
+  /** Las líneas numeradas tal cual llegaron: la salida que no se descarta. */
   function paintLines(out, lines) {
     if (!lines || !lines.length) return;
     var placeholder = q('[data-run-placeholder]', out);
@@ -1064,45 +1534,65 @@ export const CLIENT_JS = `
     if (atBottom) out.scrollTop = out.scrollHeight;
   }
 
-  /** Refresca los textos y botones del panel sin redibujar el detalle entero. */
+  /** Reemplaza un bloque del raíl sólo si su contenido cambió. */
+  function replaceNode(selector, node) {
+    var current = q(selector);
+    if (!current || !current.parentNode || !node) return;
+    if (current.isEqualNode && current.isEqualNode(node)) return;
+    current.parentNode.replaceChild(node, current);
+  }
+
+  /**
+   * Refresca header y raíl sin redibujar el detalle entero: es lo que corre en
+   * cada vuelta del polling mientras el agente trabaja (S11/S18).
+   */
   function syncRunPanel() {
     var panel = q('[data-run-panel]');
     var key = panel ? panel.dataset.runFor : '';
-    var stateEl = q('[data-run-state]');
-    var errorEl = q('[data-run-error]');
-    var timerEl = q('[data-run-timer]');
-    var commandEl = q('[data-run-command]');
-    var startBtn = q('[data-run-start]');
-    var cancelBtn = q('[data-run-cancel]');
-    var backBtn = q('[data-run-back]');
     var run = key ? runByKey(key) : null;
     var selecting = !!(state.selection && key && state.selection.skillKey === key);
+    var active = run ? runIsActive(run) : false;
+    var missing = !!(panel && panel.dataset.runMissing === 'true');
+    var modelField = q('[data-run-model]');
+    var agent = modelField && modelField.dataset.modelAgent
+      ? modelField.dataset.modelAgent
+      : (run ? run.agent : 'gentle-shell');
 
-    if (backBtn) backBtn.hidden = !selecting;
-
-    if (!run) {
-      if (stateEl) stateEl.textContent = '';
-      if (errorEl) errorEl.textContent = '';
-      if (timerEl) timerEl.textContent = '';
-      if (commandEl) commandEl.textContent = '';
-      if (startBtn) startBtn.disabled = runBusyElsewhere(key);
-      if (cancelBtn) cancelBtn.hidden = true;
-      syncRunSession(null);
-      return;
+    // Región 1: el header dice la verdad del run vivo, del restaurado y del vacío.
+    setText(q('[data-run-agent-name]'), runAgentLabel(agent));
+    var badge = q('[data-run-badge]');
+    if (badge) {
+      setText(badge, runStateShort(run ? run.phase : null));
+      badge.dataset.tone = runStateTone(run ? run.phase : null);
     }
+    setText(q('[data-run-fact-model]'), run ? (run.model || 'default del agente') : idleModelText(agent));
+    setText(q('[data-run-timer]'), run ? runElapsedText(run) : '—');
+    setText(q('[data-run-fact-steps]'), run ? String(stepCount(run.lines)) : '—');
+    setText(q('[data-run-fact-lines]'), run ? String(runLineCount(run)) : '—');
 
-    var active = runIsActive(run);
-    if (stateEl) stateEl.textContent = runStatusText(run);
-    if (errorEl) errorEl.textContent = run.error ? '\u2716 ' + run.error : '';
-    if (timerEl) timerEl.textContent = active ? runElapsedText(run) : '';
-    if (commandEl) {
-      commandEl.textContent = run.command
-        ? 'Comando: ' + run.command.binary + ' ' + run.command.args.slice(0, -1).join(' ') + ' "…"'
-        : '';
-    }
-    if (startBtn) startBtn.disabled = active || runBusyElsewhere(key);
+    var startBtn = q('[data-run-start]');
+    var cancelBtn = q('[data-run-cancel]');
+    if (startBtn) startBtn.disabled = active || runBusyElsewhere(key) || missing;
     if (cancelBtn) cancelBtn.hidden = !active || selecting;
+
+    // Región 3: el estado completo, el error y el comando exacto.
+    setText(q('[data-run-state]'), run ? runStatusText(run) : 'Nada corriendo: escribí el pedido y ejecutá la skill.');
+    setText(q('[data-run-error]'), run && run.error ? '\u2716 ' + run.error : '');
+    setText(q('[data-run-command]'), run && run.command
+      ? 'Comando: ' + run.command.binary + ' ' + run.command.args.slice(0, -1).join(' ') + ' "…"'
+      : '');
+
     syncRunSession(run);
+    replaceNode('[data-run-progress]', renderRailProgress(run));
+    replaceNode('[data-run-now]', renderRailNow(run));
+    replaceNode('[data-run-consumo]', renderRailConsumo(run));
+    // Los bloques del raíl se rehacen: el aviso del catálogo se vuelve a escribir.
+    if (panel) syncModelNote(agent, panel);
+    // El pedido de arriba es el del run abierto o lo que el usuario está
+    // escribiendo: un repintado no puede borrarle lo que ya escribió.
+    var typed = key && state.prompts[key] ? state.prompts[key] : '';
+    setText(q('[data-run-prompt-text]'), (run && run.prompt) || typed ||
+      'Todavía no hay pedido: escribí abajo qué querés que haga la skill.');
   }
 
   /**
@@ -1173,9 +1663,16 @@ export const CLIENT_JS = `
     run.sessionId = status.sessionId || null;
     var fresh = (status.lines || []).filter(function (line) { return line.n > cursor; });
     if (fresh.length) {
-      fresh.forEach(function (line) { run.lines.push(line); });
+      // La hora de llegada sólo se marca en un run vivo: es el tiempo real de
+      // esta fila. Un run restaurado no recibe horas inventadas (S18).
+      var at = runIsActive(run) ? Date.now() : 0;
+      fresh.forEach(function (line) {
+        if (at) line.at = at;
+        run.lines.push(line);
+      });
       appendRunLines(fresh, run.skillKey);
     }
+    run.lineCount = run.lines.length;
     run.next = status.next;
     run.phase = status.state;
     run.exitCode = status.exitCode;
@@ -1378,6 +1875,7 @@ export const CLIENT_JS = `
     );
     selection.id = summary.id;
     selection.sessionId = summary.sessionId || null;
+    if (typeof summary.lineCount === 'number') selection.lineCount = summary.lineCount;
     selection.exitCode = summary.exitCode;
     selection.truncated = summary.truncated === true;
     selection.summary = summary;
@@ -1408,6 +1906,7 @@ export const CLIENT_JS = `
     );
     state.run.id = summary.id;
     state.run.sessionId = summary.sessionId || null;
+    if (typeof summary.lineCount === 'number') state.run.lineCount = summary.lineCount;
     state.run.notes = [];
     state.prompts[key] = summary.prompt || '';
     if (summary.model) state.modelText[key] = summary.model;
@@ -1540,28 +2039,27 @@ export const CLIENT_JS = `
   }
 
   /**
-   * Las ejecuciones de esta skill, en el panel (S16). El raíl sigue mostrando el
-   * historial global; acá estado, modelo y fecha de esta skill, y se abre cualquiera.
+   * Las ejecuciones de esta skill, en el raíl del panel (S16/S18). El raíl de la
+   * izquierda sigue mostrando el historial global; acá estado, modelo y fecha de
+   * esta skill, y se abre cualquiera con un click.
    */
   function renderSkillRunHistory(skill) {
     var ref = { target: skill.target, scope: skill.scope, name: skill.name };
-    var section = el('section', {
-      class: 'install install--run',
-      id: 'skill-run-history',
-      dataset: { skillRuns: runRefKey(ref) }
-    }, [el('h2', { class: 'install__title', text: 'Ejecuciones de esta skill' })]);
+    var runs = state.history ? runsForSkill(state.history.runs, ref) : [];
+    var section = runBlock('Historial', runs.length ? String(runs.length) : '—', [], null);
+    section.id = 'skill-run-history';
+    section.dataset.skillRuns = runRefKey(ref);
 
     if (state.historyError) {
-      section.appendChild(el('p', { class: 'install__error', text: 'No se pudo leer el historial.' }));
+      section.appendChild(el('p', { class: 'run-block__error', text: 'No se pudo leer el historial.' }));
       return section;
     }
     if (!state.history) {
       section.appendChild(el('p', { class: 'loading', text: 'Leyendo el historial…' }));
       return section;
     }
-    var runs = runsForSkill(state.history.runs, ref);
     if (!runs.length) {
-      section.appendChild(el('p', { class: 'install__note', text: 'Esta skill todavía no tiene ejecuciones guardadas.' }));
+      section.appendChild(el('p', { class: 'run-block__note', text: 'Esta skill todavía no tiene ejecuciones guardadas.' }));
       return section;
     }
     var list = el('div', { class: 'run__history-list' });
@@ -1605,6 +2103,7 @@ export const CLIENT_JS = `
     selection.command = status.command;
     selection.next = status.next;
     selection.lines = status.lines || [];
+    selection.lineCount = selection.lines.length;
   }
 
   /* ── Instalar skill (acción secundaria) ─────────────────────────────────── */
