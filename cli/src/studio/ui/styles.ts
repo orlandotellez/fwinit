@@ -800,7 +800,7 @@ button {
   background: var(--surface);
 }
 
-/* El modelo es una sola línea: el campo de texto libre del catálogo (S14). */
+/* El modelo es una sola línea: el select del catálogo con el activo (S15). */
 .run__input--model {
   min-height: 0;
   padding: 0.35rem var(--space-2xs);

@@ -81,11 +81,27 @@ describe("studio document", () => {
     expect(CLIENT_JS).toContain("interrupted");
   });
 
-  test("el panel ofrece el modelo del catálogo y no inventa ids (S14)", () => {
+  test("el panel elige el modelo con un select y muestra el activo (S14/S15)", () => {
     expect(CLIENT_JS).toContain("'/api/skills/models?agent='");
     expect(CLIENT_JS).toContain("data-run-model");
-    expect(CLIENT_JS).toContain("datalist");
     expect(CLIENT_JS).toContain("function ensureModelList(");
     expect(CLIENT_JS).toContain("model: model");
+    // El campo dejó de ser texto libre: es un select alimentado por el catálogo
+    // y por el modelo activo del agente, no un input con sugerencias.
+    expect(CLIENT_JS).toContain("function modelChoice(");
+    expect(CLIENT_JS).toContain("el('select'");
+    expect(CLIENT_JS).not.toContain("datalist");
+    expect(CLIENT_JS).toContain("(actual)");
+  });
+
+  test("el panel dice cuál es el modelo activo y que elegir no toca la config (S15)", () => {
+    // El activo se anuncia con su origen, y si no se pudo leer se dice, en vez
+    // de inventar un modelo.
+    expect(CLIENT_JS).toContain("Modelo activo de ");
+    expect(CLIENT_JS).toContain("No se pudo leer el modelo activo de ");
+    expect(CLIENT_JS).toContain("function syncModelNote(");
+    // Elegir un modelo aplica sólo a esa ejecución: el studio no reescribe la
+    // configuración de los agentes.
+    expect(CLIENT_JS).toContain("no escribe en la configuración de ");
   });
 });

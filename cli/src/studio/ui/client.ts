@@ -9,6 +9,8 @@
  * `/api/specs/file`, and it sanitizes the server-rendered document before it
  * touches the DOM.
  */
+import { MODEL_CHOICE_SOURCE } from './model-select.js';
+
 export const CLIENT_JS = `
 (function () {
   'use strict';
@@ -58,7 +60,7 @@ export const CLIENT_JS = `
     /** Catálogo de modelos por agente, cacheado en la pestaña (S14). */
     models: {},
     modelLoading: {},
-    /** Modelo escrito por skill, para que un repintado no lo borre. */
+    /** Modelo elegido por skill; la clave ausente significa "todavía no eligió". */
     modelText: {}
   };
 
@@ -714,7 +716,6 @@ export const CLIENT_JS = `
     var historical = !!(state.selection && state.selection.skillKey === key);
     // Un solo run a la vez: si corre en otra skill, Ejecutar queda apagado.
     var busyElsewhere = runBusyElsewhere(key);
-    var model = (run && run.model) || state.modelText[key] || '';
 
     var section = el('section', {
       class: 'install install--run',
@@ -757,23 +758,22 @@ export const CLIENT_JS = `
           });
         }))
       ]),
-      // El modelo es texto libre respaldado por el catálogo del CLI (S14):
-      // vacío significa "el default del agente" y no se pasa el flag.
+      // El modelo se elige con un select alimentado por el catálogo real del
+      // agente (S14/S15): la primera opción es su default y significa "sin
+      // --model". Elegir otro aplica sólo a esta ejecución (S15).
       el('label', { class: 'run__field' }, [
-        el('span', { class: 'meta__key', text: 'Modelo (opcional)' }),
-        el('input', {
+        el('span', { class: 'meta__key', text: 'Modelo' }),
+        el('select', {
           class: 'run__input run__input--model',
-          type: 'text',
           'data-run-model': '',
-          list: 'run-models-' + agent,
-          placeholder: 'Default de ' + runAgentLabel(agent),
-          autocomplete: 'off',
-          spellcheck: 'false',
+          'data-model-agent': agent,
           disabled: active,
-          oninput: function (event) { state.modelText[key] = event.target.value; }
+          onchange: function (event) {
+            state.modelText[key] = event.target.value;
+            syncModelNote(agent, section);
+          }
         })
       ]),
-      el('datalist', { id: 'run-models-' + agent, dataset: { runModels: agent } }),
       el('p', { class: 'install__note', dataset: { modelNote: '' } }),
       el('p', { class: 'install__note', dataset: { runNote: '' }, text: runNoteFor(agent) }),
       el('div', { class: 'detail__actions' }, [
@@ -803,18 +803,20 @@ export const CLIENT_JS = `
 
     var area = q('[data-run-prompt]', section);
     if (area) area.value = run ? run.prompt : (state.prompts[key] || '');
-    var modelInput = q('[data-run-model]', section);
-    if (modelInput) modelInput.value = model;
+    fillModelField(q('[data-run-model]', section), agent, desiredModelFor(key));
+    syncModelNote(agent, section);
     return section;
   }
 
-  /* ── Catálogo de modelos (S14) ──────────────────────────────────────────── */
+  /* ── Modelo del agente (S14/S15) ────────────────────────────────────────── */
+
+  ${MODEL_CHOICE_SOURCE}
 
   /**
-   * Pide el catálogo del agente una vez por pestaña y refresca el campo.
+   * Pide el catálogo del agente una vez por pestaña y refresca el select.
    *
-   * Si el CLI falla, available: false con el motivo deja el campo como texto
-   * libre: el panel no inventa ids de modelo que el agente no conoce.
+   * Si el CLI falla, available: false con el motivo deja el select con el
+   * default del agente y el modelo activo: el panel no inventa ids de modelo.
    */
   function ensureModelList(agent) {
     if (state.models[agent] || state.modelLoading[agent]) return;
@@ -828,6 +830,8 @@ export const CLIENT_JS = `
         agent: agent,
         available: false,
         models: [],
+        current: null,
+        currentSource: null,
         error: error && error.message ? error.message : 'No se pudo leer el catálogo.'
       };
       state.modelLoading[agent] = false;
@@ -835,30 +839,88 @@ export const CLIENT_JS = `
     });
   }
 
-  /** Vuelca el catálogo en el datalist del panel y explica su estado. */
-  function syncModelField(agent) {
-    var list = q('[data-run-models="' + agent + '"]');
-    var note = q('[data-model-note]');
-    var report = state.models[agent] || null;
+  /**
+   * Qué modelo mostrar: el del run abierto, si no lo que el usuario ya eligió, y
+   * si no null, que significa "preseleccioná el modelo activo" (S15).
+   */
+  function desiredModelFor(key) {
+    var run = runByKey(key);
+    if (run && run.model) return run.model;
+    if (typeof state.modelText[key] === 'string') return state.modelText[key];
+    return null;
+  }
 
-    if (list) {
-      list.textContent = '';
-      ((report && report.models) || []).forEach(function (model) {
-        list.appendChild(el('option', { value: model.id, label: model.model }));
-      });
+  /** Llena el select con el default, el catálogo y el modelo activo (S15). */
+  function fillModelField(field, agent, desired) {
+    if (!field) return;
+    var report = state.models[agent] || null;
+    var ids = ((report && report.models) || []).map(function (model) { return model.id; });
+    var choice = modelChoice(
+      'Default de ' + runAgentLabel(agent) + ' (sin --model)',
+      report ? report.current : null,
+      ids,
+      desired
+    );
+    field.textContent = '';
+    choice.options.forEach(function (option) {
+      field.appendChild(el('option', { value: option.value, text: option.label }));
+    });
+    field.value = choice.value;
+  }
+
+  /** Vuelca el catálogo en el select del panel cuando la respuesta llega. */
+  function syncModelField(agent) {
+    var panel = q('[data-run-panel]');
+    if (!panel) return;
+    var field = q('[data-run-model]', panel);
+    if (field && field.dataset.modelAgent === agent) {
+      fillModelField(field, agent, desiredModelFor(panel.dataset.runFor || ''));
     }
+    syncModelNote(agent, panel);
+  }
+
+  /** True cuando el catálogo trae ese id; el resto se ofrece como opción suelta. */
+  function catalogueHas(report, id) {
+    return ((report && report.models) || []).some(function (model) { return model.id === id; });
+  }
+
+  /**
+   * Explica el catálogo, cuál es el modelo activo y de dónde salió, y que elegir
+   * otro acá sólo afecta a esta ejecución: el studio no edita la configuración
+   * de los agentes (S15).
+   */
+  function syncModelNote(agent, root) {
+    var note = q('[data-model-note]', root);
     if (!note) return;
+    var report = state.models[agent] || null;
+    var label = runAgentLabel(agent);
+    var parts = [];
+
     if (!report) {
-      note.textContent = 'Leyendo el catálogo de ' + runAgentLabel(agent) + '…';
-      return;
+      parts.push('Leyendo el catálogo de ' + label + '…');
+    } else if (report.available) {
+      parts.push('Catálogo de ' + runAgentLabel(report.source || agent) + ': ' + report.models.length + ' modelos.');
+    } else {
+      parts.push('No se pudo leer el catálogo (' + (report.error || 'motivo desconocido') +
+        '): el select ofrece el default de ' + label + ' y el modelo activo, nada más.');
     }
-    if (report.available) {
-      note.textContent = 'Catálogo de ' + runAgentLabel(report.source || agent) + ': ' +
-        report.models.length + ' modelos. Si lo dejás vacío, el agente usa su default.';
-      return;
+
+    if (report) {
+      if (report.current) {
+        parts.push('Modelo activo de ' + label + ': ' + report.current +
+          (report.currentSource ? ' (leído de ' + report.currentSource + ')' : '') + '.');
+        if (!catalogueHas(report, report.current)) {
+          parts.push('No está en el catálogo, así que se agrega igual como opción.');
+        }
+      } else {
+        parts.push('No se pudo leer el modelo activo de ' + label +
+          (report.currentNote ? ': ' + report.currentNote : '.') +
+          ' El select arranca en el default del agente.');
+      }
     }
-    note.textContent = 'No se pudo leer el catálogo (' + (report.error || 'motivo desconocido') +
-      '). Escribí el modelo a mano o dejalo vacío para usar el default.';
+
+    parts.push('Elegir un modelo aplica sólo a esta ejecución: el studio no escribe en la configuración de ' + label + '.');
+    note.textContent = parts.join(' ');
   }
 
   function setRunAgent(skill, agent) {
@@ -882,9 +944,9 @@ export const CLIENT_JS = `
       out.appendChild(el('p', { class: 'run__placeholder', dataset: { runPlaceholder: '' }, text: 'Acá va la salida del agente, línea por línea.' }));
     }
     syncRunPanel();
-    // El panel ya está en el documento: recién ahora se puede llenar el catálogo.
-    var dataList = q('[data-run-models]');
-    if (dataList && dataList.dataset.runModels) ensureModelList(dataList.dataset.runModels);
+    // El panel ya está en el documento: recién ahora se puede pedir el catálogo.
+    var modelField = q('[data-run-model]');
+    if (modelField && modelField.dataset.modelAgent) ensureModelList(modelField.dataset.modelAgent);
     // Al repintar se muestra lo último: el usuario acaba de llegar al panel.
     var scroll = function () { out.scrollTop = out.scrollHeight; };
     if (window.requestAnimationFrame) window.requestAnimationFrame(scroll);

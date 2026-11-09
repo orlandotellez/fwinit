@@ -321,7 +321,7 @@ export interface StudioModel {
  * Catálogo de modelos de un agente.
  *
  * `available: false` no es un error del studio: el comando del CLI falló o no
- * devolvió nada, y el panel deja el campo como texto libre con ese motivo.
+ * devolvió nada, y el panel sólo puede ofrecer el default y el modelo activo.
  */
 export interface StudioModelList {
   agent: SkillTargetId;
@@ -331,6 +331,15 @@ export interface StudioModelList {
   models: StudioModel[];
   command: StudioRunCommand;
   error?: string;
+  /**
+   * Modelo activo del agente, leído de su propio settings (S15). `null` cuando
+   * el agente no lo declara o el archivo no se puede leer: nunca se inventa uno.
+   */
+  current: string | null;
+  /** Archivo del que salió el activo; `null` si el agente no declara modelo. */
+  currentSource: string | null;
+  /** Por qué el activo es `null`, para que el panel lo diga en vez de callarse. */
+  currentNote?: string;
 }
 
 export interface StudioOpenOptions {

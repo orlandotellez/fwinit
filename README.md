@@ -139,19 +139,38 @@ corre hay un botón **Cancelar**.
 
 #### Elegir el modelo
 
-Debajo del selector de agente hay un campo **Modelo (opcional)**. El catálogo
-sale de los CLI reales, no de una lista escrita a mano: `pi --list-models`
-(tabla `provider model context max-out thinking images`) y `opencode models`
-(una `provider/model` por línea), y Gentle Shell reusa el catálogo de `pi`
-porque lo envuelve. Se lee una vez por arranque del studio y se sirve en
-`GET /api/skills/models?agent=pi|opencode|gentle-shell`.
+Debajo del selector de agente hay un **select de Modelo**: muestra qué modelo
+está usando cada agente y deja elegir otro del catálogo real. El catálogo sale
+de los CLI, no de una lista escrita a mano: `pi --list-models` (tabla
+`provider model context max-out thinking images`) y `opencode models` (una
+`provider/model` por línea), y Gentle Shell reusa el catálogo de `pi` porque lo
+envuelve. Se lee una vez por arranque del studio y se sirve en
+`GET /api/skills/models?agent=pi|opencode|gentle-shell`, junto con el modelo
+activo del agente.
 
-- El campo es texto libre con sugerencias (`datalist`): podés escribir un
-  `provider/model` que el catálogo no tenga o uno con `#variant`.
-- Si lo dejás vacío, el agente usa su default y el flag no se pasa. Con modelo,
-  el studio agrega `--model <modelo>` a `pi`/Gentle Shell y a `opencode run`.
-- Si el comando del catálogo falla, el panel lo dice con el motivo y el campo
-  queda como texto libre: nunca se inventan ids de modelo.
+- El **modelo activo** de cada agente se lee de su propio archivo de settings,
+  en cada consulta al catálogo, así un cambio hecho por fuera se ve sin
+  reiniciar el studio. `pi` lo guarda en `defaultModel` de
+  `~/.pi/agent/settings.json`; Gentle Shell en el suyo
+  (`$GENTLE_SHELL_HOME/settings.json` o
+  `~/.gentle-shell/agent/settings.json`), que puede ser distinto del de `pi` y
+  por eso se lee aparte. `opencode` no declara un modelo por defecto en su
+  configuración: ahí el panel dice que no lo conoce.
+- De esos archivos se lee **sólo la clave del modelo**: nunca credenciales ni el
+  resto del contenido. Un archivo ausente, sin la clave o con JSON roto es
+  "desconocido" y el panel lo dice; nunca es un error ni un modelo inventado.
+- La primera opción del select es el **default del agente** (valor vacío): con
+  esa opción no se pasa ningún flag. La opción del modelo activo se rotula
+  `(actual)` y viene seleccionada. Si el activo no está en el catálogo, se
+  agrega igual como opción, para no mentir sobre lo que el agente está usando.
+  Si el activo es desconocido, el select arranca en el default y el panel lo
+  avisa.
+- Elegir un modelo aplica **sólo a esa ejecución**, con `--model <modelo>` en
+  `pi`, Gentle Shell y `opencode run`. El studio **no escribe** en la
+  configuración de ningún agente: cambiar el default global es otra escritura,
+  fuera del proyecto, y no la hace el studio.
+- Si el comando del catálogo falla, el panel lo dice con el motivo y el select
+  sólo ofrece el default del agente y el modelo activo: nunca se inventan ids.
 - El modelo es entrada del usuario: se valida no vacío, hasta 128 caracteres y
   sin caracteres de control, y viaja siempre como argumento del proceso.
 

@@ -258,9 +258,11 @@ export async function startStudio(options: StudioOpenOptions = {}): Promise<Stud
   });
 
   // Catálogo por agente, cacheado por arranque: un click no lanza un proceso
-  // por vez y el CLI real sigue siendo la única fuente de ids (S14).
+  // por vez y el CLI real sigue siendo la única fuente de ids (S14). El modelo
+  // activo se relee en cada request, desde el home de este arranque (S15).
   const models = new ModelCatalog({
     projectRoot,
+    home,
     agentBinaries: options.agentBinaries,
     timeoutMs: options.modelListTimeoutMs,
   });
@@ -489,10 +491,12 @@ export async function startStudio(options: StudioOpenOptions = {}): Promise<Stud
   }
 
   /**
-   * Catálogo de modelos del agente, leído del CLI real y cacheado por arranque.
+   * Catálogo de modelos del agente, leído del CLI real y cacheado por arranque,
+   * más el modelo activo que el agente declara en su propio settings (S15).
    *
    * Siempre responde 200: si el comando falla, `available: false` y el motivo
-   * dejan el campo como texto libre en vez de romper el panel (S14).
+   * dejan el select con el default y el modelo activo en vez de romper el panel
+   * (S14); si el activo no se puede leer, `current: null` con su nota.
    */
   async function handleModelsGet(url: URL, response: ServerResponse): Promise<void> {
     const agent = url.searchParams.get("agent");
