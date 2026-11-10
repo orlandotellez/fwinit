@@ -1,9 +1,10 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { chmod, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   buildAgentInvocation,
+  CANCEL_FAILED_MESSAGE,
   isRunAgent,
   normaliseOutputLine,
   RunError,
@@ -60,6 +61,40 @@ const SLOW_OUTPUT = [
   `exec sleep 30`,
 ].join("\n");
 
+/**
+ * El agente que deja un nieto trabajando, como opencode con su servidor propio
+ * o un `bash` que abrió pi (S20).
+ *
+ * Escribe el pid del nieto dentro del proyecto temporal y después duerme, así
+ * el test puede comprobar que la cancelación alcanzó también al nieto.
+ */
+const GRANDCHILD_OUTPUT = [
+  `sleep 30 &`,
+  `echo $! > grandchild.pid`,
+  `printf '%s\\n' '{"type":"agent_start"}'`,
+  `exec sleep 30`,
+].join("\n");
+
+/**
+ * Igual que el anterior, pero con la sesión y algo de prosa ya emitida: sirve
+ * para probar que cancelar conserva la salida parcial y el id de sesión (S20).
+ */
+const GRANDCHILD_SESSION_OUTPUT = [
+  `printf '%s\\n' '{"type":"session","version":3,"id":"${SESSION_ID}"}'`,
+  `printf '%s\\n' '{"type":"message_update","assistantMessageEvent":{"type":"text_delta","delta":"voy escribiendo specs"}}'`,
+  `printf '%s\\n' '{"type":"message_end","message":{"stopReason":"end_turn"}}'`,
+  `sleep 30 &`,
+  `echo $! > grandchild.pid`,
+  `exec sleep 30`,
+].join("\n");
+
+/** El agente que ignora SIGTERM: obliga a escalar a SIGKILL para detenerlo. */
+const STUBBORN_OUTPUT = [
+  `trap '' TERM`,
+  `printf '%s\\n' '{"type":"agent_start"}'`,
+  `exec sleep 30`,
+].join("\n");
+
 const piSkill: SkillFileRef = { target: "pi", scope: "global", name: "create-specs" };
 
 function managerWith(overrides: Partial<RunManagerOptions> = {}): RunManager {
@@ -83,6 +118,59 @@ async function waitForIdle(manager: RunManager, id: string): Promise<StudioRunSt
     if (status.state !== "running") return status;
     if (Date.now() > deadline) throw new Error("la ejecución no terminó a tiempo");
     await Bun.sleep(20);
+  }
+}
+
+/**
+ * True mientras el pid exista y no esté sólo como zombi (S20).
+ *
+ * `kill(pid, 0)` responde también por un proceso ya muerto que nadie enterró;
+ * `/proc/<pid>/stat` distingue ese caso y, sin `/proc` (macOS), basta con que el
+ * pid siga respondiendo.
+ */
+async function processAlive(pid: number): Promise<boolean> {
+  try {
+    process.kill(pid, 0);
+  } catch {
+    return false;
+  }
+  try {
+    const stat = await readFile(`/proc/${pid}/stat`, "utf8");
+    const state = /\)\s+(\S)/.exec(stat)?.[1] ?? "";
+    return state !== "Z";
+  } catch {
+    return true;
+  }
+}
+
+/** Espera a que el pid desaparezca; false si sigue vivo al vencer el plazo. */
+async function waitForProcessGone(pid: number, timeoutMs = 5000): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    if (!(await processAlive(pid))) return true;
+    if (Date.now() > deadline) return false;
+    await Bun.sleep(20);
+  }
+}
+
+/** El pid que el fixture dejó escrito en el proyecto, esperando a que aparezca. */
+async function waitForPidFile(path: string): Promise<number> {
+  const deadline = Date.now() + 5000;
+  for (;;) {
+    const text = await readFile(path, "utf8").catch(() => "");
+    const pid = Number.parseInt(text.trim(), 10);
+    if (Number.isFinite(pid) && pid > 0) return pid;
+    if (Date.now() > deadline) throw new Error(`el fixture no escribió ${path}`);
+    await Bun.sleep(20);
+  }
+}
+
+/** Mata un pid que sobrevivió, para que un test en rojo no deje basura suelta. */
+function killQuietly(pid: number): void {
+  try {
+    process.kill(pid, "SIGKILL");
+  } catch {
+    // Ya no está: es justo lo que el test esperaba.
   }
 }
 
@@ -152,7 +240,8 @@ describe("agent invocation contracts", () => {
 
     expect(command).toEqual({
       binary: "opencode",
-      args: ["run", "--auto", "creá las specs de una app de turnos"],
+      // `--standalone`: servidor propio dentro de nuestro grupo, no el de fondo (S20).
+      args: ["run", "--auto", "--standalone", "creá las specs de una app de turnos"],
     });
     // Sin shell de por medio: cada argumento viaja entero, aunque tenga espacios.
     expect(command.args.some((arg) => arg.includes("--skill"))).toBe(false);
@@ -214,6 +303,7 @@ describe("model flag (spec S14)", () => {
     expect(buildAgentInvocation("opencode", { ...options, model }).args).toEqual([
       "run",
       "--auto",
+      "--standalone",
       "--model",
       "anthropic/claude-sonnet-5",
       "hacé las specs",
@@ -546,7 +636,8 @@ describe("run manager", () => {
     expect(restarted.list().find((run) => run.id === started.id)?.sessionId).toBe(SESSION_ID);
   });
 
-  test("dispose mata la ejecución en curso", async () => {    const manager = managerWith({
+  test("dispose mata la ejecución en curso", async () => {
+    const manager = managerWith({
       agentBinaries: { "gentle-shell": await script("gentle-slow.sh", SLOW_OUTPUT) },
       cancelGraceMs: 200,
     });
@@ -556,5 +647,127 @@ describe("run manager", () => {
 
     const after = await waitForIdle(manager, started.id);
     expect(after.state).toBe("cancelled");
+  });
+});
+
+/**
+ * Cancelar detiene de verdad al agente (S20).
+ *
+ * El caso que el usuario reportó: cancelaba y opencode seguía trabajando. La
+ * causa era matar sólo el PID directo mientras el nieto —el servidor de
+ * opencode, o un `bash` que abrió pi— seguía vivo.
+ */
+describe("cancelación real del agente (S20)", () => {
+  test("cancelar mata al agente y también al nieto que dejó trabajando", async () => {
+    const manager = managerWith({
+      agentBinaries: { "gentle-shell": await script("gentle-nieto.sh", GRANDCHILD_OUTPUT) },
+      cancelGraceMs: 300,
+    });
+    const started = await manager.start({
+      agent: "gentle-shell",
+      skill: piSkill,
+      prompt: "tarda",
+    });
+    const grandchild = await waitForPidFile(join(projectRoot, "grandchild.pid"));
+
+    try {
+      const cancelled = await manager.cancel(started.id);
+
+      expect(cancelled?.state).toBe("cancelled");
+      // La señal va al grupo: matar sólo el PID directo dejaba vivo al nieto.
+      expect(await waitForProcessGone(grandchild)).toBe(true);
+    } finally {
+      killQuietly(grandchild);
+    }
+  });
+
+  test("cerrar el studio tampoco deja al nieto trabajando", async () => {
+    const manager = managerWith({
+      agentBinaries: { pi: await script("pi-nieto.sh", GRANDCHILD_OUTPUT) },
+      cancelGraceMs: 300,
+    });
+    const started = await manager.start({ agent: "pi", skill: piSkill, prompt: "tarda" });
+    const grandchild = await waitForPidFile(join(projectRoot, "grandchild.pid"));
+
+    try {
+      manager.dispose();
+
+      expect((await waitForIdle(manager, started.id)).state).toBe("cancelled");
+      expect(await waitForProcessGone(grandchild)).toBe(true);
+    } finally {
+      killQuietly(grandchild);
+    }
+  });
+
+  test("un agente que ignora SIGTERM se escala a SIGKILL y se reporta cancelado", async () => {
+    const manager = managerWith({
+      agentBinaries: { pi: await script("pi-tozudo.sh", STUBBORN_OUTPUT) },
+      cancelGraceMs: 100,
+    });
+    const started = await manager.start({ agent: "pi", skill: piSkill, prompt: "tarda" });
+
+    const cancelled = await manager.cancel(started.id);
+
+    // El estado final es `cancelled` porque el proceso efectivamente salió.
+    expect(cancelled?.state).toBe("cancelled");
+    expect(cancelled?.cancelError).toBeNull();
+    expect(cancelled?.lines.at(-1)?.text).toBe("Ejecución cancelada.");
+  });
+
+  test("cancelar conserva la salida parcial y la sesión en disco", async () => {
+    const manager = managerWith({
+      agentBinaries: { pi: await script("pi-nieto-sesion.sh", GRANDCHILD_SESSION_OUTPUT) },
+      cancelGraceMs: 300,
+    });
+    const started = await manager.start({ agent: "pi", skill: piSkill, prompt: "tarda" });
+    const grandchild = await waitForPidFile(join(projectRoot, "grandchild.pid"));
+
+    try {
+      const cancelled = await manager.cancel(started.id);
+
+      expect(cancelled?.state).toBe("cancelled");
+      expect(cancelled?.sessionId).toBe(SESSION_ID);
+      expect(cancelled?.lines.map((line) => line.text)).toContain("voy escribiendo specs");
+
+      // Cancelar no borra nada: el run sigue en el disco, con su final.
+      const restarted = new RunManager({ projectRoot, home });
+      managers.push(restarted);
+      const fromDisk = restarted.poll(started.id, 0);
+      expect(fromDisk?.state).toBe("cancelled");
+      expect(fromDisk?.sessionId).toBe(SESSION_ID);
+      expect(fromDisk?.lines.map((line) => line.text)).toContain("voy escribiendo specs");
+    } finally {
+      killQuietly(grandchild);
+    }
+  });
+
+  test("si el proceso no sale dentro del plazo, no se reporta cancelado", async () => {
+    // Un SIGKILL no se puede sobrevivir, así que lo que se ejercita es el plazo
+    // agotado (0 = no esperar): el manager da la cancelación por fallida en vez
+    // de mentir un final feliz, y el run queda con su salida parcial.
+    const manager = managerWith({
+      agentBinaries: { "gentle-shell": await script("gentle-slow.sh", SLOW_OUTPUT) },
+      cancelGraceMs: 0,
+      cancelKillWaitMs: 0,
+    });
+    const started = await manager.start({
+      agent: "gentle-shell",
+      skill: piSkill,
+      prompt: "tarda",
+    });
+
+    const cancelled = await manager.cancel(started.id);
+
+    expect(cancelled?.state).toBe("failed");
+    expect(cancelled?.cancelError).toBe(CANCEL_FAILED_MESSAGE);
+    // El motivo queda también en la salida, que es lo que se ve al reabrir.
+    expect(cancelled?.lines.map((line) => line.text)).toContain(CANCEL_FAILED_MESSAGE);
+
+    // Nada se borra: el archivo conserva la salida parcial y el motivo.
+    const restarted = new RunManager({ projectRoot, home });
+    managers.push(restarted);
+    const fromDisk = restarted.poll(started.id, 0);
+    expect(fromDisk?.state).toBe("failed");
+    expect(fromDisk?.lines.map((line) => line.text)).toContain(CANCEL_FAILED_MESSAGE);
   });
 });

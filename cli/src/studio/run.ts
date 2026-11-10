@@ -8,8 +8,9 @@
  * - `buildAgentInvocation` fija el contrato de S10/S14 por agente.
  * - `normaliseOutputLine` traduce una línea cruda a `text` / `tool` / `status`
  *   y deja lo que no entiende como `raw`, nunca lo descarta.
- * - `RunManager` es el único dueño del proceso hijo: arranque, cursor `since`,
- *   cancelación con SIGTERM→SIGKILL, tope de salida y limpieza al cerrar.
+ * - `RunManager` es el único dueño del proceso hijo: arranque en su propio
+ *   grupo de procesos, cursor `since`, cancelación del grupo con SIGTERM→SIGKILL,
+ *   tope de salida y limpieza al cerrar.
  * - `RunStore` es la copia durable (S13): cada run queda en `.fwinit/studio/runs`
  *   y un manager nuevo lo puede leer después de un reinicio.
  *
@@ -58,6 +59,26 @@ export const MAX_RUN_OUTPUT_BYTES = 2 * 1024 * 1024;
 
 /** Espera entre SIGTERM y SIGKILL al cancelar (spec S12). */
 export const CANCEL_GRACE_MS = 5000;
+
+/**
+ * Espera después de SIGKILL antes de dar la cancelación por fallida (S20).
+ *
+ * SIGKILL no se puede ignorar: llegar acá significa que el sistema no dejó
+ * morir al proceso (por ejemplo, una espera ininterrumpible de I/O).
+ */
+export const CANCEL_KILL_WAIT_MS = 1000;
+
+/** Ventana para drenar la salida ya emitida cuando el proceso ya salió (S20). */
+const OUTPUT_DRAIN_MS = 250;
+
+/**
+ * Mensaje de una cancelación que no pudo detener al agente (S20).
+ *
+ * Se publica como línea de estado, así que también queda en el archivo del run:
+ * recargar la página o reiniciar el studio no borra la explicación.
+ */
+export const CANCEL_FAILED_MESSAGE =
+  "No se pudo detener el agente: sobrevivió a SIGTERM y a SIGKILL. La salida parcial queda guardada.";
 
 /** Agrupa los `text_delta` en una línea antes de publicarlos. */
 const DEFAULT_FLUSH_MS = 250;
@@ -111,6 +132,8 @@ export interface RunManagerOptions {
   agentBinaries?: Partial<Record<SkillTargetId, string>>;
   maxOutputBytes?: number;
   cancelGraceMs?: number;
+  /** Espera tras SIGKILL antes de reportar que no se pudo detener (S20). */
+  cancelKillWaitMs?: number;
   /** Ventana de agrupación de los `text_delta`; los tests la achican. */
   flushMs?: number;
 }
@@ -195,6 +218,11 @@ export function normaliseModel(value: unknown): string | null {
  *
  * La sesión ya no se descarta: `--name` la deja reconocible en el selector del
  * agente, así que una ejecución del studio se puede retomar después (S17).
+ *
+ * opencode corre con `--standalone` (S20): sin eso trabaja contra su servicio de
+ * fondo compartido, que sigue el turno aunque se mate el cliente `opencode run`.
+ * Con el servidor propio, el servidor vive en el grupo de procesos del run y
+ * muere con él.
  */
 export function buildAgentInvocation(
   agent: SkillTargetId,
@@ -208,7 +236,10 @@ export function buildAgentInvocation(
   const modelArgs = model === null ? [] : ["--model", model];
 
   if (agent === "opencode") {
-    return { binary, args: ["run", "--auto", ...modelArgs, options.prompt] };
+    return {
+      binary,
+      args: ["run", "--auto", "--standalone", ...modelArgs, options.prompt],
+    };
   }
 
   return {
@@ -372,11 +403,21 @@ interface ActiveRun {
   stderrBuffer: string;
   child: ChildProcess | null;
   cancelRequested: boolean;
+  /** Motivo cuando la cancelación no pudo detener al agente (S20). */
+  cancelError: string | null;
   disposed: boolean;
+  /** True cuando el proceso directo ya salió (`exit`), aunque queden nietos. */
+  exited: boolean;
+  /** Código observado en `exit`: es el que se reporta si `close` no llega. */
+  exitCodeObserved: number | null;
   flushTimer: NodeJS.Timeout | null;
   killTimer: NodeJS.Timeout | null;
-  resolveExit: (() => void) | null;
-  exitPromise: Promise<void>;
+  /** Se resuelve cuando el proceso directo sale (S20). */
+  resolveExited: (() => void) | null;
+  exitedPromise: Promise<void>;
+  /** Se resuelve cuando el run queda finalizado en memoria y en disco. */
+  resolveClosed: (() => void) | null;
+  closedPromise: Promise<void>;
 }
 
 export class RunManager {
@@ -385,6 +426,7 @@ export class RunManager {
   private readonly agentBinaries?: Partial<Record<SkillTargetId, string>>;
   private readonly maxOutputBytes: number;
   private readonly cancelGraceMs: number;
+  private readonly cancelKillWaitMs: number;
   private readonly flushMs: number;
   /** Copia durable de cada ejecución, dentro del proyecto (S13). */
   private readonly store: RunStore;
@@ -397,6 +439,7 @@ export class RunManager {
     this.agentBinaries = options.agentBinaries;
     this.maxOutputBytes = options.maxOutputBytes ?? MAX_RUN_OUTPUT_BYTES;
     this.cancelGraceMs = options.cancelGraceMs ?? CANCEL_GRACE_MS;
+    this.cancelKillWaitMs = options.cancelKillWaitMs ?? CANCEL_KILL_WAIT_MS;
     this.flushMs = options.flushMs ?? DEFAULT_FLUSH_MS;
     this.store = new RunStore({ projectRoot: this.projectRoot });
   }
@@ -502,8 +545,12 @@ export class RunManager {
   }
 
   /**
-   * Cancela la ejecución: SIGTERM y, si a los `cancelGraceMs` sigue viva,
-   * SIGKILL (S12). Espera la salida para devolver el estado final.
+   * Cancela la ejecución: SIGTERM al grupo y, si a los `cancelGraceMs` sigue
+   * viva, SIGKILL al grupo (S12/S20). Espera la salida para devolver el estado
+   * final: sólo se reporta `cancelled` cuando el proceso efectivamente salió.
+   *
+   * Si sobrevive a las dos señales no se miente un final feliz: el run queda
+   * `failed` con su `cancelError` y su salida parcial intacta en disco.
    */
   async cancel(id: string): Promise<StudioRunStatus | null> {
     const run = this.runs.get(id);
@@ -512,11 +559,24 @@ export class RunManager {
 
     run.cancelRequested = true;
     this.signal(run, "SIGTERM");
-    await this.waitForExit(run);
+    if (!(await this.waitForExit(run, this.cancelGraceMs))) {
+      this.signal(run, "SIGKILL");
+      if (!(await this.waitForExit(run, this.cancelKillWaitMs))) {
+        run.cancelError = CANCEL_FAILED_MESSAGE;
+        this.fail(run, CANCEL_FAILED_MESSAGE);
+        return this.status(run, 0);
+      }
+    }
+    await this.drainOutput(run);
     return this.status(run, 0);
   }
 
-  /** Mata todo lo que siga vivo (cierre del server) y limpia los timers. */
+  /**
+   * Mata todo lo que siga vivo (cierre del server) y limpia los timers.
+   *
+   * La señal va al grupo entero (S20): cerrar el studio no puede dejar el
+   * servidor de opencode ni un `bash` de pi trabajando por atrás.
+   */
   dispose(): void {
     for (const run of this.runs.values()) {
       run.disposed = true;
@@ -614,14 +674,22 @@ export class RunManager {
       stderrBuffer: "",
       child: null,
       cancelRequested: false,
+      cancelError: null,
       disposed: false,
+      exited: false,
+      exitCodeObserved: null,
       flushTimer: null,
       killTimer: null,
-      resolveExit: null,
-      exitPromise: Promise.resolve(),
+      resolveExited: null,
+      exitedPromise: Promise.resolve(),
+      resolveClosed: null,
+      closedPromise: Promise.resolve(),
     };
-    run.exitPromise = new Promise<void>((resolveExit) => {
-      run.resolveExit = resolveExit;
+    run.exitedPromise = new Promise<void>((resolveExited) => {
+      run.resolveExited = resolveExited;
+    });
+    run.closedPromise = new Promise<void>((resolveClosed) => {
+      run.resolveClosed = resolveClosed;
     });
     return run;
   }
@@ -635,6 +703,10 @@ export class RunManager {
         // Sin stdin heredado: un agente en modo print no espera entrada y no
         // puede quedar colgado leyendo la terminal del studio.
         stdio: ["ignore", "pipe", "pipe"],
+        // Grupo de procesos propio (S20): el hijo es líder de su grupo, así que
+        // `process.kill(-pid)` alcanza también a sus nietos —el servidor de
+        // opencode, un `bash` que abrió pi— y nunca a la terminal del studio.
+        detached: true,
       });
     } catch (error) {
       this.fail(run, `No se pudo ejecutar ${run.command.binary}: ${(error as Error).message}`);
@@ -660,18 +732,17 @@ export class RunManager {
       this.fail(run, `No se pudo ejecutar ${run.command.binary}: ${error.message}`);
     });
 
-    child.once("close", (code: number | null) => {
-      // Lo que quedó sin salto de línea igual es salida del agente.
-      if (run.stdoutBuffer !== "") {
-        this.consume(run, run.stdoutBuffer, run.format);
-        run.stdoutBuffer = "";
-      }
-      if (run.stderrBuffer !== "") {
-        this.pushLine(run, "raw", run.stderrBuffer);
-        run.stderrBuffer = "";
-      }
-      this.finish(run, code);
+    child.once("exit", (code: number | null) => {
+      // El proceso directo ya no existe: es el hecho que `cancel` espera (S20).
+      // Un nieto que se escapó del grupo puede seguir con el pipe abierto, así
+      // que el final del run no depende sólo de `close`.
+      run.exited = true;
+      run.exitCodeObserved = code;
+      run.resolveExited?.();
+      run.resolveExited = null;
     });
+
+    child.once("close", (code: number | null) => this.finish(run, code));
   }
 
   /** Traduce una línea y la agrega, agrupando la prosa en curso. */
@@ -755,7 +826,7 @@ export class RunManager {
     // Un `error` de spawn puede venir seguido de `close`: el final se escribe
     // una sola vez, si no el panel mostraría dos resúmenes contradictorios.
     if (run.endedAt !== null) return;
-    this.flushPending(run);
+    this.flushOutput(run);
     this.clearTimers(run);
     run.state = run.cancelRequested ? "cancelled" : code === 0 ? "done" : "failed";
     run.exitCode = code;
@@ -763,14 +834,13 @@ export class RunManager {
     this.pushLine(run, "status", describeEnd(run.state, code));
     this.persistEnd(run);
     run.child = null;
-    run.resolveExit?.();
-    run.resolveExit = null;
+    this.settle(run);
   }
 
   /** Un fallo que no llegó a producir un proceso (binario inexistente, etc.). */
   private fail(run: ActiveRun, message: string): void {
     if (run.endedAt !== null) return;
-    this.flushPending(run);
+    this.flushOutput(run);
     this.clearTimers(run);
     run.state = "failed";
     run.exitCode = null;
@@ -778,8 +848,31 @@ export class RunManager {
     this.pushLine(run, "status", message);
     this.persistEnd(run);
     run.child = null;
-    run.resolveExit?.();
-    run.resolveExit = null;
+    this.settle(run);
+  }
+
+  /** Suelta a quien esperaba el final del run: no hay más líneas nuevas. */
+  private settle(run: ActiveRun): void {
+    run.resolveClosed?.();
+    run.resolveClosed = null;
+  }
+
+  /**
+   * Publica lo que quedó en los buffers, incluida la línea sin salto final.
+   *
+   * Se llama al finalizar: cerrar el run no puede perder la última línea del
+   * agente, venga de `close` o de una cancelación que no pudo esperarlo (S20).
+   */
+  private flushOutput(run: ActiveRun): void {
+    if (run.stdoutBuffer !== "") {
+      this.consume(run, run.stdoutBuffer, run.format);
+      run.stdoutBuffer = "";
+    }
+    if (run.stderrBuffer !== "") {
+      this.pushLine(run, "raw", run.stderrBuffer);
+      run.stderrBuffer = "";
+    }
+    this.flushPending(run);
   }
 
   /** Cierre durable: sin este registro el archivo se leería `interrupted`. */
@@ -792,11 +885,33 @@ export class RunManager {
     });
   }
 
-  private signal(run: ActiveRun, signal: NodeJS.Signals): void {
+  /**
+   * Señala al grupo de procesos del hijo, con respaldo al PID directo (S20).
+   *
+   * El hijo se lanza con `detached`, así que encabeza su propio grupo: la señal
+   * negativa alcanza a los nietos. Si el grupo ya no existe (`ESRCH`) o no se
+   * puede señalar (`EPERM`), se cae al PID directo; ninguno de los dos es un
+   * error: el proceso puede haber muerto entre el chequeo y la señal.
+   *
+   * Devuelve true cuando la señal salió. Nunca señala a un run ya finalizado ni
+   * a un pid que no sea el de nuestro hijo: `-1` sería todo el sistema.
+   */
+  private signal(run: ActiveRun, signal: NodeJS.Signals): boolean {
+    const child = run.child;
+    const pid = child?.pid;
+    if (!child || typeof pid !== "number" || pid <= 1) return false;
+    if (run.exited || run.endedAt !== null) return false;
+
     try {
-      run.child?.kill(signal);
+      process.kill(-pid, signal);
+      return true;
     } catch {
-      // El proceso ya murió entre el chequeo y el kill: no es un error.
+      // El grupo ya no existe: queda el PID directo como último recurso.
+    }
+    try {
+      return child.kill(signal);
+    } catch {
+      return false;
     }
   }
 
@@ -810,10 +925,49 @@ export class RunManager {
     run.killTimer.unref?.();
   }
 
-  private async waitForExit(run: ActiveRun): Promise<void> {
-    if (run.state !== "running") return;
-    this.scheduleKill(run);
-    await run.exitPromise;
+  /**
+   * Espera a que el proceso directo salga, como mucho `ms`.
+   *
+   * Devuelve true cuando ya salió. Un proceso que ignora SIGTERM no sale acá:
+   * quien llama escala a SIGKILL, y después reporta la verdad (S20). Un plazo
+   * no positivo significa no esperar, y es lo que permite ejercitar el caso del
+   * agente que no se deja detener sin depender de los tiempos de la máquina.
+   */
+  private async waitForExit(run: ActiveRun, ms: number): Promise<boolean> {
+    if (run.exited || run.endedAt !== null) return true;
+    if (!(ms > 0)) return false;
+    let timer: NodeJS.Timeout | null = null;
+    const timeout = new Promise<boolean>((resolveTimeout) => {
+      timer = setTimeout(() => resolveTimeout(false), ms);
+      timer.unref?.();
+    });
+    try {
+      return await Promise.race([run.exitedPromise.then(() => true), timeout]);
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  }
+
+  /**
+   * Deja drenar la salida ya emitida y cierra el run aunque `close` no llegue.
+   *
+   * El proceso directo ya salió; si un nieto que se escapó del grupo mantiene
+   * el pipe abierto, el run no puede quedarse `running` para siempre.
+   */
+  private async drainOutput(run: ActiveRun): Promise<void> {
+    if (run.endedAt !== null) return;
+    let timer: NodeJS.Timeout | null = null;
+    const timeout = new Promise<void>((resolveTimeout) => {
+      timer = setTimeout(resolveTimeout, OUTPUT_DRAIN_MS);
+      timer.unref?.();
+    });
+    try {
+      await Promise.race([run.closedPromise, timeout]);
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+    // Sin `close` a la vista: el proceso salió, así que el run termina igual.
+    if (run.endedAt === null) this.finish(run, run.exitCodeObserved);
   }
 
   private clearTimers(run: ActiveRun): void {
@@ -839,6 +993,7 @@ export class RunManager {
       prompt: run.prompt,
       state: run.state,
       exitCode: run.exitCode,
+      cancelError: run.cancelError,
       startedAt: new Date(run.startedAt).toISOString(),
       endedAt: endedAt === null ? null : new Date(endedAt).toISOString(),
       durationMs: (endedAt ?? Date.now()) - run.startedAt,
@@ -889,6 +1044,9 @@ export class RunManager {
       prompt: stored.meta.prompt,
       state: stored.state,
       exitCode: stored.end ? stored.end.exitCode : null,
+      // El disco conserva la línea de estado con el motivo, no el campo: el
+      // estado y la salida parcial siguen contando lo que pasó.
+      cancelError: null,
       startedAt: stored.meta.startedAt,
       endedAt: stored.end ? stored.end.endedAt : null,
       durationMs: Math.max(0, (endedMs ?? Date.now()) - (Number.isFinite(startedMs) ? startedMs : 0)),

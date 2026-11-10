@@ -224,6 +224,10 @@ export interface InstallResult {
  * nuevas; los otros son finales y el panel deja de pedir. `interrupted` sólo
  * aparece al leer un archivo del historial sin registro de cierre: el proceso
  * murió con el server anterior, así que jamás se reporta como `running`.
+ *
+ * `cancelled` sólo se reporta cuando el proceso del agente efectivamente salió
+ * (S20). Si sobrevive a SIGTERM y a SIGKILL, el run queda `failed` con su
+ * `cancelError` y su salida parcial: un final feliz falso es peor que un error.
  */
 export type StudioRunState = "running" | "done" | "failed" | "cancelled" | "interrupted";
 
@@ -269,6 +273,13 @@ export interface StudioRunStatus {
   state: StudioRunState;
   /** Código de salida del proceso, o null mientras corre o si lo mató una señal. */
   exitCode: number | null;
+  /**
+   * Motivo cuando `Cancelar` no pudo detener al agente (S20), o null.
+   *
+   * Un run leído del disco lo trae en null: el motivo queda igual en la línea
+   * de estado del archivo, que es lo que se muestra al reabrirlo.
+   */
+  cancelError: string | null;
   startedAt: string;
   endedAt: string | null;
   durationMs: number;

@@ -53,6 +53,18 @@ const FAST_OUTPUT = [
 const SLOW_OUTPUT = [`printf '%s\\n' '{"type":"agent_start"}'`, `exec sleep 30`].join("\n");
 
 /**
+ * Un agente que deja un nieto trabajando, como opencode con su servidor propio
+ * (S20). Escribe el pid del nieto en el proyecto temporal y después duerme.
+ */
+const GRANDCHILD_OUTPUT = [
+  `printf '%s\\n' '{"type":"session","version":3,"id":"${SESSION_ID}"}'`,
+  `printf '%s\\n' '{"type":"message_update","assistantMessageEvent":{"type":"text_delta","delta":"escribiendo specs"}}'`,
+  `sleep 30 &`,
+  `echo $! > grandchild.pid`,
+  `exec sleep 30`,
+].join("\n");
+
+/**
  * Salida rápida pero con vida observable: duerme antes de imprimir, así un test
  * puede ver el run `running` sin depender de ganar una carrera contra el fixture.
  */
@@ -113,6 +125,59 @@ async function waitForRun(id: string): Promise<StudioRunStatus> {
   }
 }
 
+/**
+ * True mientras el pid exista y no esté sólo como zombi (S20).
+ *
+ * `kill(pid, 0)` responde también por un proceso ya muerto que nadie enterró;
+ * `/proc/<pid>/stat` distingue ese caso y, sin `/proc` (macOS), basta con que el
+ * pid siga respondiendo.
+ */
+async function processAlive(pid: number): Promise<boolean> {
+  try {
+    process.kill(pid, 0);
+  } catch {
+    return false;
+  }
+  try {
+    const stat = await readFile(`/proc/${pid}/stat`, "utf8");
+    const state = /\)\s+(\S)/.exec(stat)?.[1] ?? "";
+    return state !== "Z";
+  } catch {
+    return true;
+  }
+}
+
+/** Espera a que el pid desaparezca; false si sigue vivo al vencer el plazo. */
+async function waitForProcessGone(pid: number, timeoutMs = 5000): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    if (!(await processAlive(pid))) return true;
+    if (Date.now() > deadline) return false;
+    await Bun.sleep(20);
+  }
+}
+
+/** El pid que el fixture dejó escrito en el proyecto, esperando a que aparezca. */
+async function waitForPidFile(path: string): Promise<number> {
+  const deadline = Date.now() + 5000;
+  for (;;) {
+    const text = await readFile(path, "utf8").catch(() => "");
+    const pid = Number.parseInt(text.trim(), 10);
+    if (Number.isFinite(pid) && pid > 0) return pid;
+    if (Date.now() > deadline) throw new Error(`el fixture no escribió ${path}`);
+    await Bun.sleep(20);
+  }
+}
+
+/** Mata un pid que sobrevivió, para que un test en rojo no deje basura suelta. */
+function killQuietly(pid: number): void {
+  try {
+    process.kill(pid, "SIGKILL");
+  } catch {
+    // Ya no está: es justo lo que el test esperaba.
+  }
+}
+
 const piSkill = { target: "pi", scope: "global", name: "create-specs" };
 
 beforeEach(async () => {
@@ -167,7 +232,9 @@ beforeEach(async () => {
  * Se puede volver a llamar dentro de un test: es la forma de simular un
  * reinicio del server conservando el disco del proyecto.
  */
-async function openStudio(overrides: { piBinary?: string } = {}): Promise<StudioServer> {
+async function openStudio(
+  overrides: { piBinary?: string; gentleBinary?: string } = {}
+): Promise<StudioServer> {
   const server = await startStudio({
     projectRoot,
     home,
@@ -176,7 +243,7 @@ async function openStudio(overrides: { piBinary?: string } = {}): Promise<Studio
     agentBinaries: {
       pi: overrides.piBinary ?? piBinary,
       opencode: opencodeBinary,
-      "gentle-shell": gentleBinary,
+      "gentle-shell": overrides.gentleBinary ?? gentleBinary,
     },
     runCancelGraceMs: 500,
   });
@@ -296,6 +363,52 @@ describe("studio run route", () => {
     );
   });
 
+  test("cancelar detiene al agente y a su nieto, y el run queda en disco (S20)", async () => {
+    const withGrandchild = await script(
+      "gentle-nieto.sh",
+      [
+        `if [ "$1" = "--list-models" ]; then`,
+        `  cat "${piTable}"`,
+        `  exit 0`,
+        `fi`,
+        GRANDCHILD_OUTPUT,
+      ].join("\n")
+    );
+    await studio?.close();
+    await openStudio({ gentleBinary: withGrandchild });
+
+    const started = (await (
+      await startRun({ ...piSkill, agent: "gentle-shell", prompt: "tarda", token })
+    ).json()) as StudioRunStatus;
+    const grandchild = await waitForPidFile(join(projectRoot, "grandchild.pid"));
+
+    try {
+      const response = await cancelRun({ id: started.id, token });
+      const body = (await response.json()) as StudioRunStatus;
+
+      expect(response.status).toBe(200);
+      expect(body.state).toBe("cancelled");
+      // La sesión del agente no se pierde al cancelar (S17/S20).
+      expect(body.sessionId).toBe(SESSION_ID);
+      // El nieto es el que antes seguía trabajando después de cancelar.
+      expect(await waitForProcessGone(grandchild)).toBe(true);
+
+      // Nada se borra: el run sigue en el historial con su salida parcial.
+      const list = (await (await readRuns()).json()) as StudioRunsList;
+      expect(list.inFlight).toBeNull();
+      expect(list.runs[0]).toMatchObject({
+        id: started.id,
+        state: "cancelled",
+        sessionId: SESSION_ID,
+      });
+      const stored = (await (await readRun(started.id, 0)).json()) as StudioRunStatus;
+      expect(stored.state).toBe("cancelled");
+      expect(stored.lines.map((line) => line.text)).toContain("escribiendo specs");
+    } finally {
+      killQuietly(grandchild);
+    }
+  });
+
   test("cancelar exige el mismo token que el inicio", async () => {
     const started = (await (
       await startRun({ ...piSkill, agent: "gentle-shell", prompt: "tarda", token })
@@ -360,7 +473,8 @@ describe("studio run route", () => {
     const body = (await started.json()) as StudioRunStatus;
 
     expect(started.status).toBe(200);
-    expect(body.command.args).toEqual(["run", "--auto", "hacé la landing"]);
+    // `--standalone`: opencode con servidor propio, dentro del grupo del run (S20).
+    expect(body.command.args).toEqual(["run", "--auto", "--standalone", "hacé la landing"]);
 
     const finished = await waitForRun(body.id);
     expect(finished.state).toBe("done");

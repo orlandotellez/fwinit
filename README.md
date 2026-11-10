@@ -127,13 +127,22 @@ hay un botón **Cancelar** en el header del panel.
 - `opencode` no tiene flag de skill: sólo descubre las que están en
   `~/.config/opencode/skills` o `<proyecto>/.opencode/skills`. Si la skill
   abierta no está ahí, el studio rechaza la ejecución y dice el motivo, en vez
-  de fingir que la usó.
+  de fingir que la usó. Corre con `--standalone`, así su servidor es propio del
+  run en vez del servicio de fondo compartido: si el servidor fuera el de fondo,
+  el turno seguiría trabajando aunque se cierre el cliente.
 - El pedido viaja como argumento del proceso, nunca por un shell. La ruta de la
   skill la resuelve el servidor a partir de `{target, scope, name}`: el
   navegador no manda rutas.
-- Un solo run a la vez (un segundo pedido responde 409). `Cancelar` manda
-  SIGTERM y escala a SIGKILL a los 5 s; cerrar el studio mata el proceso en
-  curso. La salida acumulada se corta a 2 MB y el panel lo avisa.
+- Un solo run a la vez (un segundo pedido responde 409). La salida acumulada se
+  corta a 2 MB y el panel lo avisa.
+- `Cancelar` —y cerrar el studio— señala al **grupo de procesos** del run, no
+  sólo al proceso directo: cada agente arranca en su propio grupo, así que la
+  señal alcanza también a sus nietos (el servidor propio de opencode, un `bash`
+  que abrió pi) y nunca a la terminal del studio. Manda SIGTERM y escala a
+  SIGKILL a los 5 s. El run sólo se reporta `cancelada` cuando el proceso
+  efectivamente salió; si sobrevive a las dos señales, el estado lo dice
+  (`falló`, con el motivo) y la salida parcial queda guardada. Cancelar no
+  borra nada: el run sigue en el historial con su salida y su sesión.
 - Los eventos que el studio no entiende se muestran como línea cruda: nunca se
   descarta salida del agente.
 - Al terminar, el panel dice el estado y el código de salida, y el studio vuelve
