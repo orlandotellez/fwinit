@@ -91,11 +91,18 @@ fwinit --no-color    # menú sin color (también vale NO_COLOR=1)
 
 ### Studio local (`fwinit studio`)
 
-Abre una vista de sólo lectura en el navegador con dos cosas: las skills que ya
-tenés instaladas para **OpenCode, Pi y Gentle Shell** (globales y del proyecto)
-—con el contenido de cada `SKILL.md` y sus archivos de texto—, y el árbol de
-`specs/` del directorio donde corrés el comando, renderizado como documentación
-navegable.
+Abre una vista en el navegador con dos cosas: las skills que ya tenés
+instaladas para **OpenCode, Pi y Gentle Shell** (globales y del proyecto)
+—con el contenido de cada `SKILL.md` y sus archivos de texto, que se lee en su
+propia página con el botón **Leer skill**—, y el árbol de `specs/` del directorio
+donde corrés el comando, renderizado como documentación navegable. Desde el
+detalle de una skill también podés **ejecutarla** con el agente que elijas, sin
+salir del navegador.
+
+La vista de skills arranca en el **alcance del proyecto**, porque eso es lo que
+estás trabajando; el control `Globales` muestra todo lo instalado a nivel
+usuario, y si el proyecto todavía no tiene skills propias la lista te ofrece el
+salto a las globales en un click.
 
 ```bash
 fwinit studio                 # elige un puerto libre y abre el navegador
@@ -103,10 +110,224 @@ fwinit studio --port 4321     # puerto fijo
 fwinit studio --no-open       # sólo imprime la URL (útil por SSH)
 ```
 
-El servidor escucha **sólo en 127.0.0.1**, no escribe nada en disco y se cierra
-con `Ctrl+C`. Si el proyecto todavía no tiene `specs/`, la vista de specs lo dice
-y el resto del studio sigue funcionando; para crearlas, usá la skill
-`create-specs` (`/create-specs`).
+#### Ejecutar una skill desde el studio
+
+En el detalle de cualquier skill instalada hay un bloque **Ejecutar skill**:
+escribís en el input qué querés que haga (el pedido de la spec, el prompt del
+proyecto, lo que sea), elegís el agente —`opencode`, `Pi` o `Gentle Shell`— y el
+studio la ejecuta con esa entrada tal cual, en la raíz del proyecto y con
+autonomía para escribir archivos. La salida aparece en el panel a medida que
+llega, como pasos legibles y con las líneas numeradas a un click; mientras corre
+hay un botón **Cancelar** en el header del panel.
+
+- `pi` y `Gentle Shell` reciben la skill por ruta:
+  `--print --mode json --skill <directorio> -a --name "fwinit studio · <skill>" "<tu pedido>"`.
+  La sesión se guarda (ya no se pasa `--no-session`), así que la ejecución
+  también queda visible y retomable en el agente (ver **Sesiones**, más abajo).
+- `opencode` no tiene flag de skill: sólo descubre las que están en
+  `~/.config/opencode/skills` o `<proyecto>/.opencode/skills`. Si la skill
+  abierta no está ahí, el studio rechaza la ejecución y dice el motivo, en vez
+  de fingir que la usó. Corre con `--standalone`, así su servidor es propio del
+  run en vez del servicio de fondo compartido: si el servidor fuera el de fondo,
+  el turno seguiría trabajando aunque se cierre el cliente.
+- El pedido viaja como argumento del proceso, nunca por un shell. La ruta de la
+  skill la resuelve el servidor a partir de `{target, scope, name}`: el
+  navegador no manda rutas.
+- Un solo run a la vez (un segundo pedido responde 409). La salida acumulada se
+  corta a 2 MB y el panel lo avisa.
+- `Cancelar` —y cerrar el studio— señala al **grupo de procesos** del run, no
+  sólo al proceso directo: cada agente arranca en su propio grupo, así que la
+  señal alcanza también a sus nietos (el servidor propio de opencode, un `bash`
+  que abrió pi) y nunca a la terminal del studio. Manda SIGTERM y escala a
+  SIGKILL a los 5 s. El run sólo se reporta `cancelada` cuando el proceso
+  efectivamente salió; si sobrevive a las dos señales, el estado lo dice
+  (`falló`, con el motivo) y la salida parcial queda guardada. Cancelar no
+  borra nada: el run sigue en el historial con su salida y su sesión.
+- Los eventos que el studio no entiende se muestran como línea cruda: nunca se
+  descarta salida del agente.
+- Al terminar, el panel dice el estado y el código de salida, y el studio vuelve
+  a leer las skills y las specs, así que un `specs/` recién creado por la skill
+  aparece en la otra vista sin recargar la página.
+
+#### El panel de ejecución
+
+El detalle de una skill se lee en tres regiones, no en una columna de texto corrida:
+
+- **Header**: nombre de la skill, agente, estado, modelo, tiempo, pasos, líneas y las
+  dos acciones —**Historial** y **Cancelar**— en una sola fila. Si no hay ninguna
+  ejecución abierta el header lo dice (`sin ejecución`) y deja el tiempo, los pasos
+  y las líneas en `—`, en vez de mostrar ceros o datos del último run.
+- **Columna del agente**: arriba, lo que pediste; después la salida como filas
+  `verbo · destino · resultado · tiempo` (los pasos de herramienta y los eventos de
+  estado), con la prosa del agente como párrafo y el resto tal cual. El botón
+  **Líneas crudas**, en la barra de la columna, muestra las mismas líneas numeradas
+  y sin interpretar: nada de lo que dijo el agente se descarta. El composer —pedido,
+  agente, modelo y **Ejecutar skill**— vive al pie de esta columna.
+- **Raíl de estado (320px)**: estado completo del run —con el comando exacto
+  plegado—, progreso con los pasos de herramienta, qué está haciendo ahora, consumo,
+  el modelo y el estado de su catálogo, la sesión del agente con su comando para
+  retomarla, las acciones de la skill (instalar, copiar) y el historial de esa skill. Sale de lo que el run ya expone (`GET /api/skills/runs` y
+  `GET /api/skills/run`); el studio no inventa tokens, costo ni caché: si el agente
+  no los informa, el bloque de consumo lo dice y sólo muestra líneas, pasos,
+  caracteres de salida y el código de salida.
+
+Las tres columnas piden unos 1100px de ancho del panel. Por debajo, el raíl se pliega
+a una tira de estado arriba de la columna y el panel pasa a una sola columna: el
+estado y **Cancelar** siguen en el header, así que no se pierden al plegar. El orden
+del DOM es el orden de lectura (header, columna, raíl) y el estado se anuncia con
+`aria-live`.
+
+El panel de trabajo **ocupa el alto de la ventana y no scrollea como página**: los
+únicos contenedores con scroll propio son la salida del agente y el raíl de skills
+de la izquierda (con su historial). El contenido de la skill ya no se apila abajo
+del panel: se lee en su propia página.
+
+#### Leer la skill en su propia página
+
+El header del panel tiene un botón **Leer skill**. Abre una **página** —una ruta del
+mismo router por hash, no un modal— con el `SKILL.md` de la skill, sus archivos en
+pestañas y sus metadatos (directorio, archivo, destino, alcance, versión, licencia,
+autor, archivos, tamaño y fecha). La página ocupa todo el ancho y el alto y sólo su
+contenido interno scrollea; el texto mantiene medida de lectura aunque la página sea
+full width.
+
+- **← Regresar** —primera parada del teclado— vuelve exactamente al punto de trabajo
+  anterior: misma skill elegida, mismo panel de ejecución y la salida del agente
+  donde estaba (no salta al fondo). El foco entra al título al abrir la lectura y
+  vuelve al botón **Leer skill** al regresar.
+- `Escape` hace lo mismo que **← Regresar**, y **atrás/adelante** del navegador
+  funcionan porque la lectura es una ruta (`#/leer/<alcance>/<agente>/<skill>`).
+- Entrar directo a esa ruta, sin historial previo, cae en el panel de esa skill.
+- Si el agente está corriendo mientras leés, la ejecución **no se interrumpe**: el
+  streaming sigue y al volver está la salida acumulada.
+- Una skill que ya no está instalada no ofrece **Leer skill**: su salida guardada se
+  sigue leyendo en el panel, pero su contenido no existe en el disco.
+
+#### Sesiones: retomar la ejecución en el agente
+
+Cada ejecución deja una sesión real en el agente, con el nombre
+`fwinit studio · <skill>`, para que se distinga de las sesiones de trabajo
+manual en el selector.
+
+- `pi` y `Gentle Shell` reciben `--name "<ese nombre>"` y ya **no**
+  `--no-session`: la sesión queda guardada y aparece en `pi -r` y en
+  `gentle-shell -r`.
+- El id de la sesión de `pi` —y de Gentle Shell, que envuelve a `pi`— viaja en el
+  primer evento de su JSONL (`{"type":"session","id":...}`). El studio lo
+  captura, lo guarda en el archivo del run y lo muestra en el panel y en el
+  historial con el comando exacto para retomarla: `pi --session <id>` (o
+  `gentle-shell --session <id>`), más `pi -r` para elegirla a mano. El botón de
+  copiar deja el id en el portapapeles.
+- `opencode` maneja su propio formato de sesión: el studio no le fuerza ni le
+  inventa un id. Si su salida no lo expone, el panel lo dice y sugiere
+  `opencode session list`, en vez de fingir que la sesión es visible desde acá.
+- Un run guardado antes de que existiera la captura se abre igual: el panel
+  avisa que no tiene sesión guardada y el historial lo rotula `sin sesión`.
+
+#### Elegir el modelo
+
+Debajo del selector de agente hay un **select de Modelo**: muestra qué modelo
+está usando cada agente y deja elegir otro del catálogo real. El catálogo sale
+de los CLI, no de una lista escrita a mano: `pi --list-models` (tabla
+`provider model context max-out thinking images`) y `opencode models` (una
+`provider/model` por línea), y Gentle Shell reusa el catálogo de `pi` porque lo
+envuelve. Se lee una vez por arranque del studio y se sirve en
+`GET /api/skills/models?agent=pi|opencode|gentle-shell`, junto con el modelo
+activo del agente.
+
+- El **modelo activo** de cada agente se lee de su propio archivo de settings,
+  en cada consulta al catálogo, así un cambio hecho por fuera se ve sin
+  reiniciar el studio. `pi` lo guarda en `defaultModel` de
+  `~/.pi/agent/settings.json`; Gentle Shell en el suyo
+  (`$GENTLE_SHELL_HOME/settings.json` o
+  `~/.gentle-shell/agent/settings.json`), que puede ser distinto del de `pi` y
+  por eso se lee aparte. `opencode` no declara un modelo por defecto en su
+  configuración: ahí el panel dice que no lo conoce.
+- De esos archivos se lee **sólo la clave del modelo**: nunca credenciales ni el
+  resto del contenido. Un archivo ausente, sin la clave o con JSON roto es
+  "desconocido" y el panel lo dice; nunca es un error ni un modelo inventado.
+- La primera opción del select es el **default del agente** (valor vacío): con
+  esa opción no se pasa ningún flag. La opción del modelo activo se rotula
+  `(actual)` y viene seleccionada. Si el activo no está en el catálogo, se
+  agrega igual como opción, para no mentir sobre lo que el agente está usando.
+  Si el activo es desconocido, el select arranca en el default y el panel lo
+  avisa.
+- Elegir un modelo aplica **sólo a esa ejecución**, con `--model <modelo>` en
+  `pi`, Gentle Shell y `opencode run`. El studio **no escribe** en la
+  configuración de ningún agente: cambiar el default global es otra escritura,
+  fuera del proyecto, y no la hace el studio.
+- Si el comando del catálogo falla, el panel lo dice con el motivo y el select
+  sólo ofrece el default del agente y el modelo activo: nunca se inventan ids.
+- El modelo es entrada del usuario: se valida no vacío, hasta 128 caracteres y
+  sin caracteres de control, y viaja siempre como argumento del proceso.
+
+#### Historial de ejecuciones
+
+Cada ejecución se guarda en el proyecto, un archivo JSONL por run:
+
+```
+<proyecto>/.fwinit/studio/runs/<id>.jsonl
+```
+
+El formato es una línea `meta` (id, agente, skill, modelo, `sessionId`, pedido,
+comando, `startedAt`), una línea `line` por cada línea de salida (`n`, `kind`,
+`text`, `at`), una línea `session` con el id de sesión del agente si lo informó,
+y un cierre `end` (`state`, `exitCode`, `endedAt`, `truncated`). La carpeta se
+auto-ignora con un `.fwinit/.gitignore` que contiene `*`: tu `.gitignore` no se
+toca y el repo no se ensucia.
+
+- Al recargar la página, el raíl **Ejecuciones** se llena con el historial
+  (el más nuevo primero) y, si había un run corriendo, el studio se reengancha
+  solo: abre esa skill y sigue el streaming desde `since=0` sin duplicar líneas.
+- Recargar no pierde el resultado: el panel restaura el último run de la skill
+  que estás mirando **aunque ya haya terminado**, con su salida y su estado
+  final. También lo restaura cuando elegís esa skill más tarde en la sesión.
+  Restaurar es sólo lectura: no arranca el agente, no escribe en `.fwinit` y no
+  cambia la URL. Si ya cerraste ese historial a mano, no se vuelve a abrir solo.
+- El panel muestra las ejecuciones **de esa skill** ahí mismo, con estado, modelo
+  y fecha, y abre cualquiera al tocarla. El raíl sigue siendo el historial global.
+- Elegir un run del historial muestra su salida completa y su estado final,
+  aunque el studio se haya reiniciado. Leerlo no arranca nada.
+- Un run cuya skill ya no está instalada se abre igual, con el aviso de que la
+  skill no está: los archivos guardados no dependen del reporte de skills.
+- Un archivo con `meta` y sin `end` se reporta como **interrumpida**: el proceso
+  murió con el server anterior y no sigue corriendo.
+- Se conservan los últimos 50 runs y 20 MB en total; al pasarse, se borran los
+  más viejos. El historial no permite lanzar un segundo run.
+- `GET /api/skills/runs` devuelve la ejecución en curso y el resumen de cada run;
+  `GET /api/skills/run?id=&since=` sirve tanto el run vivo como el del disco.
+  Son rutas de lectura: no piden token y no tocan ningún proceso.
+
+#### Instalar una skill en los agentes (acción secundaria)
+
+En el mismo panel, **Instalar en los agentes** copia la skill del bundle
+(`create-specs`, `create-specs-from-code`, `create-prompt`, `design`) en los tres
+destinos. Pide confirmación mostrando las rutas exactas, avisa cuál se va a
+reemplazar y recién entonces copia en `~/.config/opencode/skills`,
+`~/.pi/agent/skills` y `~/.gentle-shell/agent/skills` (o
+`$GENTLE_SHELL_HOME/skills`). Es una copia determinista: no invoca ningún agente
+ni modelo.
+
+- Sólo copia lo que trae el bundle del repo, y sólo la carpeta de la skill.
+  Los comandos slash (`/create-specs`) siguen instalándose con
+  `fwinit skills --global opencode,pi,gentle-shell`.
+- El resultado se reporta por destino: si uno falla, el studio lo dice y no
+  presenta el resto como una instalación completa.
+- Ese `POST` de instalación es la única escritura que hace el studio por su
+  cuenta. Exige el token que viaja en el documento y un pedido del mismo origen,
+  así que una página de otro sitio no puede dispararlo contra tu `127.0.0.1`.
+  Ejecutar usa las mismas guardas: sin token y sin mismo origen, no arranca.
+- Si el bundle no está junto al CLI, el botón de instalar no aparece y el studio
+  te dice el comando que hace el trabajo.
+
+El servidor escucha **sólo en 127.0.0.1** y se cierra con `Ctrl+C`. El studio
+sólo escribe cuando se lo pedís: instalar copia archivos del bundle, ejecutar
+lanza el agente que elegiste —que hace lo que la skill diga— y deja una sesión
+retomable en ese agente, y cada ejecución deja su registro en
+`.fwinit/studio/runs/` para que el historial sobreviva a una recarga o a un
+reinicio. Si el proyecto todavía no tiene `specs/`, la vista de
+specs lo dice y el resto del studio sigue funcionando; para crearlas, ejecutá la
+skill `create-specs` desde el panel (o usá `/create-specs`).
 
 La interfaz usa los mismos tokens de diseño que la landing page (`--accent`
 #8aa2ff, esquinas rectas, separadores hairline) con tema claro y oscuro

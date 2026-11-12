@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>fwinit studio — sistema de diseño</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --base: #07090f; --surface: #0b0e16; --surface-elevated: #121623; --code-bg: #121623;
+    --text: #eef2f8; --text-secondary: #a8b2c4; --text-muted: #77839a;
+    --accent: #8aa2ff; --accent-hover: #a6b8ff; --accent-active: #6f8ae6;
+    --accent-soft: #16203a; --accent-border: #3d4a7a; --on-accent: #07090f;
+    --success: #4ade80; --warning: #fbbf24; --error: #f87171;
+    --border: #1e2433; --border-strong: #2c3446; --border-input: #5f6b8a;
+    --hairline: 1px dashed var(--border); --hairline-strong: 1px dashed var(--border-strong);
+    --focus-ring: var(--accent); --focus-ring-offset: var(--base);
+    --shadow-pop: 0 8px 24px rgb(0 0 0 / .28); --shadow-header: 0 1px 0 var(--border);
+    --text-display: 3.75rem; --text-h1: 2.75rem; --text-h2: 2.125rem; --text-h3: 1.5rem;
+    --text-h4: 1.1875rem; --text-body: 1.0625rem; --text-small: .9375rem;
+    --text-caption: .8125rem; --text-code: .875rem;
+    --leading-body: 1.6; --leading-h1: 1.15;
+    --space-3xs: .25rem; --space-2xs: .5rem; --space-xs: .75rem; --space-sm: 1rem;
+    --space-md: 1.5rem; --space-lg: 2rem; --space-xl: 3rem;
+    --radius-sm: 0px; --radius-md: 0px; --radius-pill: 0px;
+    --duration-fast: 150ms; --duration-base: 250ms;
+    --ease-out: cubic-bezier(.16, 1, .3, 1);
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: var(--space-lg) var(--space-xl) var(--space-xl);
+    background: var(--base); color: var(--text);
+    font-family: var(--sans); font-size: var(--text-body); line-height: var(--leading-body);
+  }
+  h1 { font-size: var(--text-h2); line-height: var(--leading-h1); margin: 0 0 var(--space-3xs); letter-spacing: -.01em; }
+  .lede { margin: 0 0 var(--space-lg); color: var(--text-secondary); font-size: var(--text-small); max-width: 78ch; }
+  section { border-top: var(--hairline-strong); padding: var(--space-md) 0 var(--space-lg); }
+  h2 {
+    font-size: var(--text-caption); letter-spacing: .12em; text-transform: uppercase;
+    color: var(--text-muted); margin: 0 0 var(--space-sm); font-weight: 600;
+  }
+  .grid { display: grid; gap: var(--space-2xs); grid-template-columns: repeat(auto-fill, minmax(232px, 1fr)); }
+  .swatch { display: flex; align-items: center; gap: var(--space-xs); border: 1px solid var(--border); padding: var(--space-2xs) var(--space-xs); }
+  .chip { width: 30px; height: 30px; flex: none; border: 1px solid var(--border-strong); }
+  .meta { font-family: var(--mono); font-size: var(--text-caption); color: var(--text-muted); }
+  .name { font-family: var(--mono); font-size: var(--text-caption); color: var(--text); }
+  .scale > div { display: flex; align-items: baseline; gap: var(--space-sm); border-bottom: var(--hairline); padding: var(--space-3xs) 0; }
+  .scale .tag { font-family: var(--mono); font-size: var(--text-caption); color: var(--text-muted); width: 132px; flex: none; }
+  .bars { display: flex; align-items: flex-end; gap: var(--space-2xs); }
+  .bar { background: var(--accent-soft); border: 1px solid var(--accent-border); width: 34px; }
+  .bar span { display: block; text-align: center; font-family: var(--mono); font-size: 10px; color: var(--text-muted); padding-top: 2px; }
+  .rowset { border: 1px solid var(--border); }
+  .row {
+    display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm);
+    padding: var(--space-2xs) var(--space-xs); border-bottom: var(--hairline);
+    font-size: var(--text-small); min-height: 32px;
+  }
+  .row:last-child { border-bottom: 0; }
+  .row[aria-current="true"] { box-shadow: inset 2px 0 0 var(--accent); background: var(--accent-soft); }
+  .row__meta { font-family: var(--mono); font-size: var(--text-caption); color: var(--text-muted); white-space: nowrap; }
+  .actions { display: flex; flex-wrap: wrap; gap: var(--space-2xs); align-items: center; }
+  button {
+    font: inherit; font-size: var(--text-small); cursor: pointer;
+    background: transparent; color: var(--text); border: 1px solid var(--border-input);
+    border-radius: var(--radius-md); padding: var(--space-3xs) var(--space-xs); min-height: 32px;
+    transition: background var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out);
+  }
+  button:hover { background: var(--surface-elevated); border-color: var(--accent-border); }
+  button:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+  button[data-variant="primary"] { background: var(--accent); color: var(--on-accent); border-color: var(--accent); font-weight: 600; }
+  button[data-variant="primary"]:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+  button[disabled] { color: var(--text-muted); border-color: var(--border); cursor: not-allowed; }
+  .badge {
+    font-family: var(--mono); font-size: var(--text-caption); padding: 1px var(--space-2xs);
+    border: 1px solid var(--border-strong); color: var(--text-secondary); white-space: nowrap;
+  }
+  .badge[data-tone="success"] { color: var(--success); border-color: color-mix(in srgb, var(--success) 40%, var(--border)); }
+  .badge[data-tone="warning"] { color: var(--warning); border-color: color-mix(in srgb, var(--warning) 40%, var(--border)); }
+  .badge[data-tone="error"] { color: var(--error); border-color: color-mix(in srgb, var(--error) 40%, var(--border)); }
+  .field {
+    display: flex; flex-direction: column; gap: 2px; font-size: var(--text-caption);
+    color: var(--text-muted); letter-spacing: .04em; text-transform: uppercase;
+  }
+  .field input {
+    font: inherit; text-transform: none; letter-spacing: 0;
+    background: var(--surface); color: var(--text); border: 1px solid var(--border-input);
+    border-radius: var(--radius-md); padding: var(--space-3xs) var(--space-2xs); min-height: 32px;
+  }
+  .code { background: var(--code-bg); border: 1px solid var(--border); padding: var(--space-xs); font-family: var(--mono); font-size: var(--text-code); color: var(--text-secondary); white-space: pre-wrap; }
+  .radii { display: flex; gap: var(--space-sm); }
+  .radii div { border: 1px solid var(--accent-border); background: var(--accent-soft); padding: var(--space-sm); font-family: var(--mono); font-size: var(--text-caption); }
+  @media (prefers-reduced-motion: reduce) { button { transition: none; } }
+</style>
+</head>
+<body>
+  <h1>Poste de trabajo fwinit</h1>
+  <p class="lede">Tokens del studio capturados de <code>cli/src/studio/ui/tokens.ts</code> y de la landing.
+  Esquinas rectas, separadores punteados, un solo acento fuerte. Este tablero es la referencia: cualquier
+  artboard que se desvíe de estos valores está fuera del sistema.</p>
+
+  <section>
+    <h2>Color</h2>
+    <div class="grid" id="swatches"></div>
+  </section>
+
+  <section>
+    <h2>Tipografía</h2>
+    <div class="scale">
+      <div><span class="tag">--text-h1 2.75rem</span><span style="font-size:2.75rem;line-height:1.15">Ejecutar skill</span></div>
+      <div><span class="tag">--text-h3 1.5rem</span><span style="font-size:1.5rem">create-specs · pi</span></div>
+      <div><span class="tag">--text-h4 1.1875rem</span><span style="font-size:1.1875rem">Actividad del agente</span></div>
+      <div><span class="tag">--text-body 1.0625rem</span><span style="font-size:1.0625rem">Leyó el contrato de specs y escribió el módulo.</span></div>
+      <div><span class="tag">--text-caption .8125rem</span><span style="font-size:.8125rem;color:var(--text-muted)">MÉTRICAS · 364 pruebas</span></div>
+      <div><span class="tag">--text-code .875rem</span><span style="font-family:var(--mono);font-size:.875rem">specs/modules/frontend/03.md</span></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Espaciado</h2>
+    <div class="bars">
+      <div class="bar" style="height:4px"><span>3xs</span></div>
+      <div class="bar" style="height:8px"><span>2xs</span></div>
+      <div class="bar" style="height:12px"><span>xs</span></div>
+      <div class="bar" style="height:16px"><span>sm</span></div>
+      <div class="bar" style="height:24px"><span>md</span></div>
+      <div class="bar" style="height:32px"><span>lg</span></div>
+      <div class="bar" style="height:48px"><span>xl</span></div>
+    </div>
+    <p class="meta" style="margin:var(--space-2xs) 0 0">4 · 8 · 12 · 16 · 24 · 32 · 48 px</p>
+  </section>
+
+  <section>
+    <h2>Radio</h2>
+    <div class="radii">
+      <div style="border-radius:var(--radius-sm)">--radius-sm 0px</div>
+      <div style="border-radius:var(--radius-md)">--radius-md 0px</div>
+      <div style="border-radius:var(--radius-pill)">--radius-pill 0px</div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Filas y selección</h2>
+    <div class="rowset">
+      <div class="row"><span>Leyó <span class="meta">specs/frontend/01-style.md</span></span><span class="row__meta">ok · 0.4s</span></div>
+      <div class="row" aria-current="true"><span>Escribió <span class="meta">specs/modules/frontend/03-panel.md</span></span><span class="row__meta">en curso</span></div>
+      <div class="row"><span>Ejecutó <span class="meta">bun test</span></span><span class="row__meta">364 pass</span></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Controles y estado</h2>
+    <div class="actions" style="margin-bottom:var(--space-sm)">
+      <button data-variant="primary">Ejecutar skill</button>
+      <button>Cancelar</button>
+      <button disabled>Cancelar</button>
+      <span class="badge" data-tone="success">✓ terminado</span>
+      <span class="badge" data-tone="warning">reemplaza</span>
+      <span class="badge" data-tone="error">✗ falló</span>
+      <span class="badge">pi</span>
+    </div>
+    <div class="actions">
+      <label class="field">Agente<input value="pi" readonly /></label>
+      <label class="field">Modelo<input value="deepseek-v4.1-flash" readonly /></label>
+    </div>
+  </section>
+
+  <section>
+    <h2>Salida</h2>
+    <div class="code">$ pi --print --mode json --skill .pi/skills/create-specs "specs del panel de ejecución"
+✓ leyó 3 archivos · escribió 1 · bun test 364 pass</div>
+  </section>
+
+<script>
+  const tokens = [
+    ['--base', '#07090f', 'fondo'], ['--surface', '#0b0e16', 'raíles'],
+    ['--surface-elevated', '#121623', 'bloques'], ['--code-bg', '#121623', 'salida'],
+    ['--text', '#eef2f8', 'texto'], ['--text-secondary', '#a8b2c4', 'prosa 2'],
+    ['--text-muted', '#77839a', 'metadatos'], ['--accent', '#8aa2ff', 'acento'],
+    ['--accent-hover', '#a6b8ff', 'acento hover'], ['--accent-active', '#6f8ae6', 'acento activo'],
+    ['--accent-soft', '#16203a', 'acento suave'], ['--accent-border', '#3d4a7a', 'borde acento'],
+    ['--success', '#4ade80', 'éxito'], ['--warning', '#fbbf24', 'aviso'],
+    ['--error', '#f87171', 'error'], ['--border', '#1e2433', 'separador'],
+    ['--border-strong', '#2c3446', 'separador grupo'], ['--border-input', '#5f6b8a', 'borde control']
+  ];
+  document.getElementById('swatches').innerHTML = tokens.map(([name, value, use]) => `
+    <div class="swatch">
+      <span class="chip" style="background:${value}"></span>
+      <span>
+        <span class="name">${name}</span><br />
+        <span class="meta">${value} · ${use}</span>
+      </span>
+    </div>`).join('');
+</script>
+</body>
+</html>

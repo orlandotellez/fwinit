@@ -1,0 +1,6 @@
+provider     model                       context  max-out  thinking  images
+opencode-go  beam-free                   1.0M     131.1K   yes       no    
+opencode-go  cat-jam-free                262.1K   131.1K   yes       no    
+opencode-go  claude-haiku-5-5            1M       128K     yes       yes   
+anthropic    claude-sonnet-5             1M       128K     yes       yes
+anthropic    claude-haiku-4-5            200K     64K      yes       yes

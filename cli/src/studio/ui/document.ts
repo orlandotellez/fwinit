@@ -1,12 +1,21 @@
 import { CLIENT_JS } from './client.js';
 import { STUDIO_CSS } from './styles.js';
 import { TOKENS_CSS } from './tokens.js';
+import type { StudioInstallInfo } from '../types.js';
 
 export interface StudioDocumentOptions {
   version: string;
   projectRoot: string;
   /** Home directory, so the client can shorten absolute paths to `~/…`. */
   home?: string;
+  /** What the install action can offer, resolved by the server at start. */
+  install?: StudioInstallInfo;
+  /**
+   * Token the client must echo on `POST /api/skills/install`. It travels in the
+   * document on purpose: a page from another origin can reach loopback, but it
+   * cannot read this HTML, so it cannot obtain the token.
+   */
+  installToken?: string;
 }
 
 /**
@@ -42,6 +51,8 @@ export function renderStudioHtml(options: StudioDocumentOptions): string {
     version: options.version,
     projectRoot: options.projectRoot,
     home: options.home ?? '',
+    install: options.install,
+    installToken: options.installToken
   }).replace(/</g, '\\u003c');
 
   return `<!doctype html>
@@ -125,17 +136,28 @@ export function renderStudioHtml(options: StudioDocumentOptions): string {
           <kbd>/</kbd>
         </div>
         <div class="segmented" role="group" aria-label="Alcance">
-          <button type="button" data-scope="global" aria-pressed="true">Globales</button>
-          <button type="button" data-scope="project" aria-pressed="false">Proyecto</button>
+          <button type="button" data-scope="project" aria-pressed="true">Proyecto</button>
+          <button type="button" data-scope="global" aria-pressed="false">Globales</button>
         </div>
       </div>
       <div class="rail__body" data-list="skills">
         <p class="loading">Leyendo las skills instaladas…</p>
       </div>
+      <div class="rail__runs" data-run-history aria-label="Ejecuciones">
+        <p class="loading">Leyendo el historial…</p>
+      </div>
     </aside>
     <section class="pane" data-detail="skills">
       <p class="loading">Leyendo las skills instaladas…</p>
     </section>
+  </section>
+
+  <!-- La lectura de la skill es una página del router por hash, no un modal:
+       ocupa todo el marco y sólo su contenido scrollea (S19). -->
+  <section class="view view--reader" data-view-panel="reader" data-active="false" aria-label="Lectura de la skill">
+    <div class="reader" data-reader>
+      <p class="loading">Leyendo la skill…</p>
+    </div>
   </section>
 </main>
 

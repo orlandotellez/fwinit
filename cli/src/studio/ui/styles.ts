@@ -270,6 +270,31 @@ button {
   background: var(--surface-elevated);
 }
 
+/* El atributo hidden no gana contra el display: inline-flex de .btn. */
+.btn[hidden] {
+  display: none;
+}
+
+/* Ejecutar es la acción principal del panel; instalar queda como secundaria. */
+.btn--primary {
+  color: var(--on-accent);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.btn--primary:hover {
+  color: var(--on-accent);
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+.btn--primary:disabled {
+  color: var(--text-muted);
+  background: var(--surface);
+  border-color: var(--border);
+  cursor: not-allowed;
+}
+
 .btn--icon {
   width: 34px;
   height: 34px;
@@ -391,6 +416,30 @@ button {
   border: 3px solid var(--surface);
 }
 
+/* Historial de ejecuciones: vive abajo del raíl y no le roba la lista. */
+.rail__runs {
+  max-height: 38%;
+  overflow-y: auto;
+  padding: var(--space-2xs) 0;
+  border-top: var(--hairline-strong);
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+.rail__title {
+  margin: 0;
+  padding: var(--space-3xs) var(--space-sm);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-caption);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.rail__runs .row--empty {
+  padding: var(--space-3xs) var(--space-sm);
+}
+
 .field {
   display: flex;
   align-items: center;
@@ -459,6 +508,11 @@ button {
 .segmented button[aria-pressed='true'] {
   color: var(--accent);
   background: var(--accent-soft);
+}
+
+/* El selector de agente tiene tres opciones, no dos. */
+.segmented--three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 /* ── Rail groups and rows ────────────────────────────────────────────────── */
@@ -604,37 +658,6 @@ button {
   border: 3px solid var(--base);
 }
 
-.eyebrow {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-3xs);
-  margin-bottom: var(--space-2xs);
-  padding: 0.125rem var(--space-2xs);
-  background: var(--accent-soft);
-  border: 1px solid var(--accent-border);
-  color: var(--accent);
-  font-family: var(--font-mono);
-  font-size: var(--text-caption);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.detail__title {
-  font-family: var(--font-mono);
-  font-size: clamp(1.5rem, 2.6vw, var(--text-h2));
-  font-weight: 600;
-  line-height: var(--leading-h2);
-  letter-spacing: -0.02em;
-  overflow-wrap: anywhere;
-}
-
-.detail__lede {
-  max-width: 68ch;
-  margin-top: var(--space-2xs);
-  color: var(--text-secondary);
-  font-size: var(--text-body);
-}
-
 .detail__actions {
   display: flex;
   flex-wrap: wrap;
@@ -677,13 +700,842 @@ button {
   color: var(--text);
 }
 
-/* ── Contenido de la skill ───────────────────────────────────────────────── */
-.skill-doc {
+/* ── Implementar skill ───────────────────────────────────────────────────── */
+.install {
   margin-top: var(--space-lg);
-  padding-top: var(--space-sm);
-  border-top: var(--hairline-strong);
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--accent-soft);
 }
 
+.install__title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.install__status {
+  margin: var(--space-2xs) 0 0;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+}
+
+.install__note {
+  margin: var(--space-3xs) 0 0;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.install__error {
+  margin: var(--space-2xs) 0 0;
+  color: var(--error);
+  font-size: 0.82rem;
+}
+
+/* ── Ejecutar skill ──────────────────────────────────────────────────────── */
+.run__input {
+  width: 100%;
+  min-height: 4.5rem;
+  padding: var(--space-2xs);
+  resize: vertical;
+  color: var(--text);
+  background: var(--base);
+  border: 1px solid var(--border-input);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-sans);
+  font-size: var(--text-small);
+  line-height: var(--leading-body);
+}
+
+.run__input:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+
+.run__input:disabled {
+  color: var(--text-muted);
+  background: var(--surface);
+}
+
+/* El modelo es una sola línea: el select del catálogo con el activo (S15). */
+.run__input--model {
+  min-height: 0;
+  padding: 0.35rem var(--space-2xs);
+  font-family: var(--font-mono);
+  resize: none;
+}
+
+/* Historial de la skill dentro del raíl (S16): misma fila que la navegación. */
+.run__history-list {
+  display: grid;
+  gap: var(--space-3xs);
+  margin-top: var(--space-2xs);
+}
+
+.run__history-list .row {
+  padding: var(--space-3xs);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.run__history-list .row[aria-current='true'] {
+  border-color: var(--accent);
+}
+
+.run-block__actions:empty {
+  display: none;
+}
+
+/* Fila del historial con su sesión: la fila abre, el botón copia el id (S17). */
+.row__run {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3xs);
+}
+
+.row__run .btn {
+  margin-right: var(--space-3xs);
+  font-family: var(--font-mono);
+  font-size: var(--text-caption);
+}
+
+/* La salida es un log con scroll propio: crece la ventana, nunca el panel. */
+.run__output {
+  max-height: 280px;
+  margin-top: var(--space-2xs);
+  padding: var(--space-2xs);
+  overflow-y: auto;
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--text-caption);
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+.run__placeholder {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.run__line {
+  display: grid;
+  grid-template-columns: 2.5rem minmax(0, 1fr);
+  gap: var(--space-2xs);
+  padding: 0.125rem 0;
+}
+
+.run__line + .run__line {
+  border-top: 1px dashed var(--border);
+}
+
+.run__n {
+  color: var(--text-muted);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+}
+
+.run__text {
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.run__line[data-kind='text'] .run__text {
+  color: var(--text);
+}
+
+.run__line[data-kind='tool'] .run__text {
+  color: var(--syn-function);
+}
+
+.run__line[data-kind='status'] .run__text {
+  color: var(--text-muted);
+}
+
+.run__line[data-kind='raw'] .run__text {
+  color: var(--syn-comment);
+}
+
+/* ── Panel de ejecución: tres regiones (S18) ─────────────────────────────── */
+/* El detalle de una skill es un puesto de trabajo: el panel ocupa el ancho
+   completo y el resto del contenido conserva su columna de lectura. Se mide el
+   panel, no la ventana: el raíl de 320px pide 1100px de ancho real, y el raíl de
+   navegación de la izquierda no cuenta para eso. */
+.pane[data-detail='skills'] {
+  container-type: inline-size;
+  container-name: studio-pane;
+  /* Puesto de trabajo, no página: el panel ocupa el alto del marco y no
+     scrollea. Los únicos scroll propios son la salida del agente y los raíles
+     (S19). Columna flexible: el panel se queda con el alto que sobra después
+     del aviso de skill ausente y del plan de instalación. */
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  padding: 0;
+}
+
+.pane[data-detail='skills'] > * {
+  flex: none;
+  max-width: 880px;
+  margin-inline: auto;
+  padding-inline: var(--space-lg);
+}
+
+.pane[data-detail='skills'] > .run-panel,
+.pane[data-detail='skills'] > .run-orphan {
+  max-width: none;
+  margin-inline: 0;
+  padding-inline: 0;
+}
+
+/* El panel se queda con el alto que sobra: es el puesto de trabajo (S19). */
+.pane[data-detail='skills'] > .run-panel {
+  flex: 1 1 auto;
+}
+
+/* La instalación es una acción secundaria y sólo aparece cuando su plan está
+   abierto: se acota para que no empuje el panel fuera del marco. */
+.pane[data-detail='skills'] > .install {
+  max-height: 45vh;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+.pane[data-detail='skills'] > .run-panel + * {
+  margin-top: var(--space-lg);
+}
+
+.run-panel {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  /* Ocupa el alto del marco que le da el pane: no hay alto fijo ni scroll de
+     página (S19). */
+  height: 100%;
+  min-height: 0;
+  border-bottom: var(--hairline-strong);
+  background: var(--base);
+}
+
+/* Región 1 — header: una sola fila, sin prosa. */
+.run-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2xs) var(--space-md);
+  padding: var(--space-2xs) var(--space-md);
+  background: var(--surface);
+  border-bottom: var(--hairline-strong);
+}
+
+.run-head__id {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2xs);
+  min-width: 0;
+}
+
+.run-head__skill {
+  margin: 0;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: var(--text-h4);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.run-head__sep {
+  color: var(--border-strong);
+}
+
+.run-head__agent {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-caption);
+}
+
+/* El estado se lee con texto además del color: nunca depende sólo del tono. */
+.run-badge {
+  padding: 0.125rem var(--space-2xs);
+  border: 1px solid var(--border-strong);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--text-caption);
+  white-space: nowrap;
+}
+
+.run-badge[data-tone='run'] {
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-color: var(--accent-border);
+}
+
+.run-badge[data-tone='ok'] {
+  color: var(--success);
+}
+
+.run-badge[data-tone='warn'] {
+  color: var(--warning);
+}
+
+.run-badge[data-tone='bad'] {
+  color: var(--error);
+}
+
+.run-head__facts {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  margin-left: auto;
+}
+
+.run-fact {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+.run-fact__k {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-caption);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.run-fact__v {
+  max-width: 20ch;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.run-head__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+}
+
+/* ── Regiones 2 y 3: columna del agente + raíl de estado ─────────────────── */
+.run-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  grid-template-areas: 'stream rail';
+  min-height: 0;
+}
+
+.run-stream {
+  grid-area: stream;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+.run-stream__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: var(--space-2xs) var(--space-md);
+  border-bottom: var(--hairline);
+}
+
+.run-stream__kicker {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-caption);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.run-stream__body {
+  display: grid;
+  align-content: start;
+  gap: var(--space-sm);
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-md);
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+.run-stream__body:focus-visible,
+.run-stream__raw:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+.run-prompt {
+  padding-left: var(--space-xs);
+  border-left: 2px solid var(--accent);
+}
+
+.run-prompt__k {
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: var(--text-caption);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.run-prompt__v {
+  color: var(--text);
+  font-size: var(--text-body);
+  line-height: var(--leading-body);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.run-flow {
+  display: grid;
+  align-content: start;
+  gap: var(--space-2xs);
+}
+
+.run-prose {
+  max-width: 74ch;
+  color: var(--text-secondary);
+  font-size: var(--text-small);
+  line-height: var(--leading-body);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Una fila por línea: verbo · destino · resultado · tiempo. */
+.run-step {
+  display: grid;
+  grid-template-columns: minmax(5rem, max-content) minmax(0, 1fr) auto;
+  gap: var(--space-2xs);
+  align-items: baseline;
+  padding-top: var(--space-3xs);
+  border-top: var(--hairline);
+  font-family: var(--font-mono);
+  font-size: var(--text-code);
+}
+
+.run-step__verb {
+  color: var(--accent);
+}
+
+.run-step[data-kind='status'] .run-step__verb,
+.run-step[data-kind='raw'] .run-step__verb {
+  color: var(--text-muted);
+}
+
+.run-step__text {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2xs);
+  min-width: 0;
+}
+
+.run-step__target {
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.run-step__result {
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.run-step[data-kind='raw'] .run-step__result {
+  color: var(--syn-comment);
+}
+
+.run-step__tail {
+  color: var(--text-muted);
+  font-size: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.run-placeholder {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-caption);
+}
+
+.run-stream__raw {
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--code-bg);
+  border-top: var(--hairline);
+  font-family: var(--font-mono);
+  font-size: var(--text-caption);
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+/* El composer vive al pie de la columna, donde se lee la salida. */
+.run-composer {
+  display: grid;
+  gap: var(--space-2xs);
+  padding: var(--space-xs) var(--space-md) var(--space-sm);
+  background: var(--surface);
+  border-top: 1px solid var(--border-strong);
+}
+
+.run-composer__row {
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-2xs);
+}
+
+.run-composer__label {
+  display: grid;
+  flex: 1;
+  gap: var(--space-3xs);
+  min-width: 0;
+}
+
+.run-composer__k {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-caption);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.run-composer__input {
+  min-height: 3.25rem;
+}
+
+.run-composer__go {
+  min-width: 9rem;
+}
+
+.run-composer__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-sm);
+}
+
+.run-composer__field {
+  display: grid;
+  gap: var(--space-3xs);
+}
+
+.run-composer__note {
+  max-width: 74ch;
+  color: var(--text-muted);
+  font-size: var(--text-caption);
+}
+
+.run-rail {
+  grid-area: rail;
+  min-height: 0;
+  overflow-y: auto;
+  background: var(--surface);
+  border-left: var(--hairline-strong);
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+.run-block {
+  padding: var(--space-xs) var(--space-sm) var(--space-sm);
+  border-bottom: var(--hairline-strong);
+}
+
+.run-block:last-child {
+  border-bottom: 0;
+}
+
+.run-block__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2xs);
+  margin-bottom: var(--space-2xs);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-caption);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.run-block__meta {
+  color: var(--text-secondary);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.run-block__text {
+  color: var(--text-secondary);
+  font-size: var(--text-caption);
+  line-height: var(--leading-body);
+}
+
+.run-block__note {
+  margin-top: var(--space-3xs);
+  color: var(--text-muted);
+  font-size: var(--text-caption);
+  line-height: 1.5;
+}
+
+.run-block__note--warn {
+  color: var(--warning);
+}
+
+.run-block__error {
+  margin-top: var(--space-3xs);
+  color: var(--error);
+  font-size: var(--text-caption);
+  overflow-wrap: anywhere;
+}
+
+.run-block__error:empty,
+.run-block__command:empty {
+  display: none;
+}
+
+.run-block__command {
+  margin-top: var(--space-3xs);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-caption);
+  overflow-wrap: anywhere;
+}
+
+.run-block__now {
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: var(--text-code);
+  overflow-wrap: anywhere;
+}
+
+/* El comando exacto queda plegado: diagnóstico, no lectura principal. */
+.run-block__details {
+  margin-top: var(--space-3xs);
+}
+
+.run-block__summary {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-caption);
+  cursor: pointer;
+}
+
+.run-block__summary:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.run-block__details:has(.run-block__command:empty) {
+  display: none;
+}
+
+.run-block__history {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-3xs);
+  margin-top: var(--space-2xs);
+}
+
+.run-block__list {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.run-block__item {
+  display: grid;
+  grid-template-columns: 1.25rem minmax(0, 1fr);
+  gap: var(--space-3xs);
+  align-items: baseline;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--text-caption);
+}
+
+.run-block__mark {
+  color: var(--text-muted);
+}
+
+.run-block__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.run-block__item[data-state='active'] {
+  color: var(--text);
+}
+
+.run-block__item[data-state='active'] .run-block__mark {
+  color: var(--accent);
+}
+
+.run-block__badges,
+.run-block__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3xs);
+  margin-top: var(--space-2xs);
+}
+
+.run-metrics {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2xs) var(--space-sm);
+}
+
+.run-metric {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+.run-metric__k {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-caption);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.run-metric__v {
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Aviso de una skill desinstalada: explica por qué Ejecutar está apagado. */
+.run-orphan {
+  padding: var(--space-2xs) var(--space-md);
+  border-left: 2px solid var(--warning);
+  background: var(--surface);
+  color: var(--text-secondary);
+  font-size: var(--text-small);
+}
+
+/* Por debajo de 1100px las tres columnas no entran: el raíl se pliega a una
+   tira de estado arriba de la columna. El estado y Cancelar viven en el header,
+   que es la primera fila del panel, así que no se pierden al plegar. */
+@container studio-pane (max-width: 1099px) {
+  .run-body {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: 'rail' 'stream';
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .run-rail {
+    max-height: 34vh;
+    border-bottom: 1px solid var(--border);
+    border-left: 0;
+  }
+
+  .run-head__facts {
+    gap: var(--space-sm);
+  }
+
+  .run-head__actions {
+    margin-left: auto;
+  }
+}
+
+/* ── Lectura de la skill: página propia (S19) ────────────────────────────── */
+.view--reader {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+}
+
+/* Ocupa todo el ancho y el alto del marco; sólo el cuerpo de la lectura
+   scrollea. */
+.reader {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--base);
+}
+
+.reader__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2xs) var(--space-md);
+  padding: var(--space-2xs) var(--space-md);
+  background: var(--surface);
+  border-bottom: var(--hairline-strong);
+}
+
+/* Regresar es la primera parada del teclado en esta página. */
+.reader__back {
+  flex: none;
+}
+
+.reader__id {
+  display: grid;
+  gap: var(--space-3xs);
+  min-width: 0;
+}
+
+.reader__title {
+  color: var(--text);
+  font-size: var(--text-h3);
+  font-weight: 600;
+  line-height: var(--leading-h3);
+  letter-spacing: -0.015em;
+  overflow-wrap: anywhere;
+}
+
+.reader__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2xs);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-caption);
+}
+
+.reader__body {
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-lg) var(--space-xl) var(--space-2xl);
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+/* La página es full width, el texto no: se lee a medida de lectura. */
+.reader__inner {
+  max-width: 76ch;
+  margin-inline: auto;
+}
+
+.reader__doc {
+  border-bottom: var(--hairline-strong);
+  padding-bottom: var(--space-lg);
+}
+
+@media (max-width: 820px) {
+  .reader__body {
+    padding: var(--space-md) var(--space-sm) var(--space-xl);
+  }
+}
+
+/* ── Contenido de la skill ───────────────────────────────────────────────── */
 .filelist {
   display: flex;
   flex-wrap: wrap;
@@ -733,12 +1585,6 @@ button {
 }
 
 /* ── Document ────────────────────────────────────────────────────────────── */
-/* El centrado va en la columna de lectura, no en el panel: con margin auto en
-   el panel, el panel se encoge a su contenido y deja de ocupar su columna. */
-.pane[data-detail='skills'] > * {
-  max-width: 880px;
-  margin-inline: auto;
-}
 
 .doc-head {
   max-width: 880px;

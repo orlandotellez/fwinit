@@ -1,0 +1,4 @@
+opencode/beam-free
+opencode/claude-sonnet-5
+opencode-go/deepseek-v4-pro
+anthropic/claude-haiku-4-5

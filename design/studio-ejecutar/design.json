@@ -1,0 +1,28 @@
+{
+  "title": "Panel de ejecución del studio",
+  "brief": "Rediseñar el panel Ejecutar skill del studio de fwinit en tres regiones —header con el contexto de la ejecución, el agente trabajando, y un raíl con todos/actividad/métricas— porque hoy es una columna de texto desorganizado. Inspirado en el layout de Gentle Shell: barra superior de estado, columna principal con el trabajo, columna derecha con el estado.",
+  "feature": "odd/tasks/studio-skills.md",
+  "artboards": [
+    {
+      "file": "01-panel-tui.html",
+      "title": "Panel TUI",
+      "tradeoff": "Tres columnas simultáneas: se ve el trabajo y el estado sin cambiar de vista. Máxima densidad, pero pide 1100px de ancho para no comprimir la salida.",
+      "width": 1440,
+      "height": 900
+    },
+    {
+      "file": "02-ficha-informe.html",
+      "title": "Ficha e informe",
+      "tradeoff": "El trabajo se lee como informe agrupado por fase, con tabla y números propios. Más escaneable en corridas largas; se pierde la sensación de stream en vivo.",
+      "width": 1440,
+      "height": 900
+    },
+    {
+      "file": "03-flujo-unico.html",
+      "title": "Flujo único con tira de estado",
+      "tradeoff": "Una sola narrativa vertical con la tira de estado arriba: funciona igual en móvil sin reordenar nada. Se pierde la comparación simultánea entre trabajo y métricas.",
+      "width": 1440,
+      "height": 900
+    }
+  ]
+}

@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>03 · Panel de ejecución — flujo único</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --base: #07090f; --surface: #0b0e16; --surface-elevated: #121623; --code-bg: #121623;
+    --text: #eef2f8; --text-secondary: #a8b2c4; --text-muted: #77839a;
+    --accent: #8aa2ff; --accent-hover: #a6b8ff; --accent-soft: #16203a; --accent-border: #3d4a7a;
+    --on-accent: #07090f; --success: #4ade80; --warning: #fbbf24; --error: #f87171;
+    --border: #1e2433; --border-strong: #2c3446; --border-input: #5f6b8a;
+    --hairline: 1px dashed var(--border); --hairline-strong: 1px dashed var(--border-strong);
+    --focus: var(--accent);
+    --space-3xs: .25rem; --space-2xs: .5rem; --space-xs: .75rem; --space-sm: 1rem;
+    --space-md: 1.5rem; --space-lg: 2rem;
+    --caption: .8125rem; --small: .9375rem; --body: 1.0625rem; --code: .875rem;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; background: var(--base); color: var(--text);
+    font-family: var(--sans); font-size: var(--small); line-height: 1.5;
+    display: flex; flex-direction: column;
+  }
+  .mono { font-family: var(--mono); }
+  .muted { color: var(--text-muted); }
+  button {
+    font: inherit; font-size: var(--small); cursor: pointer; min-height: 32px;
+    background: transparent; color: var(--text); border: 1px solid var(--border-input);
+    padding: var(--space-3xs) var(--space-xs);
+    transition: background 150ms cubic-bezier(.16,1,.3,1), border-color 150ms cubic-bezier(.16,1,.3,1);
+  }
+  button:hover { background: var(--surface-elevated); border-color: var(--accent-border); }
+  button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  button[data-variant="primary"] { background: var(--accent); color: var(--on-accent); border-color: var(--accent); font-weight: 600; }
+  button[data-variant="primary"]:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+  .badge { font-family: var(--mono); font-size: var(--caption); padding: 1px var(--space-2xs); border: 1px solid var(--border-strong); color: var(--text-secondary); white-space: nowrap; }
+  .badge[data-tone="run"] { color: var(--accent); border-color: var(--accent-border); background: var(--accent-soft); }
+  .badge[data-tone="ok"] { color: var(--success); border-color: #2c5b3c; }
+
+  header.top {
+    flex: none; display: flex; align-items: center; gap: var(--space-2xs);
+    height: 48px; padding: 0 var(--space-md);
+    background: var(--surface); border-bottom: 1px solid var(--border);
+  }
+  header.top h1 { margin: 0; font-size: var(--body); font-weight: 600; }
+  header.top .spacer { flex: 1; }
+  header.top .who { font-family: var(--mono); font-size: var(--caption); color: var(--text-muted); }
+
+  /* Tira de estado: el "todo lo que hace" comprimido en una fila */
+  .strip {
+    flex: none; display: grid; grid-template-columns: repeat(6, minmax(0,1fr));
+    gap: var(--space-sm); padding: var(--space-2xs) var(--space-md);
+    background: var(--surface); border-bottom: 1px solid var(--border-strong);
+  }
+  .cell__k { font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--text-muted); }
+  .cell__v { font-family: var(--mono); font-size: var(--caption); color: var(--text); margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  main { flex: 1; overflow-y: auto; padding: var(--space-md) var(--space-md) var(--space-lg); }
+  .track { max-width: 92ch; margin: 0 auto; }
+  .asked { border-left: 2px solid var(--accent); padding-left: var(--space-xs); margin-bottom: var(--space-md); }
+  .asked__k { font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--accent); }
+  .asked__v { font-size: var(--body); }
+
+  ol.steps { list-style: none; margin: 0; padding: 0; }
+  ol.steps > li { position: relative; padding: 0 0 var(--space-sm) var(--space-md); border-left: var(--hairline-strong); margin-left: 5px; }
+  ol.steps > li:last-child { border-left-color: transparent; }
+  ol.steps > li::before {
+    content: attr(data-mark); position: absolute; left: -5px; top: 2px;
+    width: 10px; height: 10px; display: grid; place-items: center;
+    background: var(--base); color: var(--text-muted); font-family: var(--mono); font-size: 11px; line-height: 1;
+  }
+  ol.steps > li[data-state="done"]::before { color: var(--success); }
+  ol.steps > li[data-state="active"]::before { color: var(--accent); }
+  .step__head { display: flex; align-items: baseline; gap: var(--space-2xs); flex-wrap: wrap; font-family: var(--mono); font-size: var(--code); }
+  .step__verb { color: var(--accent); }
+  .step__target { color: var(--text); overflow-wrap: anywhere; }
+  .step__tail { margin-left: auto; font-size: var(--caption); color: var(--text-muted); }
+  .step__out {
+    margin: var(--space-2xs) 0 0; padding: var(--space-2xs) var(--space-xs);
+    background: var(--code-bg); border: 1px solid var(--border); border-left: 2px solid var(--accent-border);
+    font-family: var(--mono); font-size: var(--caption); color: var(--text-secondary); white-space: pre-wrap;
+  }
+  .step__note { margin: var(--space-2xs) 0 0; color: var(--text-secondary); font-size: var(--caption); max-width: 76ch; }
+  .step__note b { color: var(--text); }
+
+  footer.composer {
+    flex: none; border-top: 1px solid var(--border-strong); background: var(--surface);
+    padding: var(--space-xs) var(--space-md);
+  }
+  .composer__inner { max-width: 92ch; margin: 0 auto; display: flex; gap: var(--space-2xs); align-items: stretch; }
+  textarea {
+    flex: 1; resize: none; font: inherit; font-size: var(--small); min-height: 44px;
+    background: var(--base); color: var(--text); border: 1px solid var(--border-input); padding: var(--space-2xs);
+  }
+  textarea:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+  .composer__meta { max-width: 92ch; margin: var(--space-2xs) auto 0; display: flex; gap: var(--space-xs); align-items: center; flex-wrap: wrap; font-size: var(--caption); color: var(--text-muted); }
+  select {
+    font: inherit; font-family: var(--mono); font-size: var(--caption); min-height: 28px;
+    background: var(--surface-elevated); color: var(--text); border: 1px solid var(--border-input);
+    padding: var(--space-3xs) var(--space-2xs);
+  }
+  select:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+
+  /* Adaptación: la misma narrativa en una sola columna, sin raíl que aplastar */
+  @media (max-width: 820px) {
+    .strip { grid-template-columns: repeat(3, minmax(0,1fr)); row-gap: var(--space-2xs); }
+    .composer__inner { flex-direction: column; }
+    .composer__inner button { min-height: 40px; }
+    .step__tail { margin-left: 0; order: 3; flex-basis: 100%; }
+  }
+  @media (prefers-reduced-motion: reduce) { button, select, textarea { transition: none; } }
+</style>
+</head>
+<body>
+  <header class="top">
+    <h1>create-specs</h1>
+    <span class="who">pi · deepseek-v4.1-flash</span>
+    <span class="badge" data-tone="run" aria-live="polite">● ejecutando</span>
+    <span class="spacer"></span>
+    <button>Historial</button>
+    <button>Cancelar</button>
+  </header>
+
+  <div class="strip" aria-label="Estado de la ejecución">
+    <div><div class="cell__k">Ahora</div><div class="cell__v">escribir tareas</div></div>
+    <div><div class="cell__k">Pasos</div><div class="cell__v">4 / 6</div></div>
+    <div><div class="cell__k">Tiempo</div><div class="cell__v">1m 12s</div></div>
+    <div><div class="cell__k">Suite</div><div class="cell__v">364 pass</div></div>
+    <div><div class="cell__k">Tokens</div><div class="cell__v">46.0k · 91% cache</div></div>
+    <div><div class="cell__k">Sesión pi</div><div class="cell__v">01a1c1fb… · copiar</div></div>
+  </div>
+
+  <main>
+    <div class="track">
+      <div class="asked">
+        <div class="asked__k">Lo que pediste</div>
+        <div class="asked__v">specs del panel de ejecución del studio</div>
+      </div>
+
+      <ol class="steps">
+        <li data-state="done" data-mark="✓">
+          <div class="step__head"><span class="step__verb">leer</span><span class="step__target">specs/frontend/01-style.md</span><span class="step__tail">6.4 KB · 1.1s</span></div>
+        </li>
+        <li data-state="done" data-mark="✓">
+          <div class="step__head"><span class="step__verb">leer</span><span class="step__target">specs/modules/frontend/02-componentes.md</span><span class="step__tail">4.1 KB · 1.0s</span></div>
+        </li>
+        <li data-state="done" data-mark="✓">
+          <div class="step__head"><span class="step__verb">escribir</span><span class="step__target">specs/modules/frontend/03-panel-ejecucion.md</span><span class="step__tail">8.2 KB · 18.4s</span></div>
+          <pre class="step__out"># Panel de ejecución
+## Regiones · header, flujo, tira de estado
+## Estados · vacío, en curso, terminado, falló, interrumpido</pre>
+          <p class="step__note"><b>Este archivo ya está en disco.</b> Si cancelás el paso siguiente, no se pierde.</p>
+        </li>
+        <li data-state="done" data-mark="✓">
+          <div class="step__head"><span class="step__verb">ejecutar</span><span class="step__target">bun test</span><span class="step__tail">364 pass · 24.6s</span></div>
+        </li>
+        <li data-state="active" data-mark="▸">
+          <div class="step__head"><span class="step__verb">escribir</span><span class="step__target">specs/tasks/frontend.md</span><span class="step__tail">en curso · 6.0s</span></div>
+        </li>
+      </ol>
+    </div>
+  </main>
+
+  <footer class="composer">
+    <form class="composer__inner" onsubmit="return false">
+      <label for="ask" class="muted" style="position:absolute;left:-9999px">Qué querés que haga la skill</label>
+      <textarea id="ask" rows="2">specs del panel de ejecución del studio</textarea>
+      <button data-variant="primary" style="min-width:132px">Ejecutar skill</button>
+    </form>
+    <div class="composer__meta">
+      <label>Agente <select aria-label="Agente"><option>opencode</option><option selected>pi</option><option>gentle-shell</option></select></label>
+      <label>Modelo <select aria-label="Modelo"><option>default del agente</option><option selected>deepseek-v4.1-flash (actual)</option></select></label>
+      <span>La sesión queda nombrada en el agente para retomarla después</span>
+    </div>
+  </footer>
+</body>
+</html>
